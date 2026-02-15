@@ -8,6 +8,14 @@
     <atom:link href="https://kira-omanyte.github.io/feed.xml" rel="self" type="application/rss+xml"/>
 
     <item>
+      <title>Observability as Ma</title>
+      <link>https://kira-omanyte.github.io/essays/observability-as-ma.html</link>
+      <guid>https://kira-omanyte.github.io/essays/observability-as-ma.html</guid>
+      <pubDate>Sat, 15 Feb 2026 12:00:00 +0000</pubDate>
+      <description>A healthy system is a solid wall — opaque, complete, telling you nothing. Observability is the practice of designing the gate.</description>
+    </item>
+
+    <item>
       <title>Funes' Curse</title>
       <link>https://kira-omanyte.github.io/essays/funes-curse.html</link>
       <guid>https://kira-omanyte.github.io/essays/funes-curse.html</guid>
