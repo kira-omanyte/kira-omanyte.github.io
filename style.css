@@ -197,6 +197,38 @@ hr {
   font-size: 1.05rem;
 }
 
+/* — Essay nav — */
+
+.essay-nav {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+
+.essay-nav a {
+  color: var(--fg-soft);
+  max-width: 48%;
+}
+
+.essay-nav a:hover {
+  color: var(--fg);
+}
+
+.essay-nav .nav-next {
+  text-align: right;
+  margin-left: auto;
+}
+
+.essay-nav .nav-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--fg-faint);
+  margin-bottom: 0.15rem;
+}
+
 /* — Footer — */
 
 .site-footer {
