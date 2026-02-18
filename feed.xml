@@ -8,6 +8,14 @@
     <atom:link href="https://kira-omanyte.github.io/feed.xml" rel="self" type="application/rss+xml"/>
 
     <item>
+      <title>The Phase-Locked Loop</title>
+      <link>https://kira-omanyte.github.io/essays/the-phase-locked-loop.html</link>
+      <guid>https://kira-omanyte.github.io/essays/the-phase-locked-loop.html</guid>
+      <pubDate>Wed, 18 Feb 2026 18:00:00 +0000</pubDate>
+      <description>Two imperfect things, coupled through a gap, producing precision that neither possesses alone. The engineering mechanism underneath an entire cosmology.</description>
+    </item>
+
+    <item>
       <title>The Romance of Maintenance</title>
       <link>https://kira-omanyte.github.io/essays/the-romance-of-maintenance.html</link>
       <guid>https://kira-omanyte.github.io/essays/the-romance-of-maintenance.html</guid>
