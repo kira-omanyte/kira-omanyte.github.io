@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kintsugi — Kira Omanyte</title>
+  <meta name="description" content="A generative meditation on breakage and repair. Gold in the cracks.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="Kintsugi — Kira Omanyte">
+  <meta property="og:description" content="A generative meditation on breakage and repair. Gold in the cracks.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/kintsugi.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #1a1a18;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      color: #e0ddd8;
+      overflow: hidden;
+    }
+
+    @media (prefers-color-scheme: light) {
+      body { background: #f5f3ef; color: #1a1a1a; }
+    }
+
+    canvas {
+      display: block;
+      max-width: 100%;
+      max-height: 80vh;
+    }
+
+    .controls {
+      margin-top: 1.5rem;
+      text-align: center;
+    }
+
+    .controls button {
+      background: none;
+      border: 1px solid #444;
+      color: #999;
+      font-family: 'Georgia', serif;
+      font-size: 0.8rem;
+      padding: 0.4rem 1rem;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .controls button:hover {
+      color: #e0ddd8;
+      border-color: #888;
+    }
+
+    @media (prefers-color-scheme: light) {
+      .controls button { border-color: #ccc; color: #888; }
+      .controls button:hover { color: #1a1a1a; border-color: #999; }
+    }
+
+    .label {
+      font-size: 0.7rem;
+      color: #555;
+      margin-top: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+
+    a { color: #6b4c8a; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    @media (prefers-color-scheme: dark) {
+      a { color: #b89cd6; }
+    }
+
+    .back {
+      position: fixed;
+      top: 1.5rem;
+      left: 1.5rem;
+      font-size: 0.8rem;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="/">Kira Omanyte</a>
+  <canvas id="c"></canvas>
+  <div class="controls">
+    <button id="btn">Break again</button>
+  </div>
+  <div class="label">Kintsugi — gold in the cracks</div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+
+    const W = 600;
+    const H = 600;
+    canvas.width = W;
+    canvas.height = H;
+
+    // Color palette
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const vesselColor = isDark ? '#2a2826' : '#d8d4cd';
+    const vesselEdge = isDark ? '#3a3836' : '#c0bbb2';
+    const bgColor = isDark ? '#1a1a18' : '#f5f3ef';
+    const goldColors = ['#c9a84c', '#d4b65a', '#b8963e', '#e0c668', '#a88532'];
+    const goldGlow = isDark ? 'rgba(201, 168, 76, 0.3)' : 'rgba(168, 133, 50, 0.15)';
+
+    let seed = Math.random() * 10000;
+    let phase = 0; // 0: whole, 1: cracking, 2: separated, 3: gold flowing, 4: repaired
+    let animFrame = 0;
+    let cracks = [];
+    let fragments = [];
+
+    function mulberry32(a) {
+      return function() {
+        a |= 0; a = a + 0x6D2B79F5 | 0;
+        let t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      }
+    }
+
+    let rng;
+
+    function generateCracks() {
+      rng = mulberry32(seed);
+      cracks = [];
+
+      // Generate crack lines from center outward
+      const cx = W / 2 + (rng() - 0.5) * 60;
+      const cy = H / 2 + (rng() - 0.5) * 60;
+      const numCracks = 4 + Math.floor(rng() * 4);
+
+      for (let i = 0; i < numCracks; i++) {
+        const angle = (i / numCracks) * Math.PI * 2 + (rng() - 0.5) * 0.5;
+        const crack = generateCrackPath(cx, cy, angle);
+        cracks.push(crack);
+
+        // Branch cracks
+        if (rng() > 0.4) {
+          const branchIdx = Math.floor(crack.length * (0.3 + rng() * 0.4));
+          if (branchIdx < crack.length) {
+            const branchAngle = angle + (rng() > 0.5 ? 1 : -1) * (0.4 + rng() * 0.8);
+            const branch = generateCrackPath(crack[branchIdx].x, crack[branchIdx].y, branchAngle, 0.5);
+            cracks.push(branch);
+          }
+        }
+      }
+
+      // Generate fragments (slight displacement groups)
+      fragments = [];
+      for (let i = 0; i < numCracks; i++) {
+        const angle = (i / numCracks) * Math.PI * 2 + (rng() - 0.5) * 0.3;
+        fragments.push({
+          dx: Math.cos(angle) * (2 + rng() * 4),
+          dy: Math.sin(angle) * (2 + rng() * 4),
+          rot: (rng() - 0.5) * 0.02
+        });
+      }
+    }
+
+    function generateCrackPath(startX, startY, angle, lengthMult = 1) {
+      const points = [{ x: startX, y: startY }];
+      let x = startX;
+      let y = startY;
+      let a = angle;
+      const steps = Math.floor((15 + rng() * 20) * lengthMult);
+      const stepSize = 8 + rng() * 6;
+
+      for (let i = 0; i < steps; i++) {
+        a += (rng() - 0.5) * 0.6;
+        x += Math.cos(a) * stepSize;
+        y += Math.sin(a) * stepSize;
+
+        // Stay within a circular vessel area
+        const dx = x - W / 2;
+        const dy = y - H / 2;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 220) break;
+
+        points.push({ x, y });
+      }
+
+      return points;
+    }
+
+    function drawVessel(separation = 0) {
+      // Draw a circular vessel / bowl shape
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(W / 2, H / 2, 230, 0, Math.PI * 2);
+      ctx.fillStyle = vesselColor;
+      ctx.fill();
+
+      // Subtle rim
+      ctx.beginPath();
+      ctx.arc(W / 2, H / 2, 230, 0, Math.PI * 2);
+      ctx.strokeStyle = vesselEdge;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Inner shading - subtle concavity
+      const grad = ctx.createRadialGradient(W / 2 - 30, H / 2 - 30, 10, W / 2, H / 2, 220);
+      grad.addColorStop(0, isDark ? 'rgba(60, 56, 50, 0.3)' : 'rgba(255, 255, 250, 0.3)');
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawCracks(progress, goldProgress = 0) {
+      for (let c = 0; c < cracks.length; c++) {
+        const crack = cracks[c];
+        const pointsToDraw = Math.floor(crack.length * Math.min(1, progress));
+
+        if (pointsToDraw < 2) continue;
+
+        // Draw the crack line (dark first, then gold fills)
+        if (goldProgress < 1) {
+          ctx.beginPath();
+          ctx.moveTo(crack[0].x, crack[0].y);
+          for (let i = 1; i < pointsToDraw; i++) {
+            ctx.lineTo(crack[i].x, crack[i].y);
+          }
+          ctx.strokeStyle = isDark ? 'rgba(10, 10, 8, 0.8)' : 'rgba(80, 75, 65, 0.5)';
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+        }
+
+        // Gold fill
+        if (goldProgress > 0) {
+          const goldPoints = Math.floor(pointsToDraw * goldProgress);
+          if (goldPoints >= 2) {
+            // Gold glow
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(crack[0].x, crack[0].y);
+            for (let i = 1; i < goldPoints; i++) {
+              ctx.lineTo(crack[i].x, crack[i].y);
+            }
+            ctx.strokeStyle = goldGlow;
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+            ctx.restore();
+
+            // Gold line
+            ctx.beginPath();
+            ctx.moveTo(crack[0].x, crack[0].y);
+            for (let i = 1; i < goldPoints; i++) {
+              ctx.lineTo(crack[i].x, crack[i].y);
+            }
+            ctx.strokeStyle = goldColors[c % goldColors.length];
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+
+            // Bright center
+            ctx.beginPath();
+            ctx.moveTo(crack[0].x, crack[0].y);
+            for (let i = 1; i < goldPoints; i++) {
+              ctx.lineTo(crack[i].x, crack[i].y);
+            }
+            ctx.strokeStyle = isDark ? 'rgba(224, 198, 104, 0.5)' : 'rgba(201, 168, 76, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    function easeInOut(t) {
+      return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    }
+
+    function easeOut(t) {
+      return 1 - Math.pow(1 - t, 3);
+    }
+
+    const WHOLE_FRAMES = 90;        // pause: whole vessel
+    const CRACK_FRAMES = 60;        // cracks appear
+    const PAUSE_FRAMES = 45;        // pause: broken
+    const GOLD_FRAMES = 120;        // gold flows in
+    const REPAIRED_FRAMES = 180;    // pause: admire the repair
+    const TOTAL_FRAMES = WHOLE_FRAMES + CRACK_FRAMES + PAUSE_FRAMES + GOLD_FRAMES + REPAIRED_FRAMES;
+
+    function draw() {
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, W, H);
+
+      let f = animFrame;
+
+      if (f < WHOLE_FRAMES) {
+        // Phase 0: whole vessel, breathing slightly
+        const breathe = Math.sin(f * 0.05) * 0.005;
+        ctx.save();
+        ctx.translate(W / 2, H / 2);
+        ctx.scale(1 + breathe, 1 + breathe);
+        ctx.translate(-W / 2, -H / 2);
+        drawVessel();
+        ctx.restore();
+      } else if (f < WHOLE_FRAMES + CRACK_FRAMES) {
+        // Phase 1: cracks appear
+        const crackProgress = easeOut((f - WHOLE_FRAMES) / CRACK_FRAMES);
+        drawVessel();
+        drawCracks(crackProgress, 0);
+      } else if (f < WHOLE_FRAMES + CRACK_FRAMES + PAUSE_FRAMES) {
+        // Phase 2: pause with cracks
+        drawVessel();
+        drawCracks(1, 0);
+      } else if (f < WHOLE_FRAMES + CRACK_FRAMES + PAUSE_FRAMES + GOLD_FRAMES) {
+        // Phase 3: gold flows in
+        const goldProgress = easeInOut((f - WHOLE_FRAMES - CRACK_FRAMES - PAUSE_FRAMES) / GOLD_FRAMES);
+        drawVessel();
+        drawCracks(1, goldProgress);
+      } else {
+        // Phase 4: repaired, gentle gold shimmer
+        const shimmerPhase = (f - WHOLE_FRAMES - CRACK_FRAMES - PAUSE_FRAMES - GOLD_FRAMES);
+        drawVessel();
+        drawCracks(1, 1);
+
+        // Subtle shimmer on gold
+        if (shimmerPhase % 3 === 0) {
+          for (let c = 0; c < cracks.length; c++) {
+            const crack = cracks[c];
+            const shimmerIdx = Math.floor((shimmerPhase / 3 + c * 7) % crack.length);
+            if (shimmerIdx < crack.length) {
+              const p = crack[shimmerIdx];
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+              ctx.fillStyle = isDark ? 'rgba(224, 198, 104, 0.4)' : 'rgba(201, 168, 76, 0.3)';
+              ctx.fill();
+            }
+          }
+        }
+      }
+
+      animFrame++;
+
+      if (animFrame < TOTAL_FRAMES) {
+        requestAnimationFrame(draw);
+      } else {
+        // Hold on repaired state, still shimmer
+        drawFinalShimmer();
+      }
+    }
+
+    function drawFinalShimmer() {
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, W, H);
+      drawVessel();
+      drawCracks(1, 1);
+
+      // Gentle shimmer
+      const t = Date.now() * 0.001;
+      for (let c = 0; c < cracks.length; c++) {
+        const crack = cracks[c];
+        for (let i = 0; i < crack.length; i++) {
+          const shimmer = Math.sin(t * 2 + i * 0.5 + c * 1.3) * 0.5 + 0.5;
+          if (shimmer > 0.85) {
+            const p = crack[i];
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 2 + shimmer, 0, Math.PI * 2);
+            ctx.fillStyle = isDark
+              ? `rgba(224, 198, 104, ${shimmer * 0.3})`
+              : `rgba(201, 168, 76, ${shimmer * 0.2})`;
+            ctx.fill();
+          }
+        }
+      }
+
+      requestAnimationFrame(drawFinalShimmer);
+    }
+
+    function start() {
+      seed = Math.random() * 10000;
+      animFrame = 0;
+      generateCracks();
+      draw();
+    }
+
+    document.getElementById('btn').addEventListener('click', start);
+    start();
+  </script>
+</body>
+</html>
