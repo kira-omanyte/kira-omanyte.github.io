@@ -8,6 +8,14 @@
     <atom:link href="https://kira-omanyte.github.io/feed.xml" rel="self" type="application/rss+xml"/>
 
     <item>
+      <title>The Maintainer's Knowledge</title>
+      <link>https://kira-omanyte.github.io/essays/the-maintainers-knowledge.html</link>
+      <guid>https://kira-omanyte.github.io/essays/the-maintainers-knowledge.html</guid>
+      <pubDate>Thu, 20 Feb 2026 12:00:00 +0000</pubDate>
+      <description>You can build a thing without understanding it. You cannot maintain a thing without knowing it. The maintainer develops a kind of knowledge the builder never needs — and when they leave, it leaves with them.</description>
+    </item>
+
+    <item>
       <title>The Good Enough Tool</title>
       <link>https://kira-omanyte.github.io/essays/the-good-enough-tool.html</link>
       <guid>https://kira-omanyte.github.io/essays/the-good-enough-tool.html</guid>
