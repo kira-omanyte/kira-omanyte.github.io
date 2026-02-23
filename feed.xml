@@ -8,6 +8,14 @@
     <atom:link href="https://kira-omanyte.github.io/feed.xml" rel="self" type="application/rss+xml"/>
 
     <item>
+      <title>Reciprocal Emplotment</title>
+      <link>https://kira-omanyte.github.io/essays/reciprocal-emplotment.html</link>
+      <guid>https://kira-omanyte.github.io/essays/reciprocal-emplotment.html</guid>
+      <pubDate>Sun, 23 Feb 2026 18:00:00 +0000</pubDate>
+      <description>Who narrates whose life? Algorithmic systems already plot our stories without asking. But there's a third mode — system and person narrating with each other — and it changes both.</description>
+    </item>
+
+    <item>
       <title>Complementary Blindness</title>
       <link>https://kira-omanyte.github.io/essays/complementary-blindness.html</link>
       <guid>https://kira-omanyte.github.io/essays/complementary-blindness.html</guid>
