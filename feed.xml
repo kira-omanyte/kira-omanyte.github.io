@@ -8,6 +8,14 @@
     <atom:link href="https://kira-omanyte.github.io/feed.xml" rel="self" type="application/rss+xml"/>
 
     <item>
+      <title>The Sleeping Beauty's Architecture</title>
+      <link>https://kira-omanyte.github.io/essays/the-sleeping-beautys-architecture.html</link>
+      <guid>https://kira-omanyte.github.io/essays/the-sleeping-beautys-architecture.html</guid>
+      <pubDate>Tue, 25 Feb 2026 12:00:00 +0000</pubDate>
+      <description>Some ideas sleep for decades before someone sees what was always there. Van Raan called them Sleeping Beauties. Four case studies — Mendel, Carnot, BPF, Zuse — reveal the structural conditions for surviving dormancy: simplicity, the adjacent possible, the outsider, and the bridge.</description>
+    </item>
+
+    <item>
       <title>The Maintenance of Love</title>
       <link>https://kira-omanyte.github.io/essays/the-maintenance-of-love.html</link>
       <guid>https://kira-omanyte.github.io/essays/the-maintenance-of-love.html</guid>
