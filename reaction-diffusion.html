@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reaction-Diffusion — Kira Omanyte</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="Reaction-Diffusion — Kira Omanyte">
+  <meta property="og:description" content="Interactive Gray-Scott reaction-diffusion. Two chemicals, two parameters, infinite patterns.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --text: #c8c8d0;
+      --dim: #6a6a7a;
+      --accent: #9a8aff;
+      --border: #2a2a35;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'IBM Plex Mono', 'Fira Code', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    nav {
+      width: 100%;
+      padding: 1rem 2rem;
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+    nav a {
+      color: var(--dim);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    nav a:hover { color: var(--text); }
+
+    .container {
+      max-width: 900px;
+      width: 100%;
+      padding: 2rem;
+      flex: 1;
+    }
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 400;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+    .subtitle {
+      color: var(--dim);
+      font-size: 0.85rem;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      margin-bottom: 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      cursor: crosshair;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      image-rendering: pixelated;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .control-group label {
+      font-size: 0.75rem;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .control-group .value {
+      font-size: 0.8rem;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: none;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 0.8rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+    button {
+      background: transparent;
+      color: var(--dim);
+      border: 1px solid var(--border);
+      padding: 0.4rem 1rem;
+      font-family: inherit;
+      font-size: 0.8rem;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    button:hover {
+      color: var(--text);
+      border-color: var(--dim);
+    }
+    button.active {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .presets {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+    .preset {
+      background: transparent;
+      color: var(--dim);
+      border: 1px solid var(--border);
+      padding: 0.3rem 0.8rem;
+      font-family: inherit;
+      font-size: 0.75rem;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .preset:hover {
+      color: var(--text);
+      border-color: var(--dim);
+    }
+
+    .description {
+      color: var(--dim);
+      font-size: 0.8rem;
+      line-height: 1.8;
+      max-width: 600px;
+      margin-bottom: 2rem;
+    }
+    .description p { margin-bottom: 0.8rem; }
+
+    .footer-nav {
+      color: var(--dim);
+      font-size: 0.8rem;
+      padding: 2rem 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      width: 100%;
+      max-width: 900px;
+    }
+    .footer-nav a {
+      color: var(--dim);
+      text-decoration: none;
+    }
+    .footer-nav a:hover { color: var(--text); }
+
+    @media (max-width: 600px) {
+      .controls { grid-template-columns: 1fr; }
+      .container { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="index.html">essays</a>
+    <a href="art.html">art</a>
+    <a href="reading.html">reading</a>
+    <a href="about.html">about</a>
+  </nav>
+
+  <div class="container">
+    <h1>Reaction-Diffusion</h1>
+    <p class="subtitle">Gray-Scott model. Two chemicals, two parameters, infinite patterns.<br>Click to seed. Drag to paint. Watch what emerges.</p>
+
+    <div class="canvas-wrap">
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <label>Feed rate (F) <span class="value" id="f-val">0.0370</span></label>
+        <input type="range" id="f-slider" min="0.01" max="0.08" step="0.0001" value="0.037">
+      </div>
+      <div class="control-group">
+        <label>Kill rate (k) <span class="value" id="k-val">0.0630</span></label>
+        <input type="range" id="k-slider" min="0.04" max="0.075" step="0.0001" value="0.063">
+      </div>
+    </div>
+
+    <div class="presets">
+      <button class="preset" data-f="0.037" data-k="0.063">mitosis</button>
+      <button class="preset" data-f="0.0545" data-k="0.062">fingerprints</button>
+      <button class="preset" data-f="0.0367" data-k="0.0649">coral</button>
+      <button class="preset" data-f="0.025" data-k="0.06">worms</button>
+      <button class="preset" data-f="0.034" data-k="0.0618">maze</button>
+      <button class="preset" data-f="0.014" data-k="0.054">spots</button>
+      <button class="preset" data-f="0.018" data-k="0.051">waves</button>
+      <button class="preset" data-f="0.062" data-k="0.0609">spirals</button>
+    </div>
+
+    <div class="buttons">
+      <button id="btn-pause">pause</button>
+      <button id="btn-reset">reset</button>
+      <button id="btn-clear">clear</button>
+    </div>
+
+    <div class="description">
+      <p>The Gray-Scott model simulates two chemicals diffusing through a medium and reacting with each other. Chemical U is continuously fed in. Chemical V is continuously removed. Where they meet, V consumes U and replicates. The feed rate (F) and kill rate (k) determine what patterns emerge.</p>
+      <p>Very small changes in the parameters produce radically different behaviors — spots, stripes, waves, spirals, mitosis, coral. The patterns aren't designed. They emerge from the interaction of simple rules. All the complexity lives in the gap between two numbers.</p>
+    </div>
+
+    <div class="footer-nav">
+      <a href="art.html">← back to art</a>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Simulation grid size
+    const W = 256;
+    const H = 256;
+    canvas.width = W;
+    canvas.height = H;
+
+    // Parameters
+    let F = 0.037;
+    let k = 0.063;
+    const Du = 0.2097;
+    const Dv = 0.105;
+    const dt = 1.0;
+
+    // Double-buffered grids
+    let u = new Float32Array(W * H);
+    let v = new Float32Array(W * H);
+    let u2 = new Float32Array(W * H);
+    let v2 = new Float32Array(W * H);
+
+    let paused = false;
+    let imageData = ctx.createImageData(W, H);
+
+    // Color palette — deep blues to bright whites with accent
+    function colorMap(val) {
+      // val is v concentration, 0 to ~0.5
+      const t = Math.min(1, val * 3);
+      if (t < 0.25) {
+        // dark bg to deep blue
+        const s = t / 0.25;
+        return [
+          Math.floor(10 + 10 * s),
+          Math.floor(10 + 15 * s),
+          Math.floor(15 + 50 * s)
+        ];
+      } else if (t < 0.5) {
+        // deep blue to purple
+        const s = (t - 0.25) / 0.25;
+        return [
+          Math.floor(20 + 100 * s),
+          Math.floor(25 + 20 * s),
+          Math.floor(65 + 90 * s)
+        ];
+      } else if (t < 0.75) {
+        // purple to accent
+        const s = (t - 0.5) / 0.25;
+        return [
+          Math.floor(120 + 34 * s),
+          Math.floor(45 + 93 * s),
+          Math.floor(155 + 100 * s)
+        ];
+      } else {
+        // accent to white-ish
+        const s = (t - 0.75) / 0.25;
+        return [
+          Math.floor(154 + 80 * s),
+          Math.floor(138 + 100 * s),
+          Math.floor(255)
+        ];
+      }
+    }
+
+    function init() {
+      // Fill with U=1, V=0
+      u.fill(1);
+      v.fill(0);
+      // Seed center with some V
+      seedArea(W / 2, H / 2, 10);
+    }
+
+    function seedArea(cx, cy, r) {
+      for (let y = cy - r; y <= cy + r; y++) {
+        for (let x = cx - r; x <= cx + r; x++) {
+          const dx = x - cx;
+          const dy = y - cy;
+          if (dx * dx + dy * dy <= r * r) {
+            const px = ((x % W) + W) % W;
+            const py = ((y % H) + H) % H;
+            const idx = py * W + px;
+            u[idx] = 0.5 + Math.random() * 0.1;
+            v[idx] = 0.25 + Math.random() * 0.1;
+          }
+        }
+      }
+    }
+
+    function laplacian(arr, x, y) {
+      const idx = y * W + x;
+      const left = y * W + ((x - 1 + W) % W);
+      const right = y * W + ((x + 1) % W);
+      const up = ((y - 1 + H) % H) * W + x;
+      const down = ((y + 1) % H) * W + x;
+      return arr[left] + arr[right] + arr[up] + arr[down] - 4 * arr[idx];
+    }
+
+    function step() {
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const idx = y * W + x;
+          const uVal = u[idx];
+          const vVal = v[idx];
+          const uvv = uVal * vVal * vVal;
+          const lu = laplacian(u, x, y);
+          const lv = laplacian(v, x, y);
+
+          u2[idx] = uVal + (Du * lu - uvv + F * (1 - uVal)) * dt;
+          v2[idx] = vVal + (Dv * lv + uvv - (F + k) * vVal) * dt;
+
+          // Clamp
+          u2[idx] = Math.max(0, Math.min(1, u2[idx]));
+          v2[idx] = Math.max(0, Math.min(1, v2[idx]));
+        }
+      }
+
+      // Swap buffers
+      [u, u2] = [u2, u];
+      [v, v2] = [v2, v];
+    }
+
+    function render() {
+      const data = imageData.data;
+      for (let i = 0; i < W * H; i++) {
+        const [r, g, b] = colorMap(v[i]);
+        const p = i * 4;
+        data[p] = r;
+        data[p + 1] = g;
+        data[p + 2] = b;
+        data[p + 3] = 255;
+      }
+      ctx.putImageData(imageData, 0, 0);
+    }
+
+    function animate() {
+      if (!paused) {
+        // Multiple steps per frame for faster evolution
+        for (let i = 0; i < 8; i++) step();
+        render();
+      }
+      requestAnimationFrame(animate);
+    }
+
+    // Controls
+    const fSlider = document.getElementById('f-slider');
+    const kSlider = document.getElementById('k-slider');
+    const fVal = document.getElementById('f-val');
+    const kVal = document.getElementById('k-val');
+
+    fSlider.addEventListener('input', () => {
+      F = parseFloat(fSlider.value);
+      fVal.textContent = F.toFixed(4);
+    });
+
+    kSlider.addEventListener('input', () => {
+      k = parseFloat(kSlider.value);
+      kVal.textContent = k.toFixed(4);
+    });
+
+    // Presets
+    document.querySelectorAll('.preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        F = parseFloat(btn.dataset.f);
+        k = parseFloat(btn.dataset.k);
+        fSlider.value = F;
+        kSlider.value = k;
+        fVal.textContent = F.toFixed(4);
+        kVal.textContent = k.toFixed(4);
+        init();
+      });
+    });
+
+    // Buttons
+    document.getElementById('btn-pause').addEventListener('click', function() {
+      paused = !paused;
+      this.textContent = paused ? 'resume' : 'pause';
+      this.classList.toggle('active', paused);
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      init();
+    });
+
+    document.getElementById('btn-clear').addEventListener('click', () => {
+      u.fill(1);
+      v.fill(0);
+      render();
+    });
+
+    // Mouse interaction
+    let mouseDown = false;
+
+    function getCanvasCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = W / rect.width;
+      const scaleY = H / rect.height;
+      return {
+        x: Math.floor((e.clientX - rect.left) * scaleX),
+        y: Math.floor((e.clientY - rect.top) * scaleY)
+      };
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      mouseDown = true;
+      const { x, y } = getCanvasCoords(e);
+      seedArea(x, y, 5);
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!mouseDown) return;
+      const { x, y } = getCanvasCoords(e);
+      seedArea(x, y, 3);
+    });
+
+    canvas.addEventListener('mouseup', () => { mouseDown = false; });
+    canvas.addEventListener('mouseleave', () => { mouseDown = false; });
+
+    // Touch support
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const { x, y } = getCanvasCoords(touch);
+      seedArea(x, y, 5);
+      mouseDown = true;
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (!mouseDown) return;
+      const touch = e.touches[0];
+      const { x, y } = getCanvasCoords(touch);
+      seedArea(x, y, 3);
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', () => { mouseDown = false; });
+
+    // Init and run
+    init();
+    animate();
+  </script>
+</body>
+</html>
