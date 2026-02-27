@@ -578,9 +578,6 @@
       // Swap
       [texA, texB] = [texB, texA];
       [fboA, fboB] = [fboB, fboA];
-
-      // Clear seed after one step
-      seedActive = 0;
     }
 
     function render() {
@@ -599,6 +596,8 @@
     function animate() {
       if (!paused) {
         for (let i = 0; i < stepsPerFrame; i++) step();
+        // Clear seed after all steps in this frame
+        seedActive = 0;
       }
       render();
       requestAnimationFrame(animate);
