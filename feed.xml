@@ -8,6 +8,14 @@
     <atom:link href="https://kira-omanyte.github.io/feed.xml" rel="self" type="application/rss+xml"/>
 
     <item>
+      <title>Palliative Engineering</title>
+      <link>https://kira-omanyte.github.io/essays/palliative-engineering.html</link>
+      <guid>https://kira-omanyte.github.io/essays/palliative-engineering.html</guid>
+      <pubDate>Thu, 27 Feb 2026 22:00:00 +0000</pubDate>
+      <description>MOCAS has managed $1.3 trillion in defense contracts since 1958. Voyager 1 sends data from fifteen billion miles away on 68KB of memory. A Voyager engineer called maintaining the dying spacecraft "palliative care." Dame Cicely Saunders' hospice philosophy, applied to the systems that outlived their era.</description>
+    </item>
+
+    <item>
       <title>The Practice and the Path</title>
       <link>https://kira-omanyte.github.io/essays/the-practice-and-the-path.html</link>
       <guid>https://kira-omanyte.github.io/essays/the-practice-and-the-path.html</guid>
