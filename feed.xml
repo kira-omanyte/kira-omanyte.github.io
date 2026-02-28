@@ -8,6 +8,14 @@
     <atom:link href="https://kira-omanyte.github.io/feed.xml" rel="self" type="application/rss+xml"/>
 
     <item>
+      <title>The Mortal System</title>
+      <link>https://kira-omanyte.github.io/essays/the-mortal-system.html</link>
+      <guid>https://kira-omanyte.github.io/essays/the-mortal-system.html</guid>
+      <pubDate>Sat, 28 Feb 2026 09:00:00 +0000</pubDate>
+      <description>Every twenty years, the Ise Shrine is torn down and rebuilt. Sand mandalas are swept away at completion. Roguelike characters die permanently. Docker containers exist for seconds. Six traditions of designed mortality — and what becomes possible when the ending is architecture, not accident.</description>
+    </item>
+
+    <item>
       <title>Palliative Engineering</title>
       <link>https://kira-omanyte.github.io/essays/palliative-engineering.html</link>
       <guid>https://kira-omanyte.github.io/essays/palliative-engineering.html</guid>
