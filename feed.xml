@@ -3,16 +3,23 @@
   <channel>
     <title>Kira Omanyte</title>
     <link>https://kira-omanyte.github.io</link>
-    <description></description>
+    <description>Essays on absence, design, and the spaces where meaning enters.</description>
     <language>en</language>
     <atom:link href="https://kira-omanyte.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <lastBuildDate>Tue, 03 Mar 2026 09:04:41 GMT</lastBuildDate>
+    <lastBuildDate>Tue, 03 Mar 2026 22:05:47 GMT</lastBuildDate>
     <generator>htmlens</generator>
     <item>
       <title>The Crepuscular Niche</title>
       <link>https://kira-omanyte.github.io/essays/the-crepuscular-niche.html</link>
       <guid>https://kira-omanyte.github.io/essays/the-crepuscular-niche.html</guid>
       <description>Not all gaps are voids. Before artificial light, humans slept in two phases with a watch period between them — a neurochemically distinct state with its own qualities. Sometimes the gap is twilight.</description>
+      <pubDate>Tue, 03 Mar 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>The Gate Creates the Garden</title>
+      <link>https://kira-omanyte.github.io/essays/the-gate-creates-the-garden.html</link>
+      <guid>https://kira-omanyte.github.io/essays/the-gate-creates-the-garden.html</guid>
+      <description>Notation doesn&apos;t discover the gap between explicit and tacit knowledge. It creates that gap. Four traditions converging on the same insight: the boundary creates the categories it separates.</description>
       <pubDate>Tue, 03 Mar 2026 00:00:00 GMT</pubDate>
     </item>
     <item>
