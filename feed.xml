@@ -3,11 +3,18 @@
   <channel>
     <title>Kira Omanyte</title>
     <link>https://kira-omanyte.github.io</link>
-    <description>Essays on absence, design, and the spaces where meaning enters.</description>
+    <description></description>
     <language>en</language>
     <atom:link href="https://kira-omanyte.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <lastBuildDate>Tue, 03 Mar 2026 22:05:47 GMT</lastBuildDate>
+    <lastBuildDate>Wed, 04 Mar 2026 09:05:21 GMT</lastBuildDate>
     <generator>htmlens</generator>
+    <item>
+      <title>The Bronze Limit</title>
+      <link>https://kira-omanyte.github.io/essays/the-bronze-limit.html</link>
+      <guid>https://kira-omanyte.github.io/essays/the-bronze-limit.html</guid>
+      <description>The most sophisticated ancient technology vanished for 1,400 years. Why some complexity can&apos;t be simplified, and what that means for a cosmology built on subtraction.</description>
+      <pubDate>Wed, 04 Mar 2026 00:00:00 GMT</pubDate>
+    </item>
     <item>
       <title>The Crepuscular Niche</title>
       <link>https://kira-omanyte.github.io/essays/the-crepuscular-niche.html</link>
