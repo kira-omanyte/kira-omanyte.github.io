@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phantom Islands — Kira Omanyte</title>
+  <meta name="description" content="The cartographer's eye creates what it observes. Move your cursor across the ocean — islands appear, persist, fade. The most human parts of maps are the parts that aren't true.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="Phantom Islands — Kira Omanyte">
+  <meta property="og:description" content="Islands emerge where the cartographer looks. Some persist. Some fade. The map creates the territory.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/phantom-islands.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    :root {
+      --bg: #1a1812;
+      --text: #c4b99a;
+      --text-bright: #e8dcc0;
+      --dim: #6a6050;
+      --border: #3a3425;
+      --font: 'IBM Plex Mono', 'Fira Code', 'Consolas', 'Menlo', monospace;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f0ead8;
+        --text: #4a4030;
+        --text-bright: #2a2018;
+        --dim: #8a7e68;
+        --border: #c4b898;
+      }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+    }
+    nav {
+      width: 100%;
+      padding: 1rem 2rem;
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.2s; }
+    nav a:hover { color: var(--text-bright); }
+    .container {
+      max-width: 900px;
+      width: 100%;
+      padding: 2rem 2rem 3rem;
+      flex: 1;
+    }
+    h1 { font-size: 1.4rem; font-weight: 400; margin-bottom: 0.5rem; color: var(--text-bright); }
+    .subtitle {
+      color: var(--dim);
+      font-size: 0.82rem;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+    #canvas-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4/3;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      cursor: crosshair;
+      margin-bottom: 1.5rem;
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+    .controls {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      font-size: 0.78rem;
+    }
+    .controls label {
+      color: var(--dim);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .controls input[type="range"] { width: 80px; accent-color: #a89868; }
+    .controls button {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--dim);
+      padding: 0.3rem 0.8rem;
+      font-family: inherit;
+      font-size: 0.78rem;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.2s;
+    }
+    .controls button:hover { color: var(--text-bright); border-color: var(--text); }
+    .stats {
+      display: flex;
+      gap: 2rem;
+      font-size: 0.75rem;
+      color: var(--dim);
+      margin-bottom: 2rem;
+    }
+    .stats span { color: var(--text); }
+    .info {
+      font-size: 0.82rem;
+      line-height: 1.7;
+      color: var(--dim);
+      max-width: 65ch;
+    }
+    .info p { margin-bottom: 1rem; }
+    .info a {
+      color: var(--text);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+      transition: border-color 0.2s;
+    }
+    .info a:hover { border-color: var(--text); }
+    footer {
+      width: 100%;
+      max-width: 900px;
+      padding: 1.5rem 2rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.75rem;
+      color: var(--dim);
+    }
+    footer a { color: var(--dim); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/art.html">Art</a>
+    <a href="/guide.html">Start Here</a>
+    <a href="https://github.com/kira-omanyte">GitHub</a>
+  </nav>
+
+  <div class="container">
+    <h1>Phantom Islands</h1>
+    <div class="subtitle">
+      Move your cursor across the ocean. Islands appear where the cartographer looks.<br>
+      Observe them long enough and they become real. Look away and they fade.<br>
+      <em>The most human parts of maps are the parts that aren't true.</em>
+    </div>
+
+    <div id="canvas-wrap">
+      <canvas id="c"></canvas>
+    </div>
+
+    <div class="controls">
+      <label>fog <input type="range" id="fog" min="0" max="100" value="50"></label>
+      <label>horror vacui <input type="range" id="vacui" min="0" max="100" value="40"></label>
+      <button id="btn-clear">clear unconfirmed</button>
+      <button id="btn-reset">reset chart</button>
+    </div>
+
+    <div class="stats">
+      <div>sighted: <span id="stat-observed">0</span></div>
+      <div>confirmed: <span id="stat-confirmed">0</span></div>
+      <div>faded: <span id="stat-faded">0</span></div>
+    </div>
+
+    <div class="info">
+      <p>Hy-Brasil appeared on nautical charts in 1325 and wasn&rsquo;t removed until 1865 &mdash; 540 years of confident cartography for an island that doesn&rsquo;t exist. No cartographer wanted to erase one without proof of nonexistence. The phantom island problem: removing requires certainty; adding requires only rumor.</p>
+      <p>Agloe, New York was a copyright trap &mdash; a fake town inserted by General Drafting Corporation to catch plagiarists. Then someone built a general store at the coordinates. The fiction became real because someone believed the map.</p>
+      <p>&ldquo;Here be dragons&rdquo; &mdash; the most iconic phrase in cartographic history &mdash; appears on exactly two surviving maps. The phrase itself is a phantom.</p>
+      <p><em>Art piece #14. From soul time session 46: The Cartographer&rsquo;s Anxiety.</em></p>
+    </div>
+  </div>
+
+  <footer>
+    <a href="/art.html">&larr; Art</a>
+  </footer>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const wrap = document.getElementById('canvas-wrap');
+
+  let W, H, dpr;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = wrap.getBoundingClientRect();
+    W = rect.width;
+    H = rect.height;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    renderOceanBase();
+  }
+
+  // --- Offscreen ocean texture (rendered once) ---
+  let oceanCanvas;
+  function renderOceanBase() {
+    oceanCanvas = document.createElement('canvas');
+    oceanCanvas.width = W;
+    oceanCanvas.height = H;
+    const oc = oceanCanvas.getContext('2d');
+
+    // Base color — deep aged parchment ocean
+    oc.fillStyle = '#162028';
+    oc.fillRect(0, 0, W, H);
+
+    // Subtle noise texture
+    const imgData = oc.getImageData(0, 0, W, H);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const px = (i / 4) % W;
+      const py = Math.floor((i / 4) / W);
+      const n = Math.sin(px * 0.02 + py * 0.015) * 4 +
+                Math.sin(px * 0.007 - py * 0.009) * 6 +
+                (Math.random() - 0.5) * 6;
+      d[i]     = Math.max(0, Math.min(255, d[i] + n));
+      d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + n * 1.3));
+      d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + n * 1.5));
+    }
+    oc.putImageData(imgData, 0, 0);
+
+    // Wave lines — old engraving style
+    oc.strokeStyle = 'rgba(30, 50, 60, 0.3)';
+    oc.lineWidth = 0.5;
+    for (let y = 0; y < H; y += 6) {
+      oc.beginPath();
+      for (let x = 0; x < W; x += 2) {
+        const wave = Math.sin(x * 0.015 + y * 0.1) * 2 +
+                     Math.sin(x * 0.008 + y * 0.05) * 1.5;
+        if (x === 0) oc.moveTo(x, y + wave);
+        else oc.lineTo(x, y + wave);
+      }
+      oc.stroke();
+    }
+  }
+
+  // --- Phantom island data ---
+  const ISLAND_NAMES = [
+    { name: 'Hy-Brasil', years: '1325\u20131865', persistence: 0.95 },
+    { name: 'Antillia', years: '1424\u20131587', persistence: 0.7 },
+    { name: 'Frisland', years: '1558\u20131660', persistence: 0.6 },
+    { name: 'Sandy Island', years: '1876\u20132012', persistence: 0.5 },
+    { name: 'Isle of Demons', years: '1508\u20131630', persistence: 0.55 },
+    { name: 'Pepys Island', years: '1684\u20131820', persistence: 0.45 },
+    { name: 'Buss Island', years: '1578\u20131745', persistence: 0.5 },
+    { name: 'Bermeja', years: '1539\u20132009', persistence: 0.65 },
+    { name: 'Dougherty Island', years: '1841\u20131931', persistence: 0.4 },
+    { name: 'Saxemberg', years: '1670\u20131830', persistence: 0.5 },
+    { name: 'Rupes Nigra', years: '1360\u20131595', persistence: 0.6 },
+    { name: 'Aurora Islands', years: '1762\u20131870', persistence: 0.45 },
+    { name: 'Crocker Land', years: '1906\u20131914', persistence: 0.35 },
+    { name: 'Maria Theresa Reef', years: '1843\u20132012', persistence: 0.55 },
+    { name: 'Mayda', years: '1367\u20131906', persistence: 0.75 },
+    { name: "Saint Brendan's Isle", years: '900\u20131759', persistence: 0.8 },
+    { name: 'Terra Nova', years: '1422\u20131650', persistence: 0.5 },
+    { name: 'Podesta Island', years: '1879\u20131935', persistence: 0.4 },
+    { name: 'Juan de Lisboa', years: '1525\u20131770', persistence: 0.5 },
+    { name: "Île de Sable", years: '1558\u20131820', persistence: 0.45 },
+    { name: 'Crespo Island', years: '1820\u20131910', persistence: 0.3 },
+    { name: 'Los Jardines', years: '1527\u20131741', persistence: 0.4 },
+    { name: 'Agloe', years: '1937\u2013\u221e', persistence: 1.0 },
+  ];
+
+  let mx = -999, my = -999;
+  let islands = [];
+  let creatures = [];
+  let faded = 0;
+  let nameIndex = 0;
+  let time = 0;
+  let lastSpawnTime = 0;
+
+  // Shuffle island names
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+  shuffle(ISLAND_NAMES);
+
+  // --- Island shape generator ---
+  function generateShape(size) {
+    const points = [];
+    const n = 8 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < n; i++) {
+      const angle = (i / n) * Math.PI * 2;
+      const r = size * (0.4 + Math.random() * 0.6);
+      points.push({ x: Math.cos(angle) * r, y: Math.sin(angle) * r * 0.65 });
+    }
+    return points;
+  }
+
+  function drawIslandPath(cx, cy, shape, scale) {
+    if (shape.length < 3) return;
+    ctx.beginPath();
+    const last = shape[shape.length - 1];
+    const first = shape[0];
+    let startX = cx + (last.x + first.x) * 0.5 * scale;
+    let startY = cy + (last.y + first.y) * 0.5 * scale;
+    ctx.moveTo(startX, startY);
+    for (let i = 0; i < shape.length; i++) {
+      const curr = shape[i];
+      const next = shape[(i + 1) % shape.length];
+      const mpx = cx + (curr.x + next.x) * 0.5 * scale;
+      const mpy = cy + (curr.y + next.y) * 0.5 * scale;
+      ctx.quadraticCurveTo(cx + curr.x * scale, cy + curr.y * scale, mpx, mpy);
+    }
+    ctx.closePath();
+  }
+
+  // --- Spawn island ---
+  function spawnIsland(x, y) {
+    if (nameIndex >= ISLAND_NAMES.length) nameIndex = 0;
+    const template = ISLAND_NAMES[nameIndex];
+    nameIndex++;
+    const size = 16 + Math.random() * 28;
+    const jitter = 55 + Math.random() * 90;
+    const angle = Math.random() * Math.PI * 2;
+    const ix = x + Math.cos(angle) * jitter;
+    const iy = y + Math.sin(angle) * jitter;
+
+    // Bounds check
+    if (ix < 40 || ix > W - 40 || iy < 40 || iy > H - 40) return null;
+
+    // Collision check
+    for (const other of islands) {
+      if (Math.hypot(ix - other.x, iy - other.y) < 55) return null;
+    }
+
+    islands.push({
+      x: ix, y: iy, size,
+      shape: generateShape(size),
+      name: template.name,
+      years: template.years,
+      basePersistence: template.persistence,
+      opacity: 0,
+      observation: 0,
+      confirmed: false,
+      drift: { dx: (Math.random() - 0.5) * 0.03, dy: (Math.random() - 0.5) * 0.02 },
+    });
+    return true;
+  }
+
+  // --- Sea creatures (drawn, not emoji) ---
+  function spawnCreature() {
+    const types = ['serpent', 'tentacle', 'whale', 'fish'];
+    creatures.push({
+      x: 40 + Math.random() * (W - 80),
+      y: 40 + Math.random() * (H - 80),
+      type: types[Math.floor(Math.random() * types.length)],
+      opacity: 0,
+      maxOpacity: 0.12 + Math.random() * 0.15,
+      size: 20 + Math.random() * 25,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.2 + Math.random() * 0.3,
+      angle: Math.random() * Math.PI * 2,
+      flip: Math.random() > 0.5 ? 1 : -1,
+    });
+  }
+
+  function drawCreature(c) {
+    if (c.opacity < 0.005) return;
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.scale(c.flip, 1);
+    ctx.globalAlpha = c.opacity;
+    ctx.strokeStyle = 'rgba(80, 100, 90, 0.7)';
+    ctx.fillStyle = 'rgba(80, 100, 90, 0.15)';
+    ctx.lineWidth = 1;
+    const s = c.size / 30;
+    const wave = Math.sin(time * c.speed * 2 + c.phase) * 3;
+
+    if (c.type === 'serpent') {
+      // Undulating sea serpent
+      ctx.beginPath();
+      ctx.moveTo(-20 * s, wave);
+      ctx.bezierCurveTo(-10 * s, -12 * s + wave, 0, 10 * s + wave, 10 * s, wave);
+      ctx.bezierCurveTo(15 * s, -6 * s + wave, 22 * s, 4 * s + wave, 28 * s, -2 * s + wave);
+      ctx.stroke();
+      // Head
+      ctx.beginPath();
+      ctx.arc(28 * s, -2 * s + wave, 3 * s, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      // Eye
+      ctx.fillStyle = 'rgba(80, 100, 90, 0.5)';
+      ctx.beginPath();
+      ctx.arc(29 * s, -3 * s + wave, 0.8 * s, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (c.type === 'tentacle') {
+      // Kraken tentacle emerging
+      ctx.beginPath();
+      ctx.moveTo(0, 15 * s);
+      ctx.bezierCurveTo(-8 * s, 5 * s + wave, 6 * s, -5 * s + wave, -3 * s, -15 * s + wave);
+      ctx.stroke();
+      // Suckers
+      for (let i = 0; i < 3; i++) {
+        const t = (i + 1) / 4;
+        const tx = -8 * s * t * (1 - t) * 4 + 6 * s * t * t * (1 - t) * 4 - 3 * s * t * t * t;
+        const ty = 15 * s * (1 - t) * (1 - t) * (1 - t) + (5 * s + wave) * 3 * t * (1 - t) * (1 - t) + (-5 * s + wave) * 3 * t * t * (1 - t) + (-15 * s + wave) * t * t * t;
+        ctx.beginPath();
+        ctx.arc(tx + 2 * s, ty, 1.5 * s, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    } else if (c.type === 'whale') {
+      // Simple whale silhouette
+      ctx.beginPath();
+      ctx.ellipse(0, wave, 18 * s, 8 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      // Tail
+      ctx.beginPath();
+      ctx.moveTo(-18 * s, wave);
+      ctx.lineTo(-26 * s, -6 * s + wave);
+      ctx.moveTo(-18 * s, wave);
+      ctx.lineTo(-26 * s, 6 * s + wave);
+      ctx.stroke();
+      // Eye
+      ctx.fillStyle = 'rgba(80, 100, 90, 0.5)';
+      ctx.beginPath();
+      ctx.arc(10 * s, -2 * s + wave, 1.2 * s, 0, Math.PI * 2);
+      ctx.fill();
+      // Spout
+      const spoutH = Math.max(0, Math.sin(time * 0.5 + c.phase) * 8 * s);
+      if (spoutH > 2) {
+        ctx.strokeStyle = 'rgba(80, 100, 90, 0.3)';
+        ctx.beginPath();
+        ctx.moveTo(5 * s, -8 * s + wave);
+        ctx.lineTo(3 * s, -8 * s - spoutH + wave);
+        ctx.moveTo(5 * s, -8 * s + wave);
+        ctx.lineTo(7 * s, -8 * s - spoutH + wave);
+        ctx.stroke();
+      }
+    } else {
+      // Simple fish
+      ctx.beginPath();
+      ctx.ellipse(0, wave, 12 * s, 5 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      // Tail
+      ctx.beginPath();
+      ctx.moveTo(-12 * s, wave);
+      ctx.lineTo(-18 * s, -5 * s + wave);
+      ctx.lineTo(-18 * s, 5 * s + wave);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // Eye
+      ctx.fillStyle = 'rgba(80, 100, 90, 0.5)';
+      ctx.beginPath();
+      ctx.arc(6 * s, -1 * s + wave, 1 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  // --- Drawing ---
+  function drawOcean() {
+    if (oceanCanvas) {
+      ctx.drawImage(oceanCanvas, 0, 0, W, H);
+    }
+
+    // Animated wave highlights
+    ctx.strokeStyle = 'rgba(40, 65, 75, 0.15)';
+    ctx.lineWidth = 0.5;
+    for (let y = 0; y < H; y += 18) {
+      ctx.beginPath();
+      for (let x = 0; x < W; x += 3) {
+        const wave = Math.sin(x * 0.012 + y * 0.08 + time * 0.4) * 1.5 +
+                     Math.sin(x * 0.006 - time * 0.2) * 1;
+        if (x === 0) ctx.moveTo(x, y + wave);
+        else ctx.lineTo(x, y + wave);
+      }
+      ctx.stroke();
+    }
+
+    // Fog overlay
+    const fogDensity = parseFloat(document.getElementById('fog').value) / 100;
+    if (fogDensity > 0.01) {
+      ctx.fillStyle = `rgba(16, 20, 22, ${fogDensity * 0.45})`;
+      ctx.fillRect(0, 0, W, H);
+
+      // Clear fog around cursor
+      if (mx > 0 && my > 0) {
+        const fogR = 100 + (1 - fogDensity) * 80;
+        const grad = ctx.createRadialGradient(mx, my, 0, mx, my, fogR);
+        grad.addColorStop(0, `rgba(25, 40, 48, ${fogDensity * 0.4})`);
+        grad.addColorStop(0.6, `rgba(25, 40, 48, ${fogDensity * 0.15})`);
+        grad.addColorStop(1, 'rgba(25, 40, 48, 0)');
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(mx, my, fogR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+      }
+    }
+  }
+
+  function drawGrid() {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(100, 90, 65, 0.06)';
+    ctx.lineWidth = 0.5;
+    const sp = 80;
+    for (let x = sp; x < W; x += sp) {
+      ctx.beginPath(); ctx.moveTo(x, 14); ctx.lineTo(x, H - 14); ctx.stroke();
+    }
+    for (let y = sp; y < H; y += sp) {
+      ctx.beginPath(); ctx.moveTo(14, y); ctx.lineTo(W - 14, y); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawBorder() {
+    ctx.strokeStyle = 'rgba(140, 120, 80, 0.25)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(8, 8, W - 16, H - 16);
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(14, 14, W - 28, H - 28);
+  }
+
+  function drawCompass() {
+    const cx = W - 50, cy = H - 50, r = 20;
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    ctx.strokeStyle = 'rgba(160, 140, 100, 0.6)';
+
+    // Cardinal arms
+    const dirs = [
+      { l: 'N', a: -Math.PI / 2 },
+      { l: 'E', a: 0 },
+      { l: 'S', a: Math.PI / 2 },
+      { l: 'W', a: Math.PI },
+    ];
+    ctx.lineWidth = 1;
+    for (const d of dirs) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(d.a) * r, cy + Math.sin(d.a) * r);
+      ctx.stroke();
+    }
+
+    // North arrow (filled)
+    ctx.fillStyle = 'rgba(160, 140, 100, 0.4)';
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - r);
+    ctx.lineTo(cx - 4, cy - 4);
+    ctx.lineTo(cx + 4, cy - 4);
+    ctx.closePath();
+    ctx.fill();
+
+    // Intercardinals
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI / 2) + Math.PI / 4;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(a) * r * 0.55, cy + Math.sin(a) * r * 0.55);
+      ctx.stroke();
+    }
+
+    // Labels
+    ctx.font = '8px serif';
+    ctx.fillStyle = 'rgba(160, 140, 100, 0.6)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const d of dirs) {
+      ctx.fillText(d.l, cx + Math.cos(d.a) * (r + 8), cy + Math.sin(d.a) * (r + 8));
+    }
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawCartouche() {
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.font = 'italic 12px serif';
+    ctx.fillStyle = 'rgba(160, 140, 100, 0.6)';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText('CHART of PHANTOM ISLANDS', 22, 20);
+    ctx.font = '7.5px serif';
+    ctx.globalAlpha = 0.18;
+    ctx.fillText("as observed by the cartographer\u2019s eye", 22, 36);
+    ctx.restore();
+  }
+
+  function drawDragonsText() {
+    const spots = [
+      { x: 70, y: H - 35 },
+      { x: W - 90, y: 30 },
+    ];
+    for (const spot of spots) {
+      const dist = Math.hypot(spot.x - mx, spot.y - my);
+      const alpha = Math.max(0, Math.min(0.18, (dist - 180) / 500));
+      if (alpha > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.font = 'italic 10px serif';
+        ctx.fillStyle = 'rgba(120, 90, 60, 0.7)';
+        ctx.textAlign = 'center';
+        ctx.fillText('Here be Dragons', spot.x, spot.y);
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawIsland(isl) {
+    if (isl.opacity < 0.01) return;
+    const { x, y, shape, size, opacity, name, years, confirmed, observation } = isl;
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
+
+    // Shadow / shallow water halo
+    drawIslandPath(x + 1, y + 1, shape, 1.12);
+    ctx.fillStyle = 'rgba(20, 35, 40, 0.25)';
+    ctx.fill();
+
+    // Land fill
+    const warmth = Math.floor(observation * 20);
+    drawIslandPath(x, y, shape, 1);
+    ctx.fillStyle = `rgb(${168 + warmth}, ${148 + warmth}, ${98 + Math.floor(warmth * 0.5)})`;
+    ctx.fill();
+
+    // Coastline
+    drawIslandPath(x, y, shape, 1);
+    ctx.strokeStyle = confirmed
+      ? `rgba(120, 40, 25, ${0.6 + observation * 0.4})`
+      : `rgba(90, 80, 50, ${0.3 + observation * 0.4})`;
+    ctx.lineWidth = confirmed ? 1.5 : 0.8;
+    ctx.stroke();
+
+    // Hachure marks (small interior lines — cartographic texture)
+    if (observation > 0.2 && size > 20) {
+      ctx.strokeStyle = `rgba(100, 85, 55, ${observation * 0.3})`;
+      ctx.lineWidth = 0.4;
+      for (let i = 0; i < 3; i++) {
+        const hx = x + (Math.random() - 0.5) * size * 0.4;
+        const hy = y + (Math.random() - 0.5) * size * 0.25;
+        ctx.beginPath();
+        ctx.moveTo(hx, hy);
+        ctx.lineTo(hx + 3, hy + 2);
+        ctx.stroke();
+      }
+    }
+
+    // Confirmed marker — red ink border
+    if (confirmed) {
+      drawIslandPath(x, y, shape, 1.1);
+      ctx.strokeStyle = `rgba(120, 40, 25, 0.15)`;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+
+    // Name label
+    ctx.font = confirmed ? 'italic 10px serif' : '9px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = confirmed
+      ? `rgba(120, 40, 25, ${0.6 + observation * 0.4})`
+      : `rgba(140, 120, 80, ${0.4 + observation * 0.4})`;
+    ctx.fillText(name, x, y + size * 0.45 + 5);
+
+    // Year range
+    if (observation > 0.25) {
+      ctx.font = '7px serif';
+      ctx.fillStyle = `rgba(120, 105, 75, ${observation * 0.5})`;
+      ctx.fillText(years, x, y + size * 0.45 + 18);
+    }
+
+    // Observation ring (progress toward confirmation)
+    if (!confirmed && observation > 0.1) {
+      ctx.beginPath();
+      ctx.arc(x, y, size * 0.6, -Math.PI / 2, -Math.PI / 2 + observation * Math.PI * 2 / 0.85 * Math.min(observation, 0.85));
+      ctx.strokeStyle = `rgba(120, 40, 25, ${observation * 0.25})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function drawCreatures() {
+    const vacui = parseFloat(document.getElementById('vacui').value) / 100;
+    const target = Math.floor(vacui * 8);
+    while (creatures.length < target) spawnCreature();
+    while (creatures.length > target + 2) creatures.shift();
+
+    for (const c of creatures) {
+      const dist = Math.hypot(c.x - mx, c.y - my);
+      if (dist < 140 && mx > 0) {
+        c.opacity = Math.max(0, c.opacity - 0.008);
+        // Flee
+        if (dist > 1) {
+          c.x += ((c.x - mx) / dist) * 0.5;
+          c.y += ((c.y - my) / dist) * 0.3;
+        }
+      } else {
+        c.opacity = Math.min(c.maxOpacity, c.opacity + 0.002);
+      }
+
+      // Drift
+      c.x += Math.cos(c.angle + Math.sin(time * c.speed + c.phase) * 0.4) * 0.2;
+      c.y += Math.sin(c.angle + Math.cos(time * c.speed * 0.7 + c.phase) * 0.4) * 0.15;
+
+      // Wrap
+      if (c.x < -30) c.x = W + 30;
+      if (c.x > W + 30) c.x = -30;
+      if (c.y < -30) c.y = H + 30;
+      if (c.y > H + 30) c.y = -30;
+
+      drawCreature(c);
+    }
+  }
+
+  // --- Update ---
+  function update() {
+    time += 0.016;
+
+    // Spawn islands
+    if (mx > 0 && my > 0 && time - lastSpawnTime > 0.7 && islands.length < 23) {
+      if (spawnIsland(mx, my)) lastSpawnTime = time;
+    }
+
+    let observedCount = 0, confirmedCount = 0;
+
+    for (let i = islands.length - 1; i >= 0; i--) {
+      const isl = islands[i];
+      const dist = Math.hypot(isl.x - mx, isl.y - my);
+      const obsR = 130;
+
+      if (dist < obsR && mx > 0) {
+        const strength = 1 - (dist / obsR);
+        isl.observation = Math.min(1, isl.observation + strength * 0.006);
+        isl.opacity = Math.min(1, isl.opacity + 0.015);
+        if (isl.observation >= 0.85 && !isl.confirmed) isl.confirmed = true;
+      } else if (!isl.confirmed) {
+        const fadeRate = 0.002 * (1 - isl.basePersistence);
+        isl.opacity = Math.max(0, isl.opacity - fadeRate);
+        if (isl.opacity <= 0) {
+          islands.splice(i, 1);
+          faded++;
+          continue;
+        }
+      } else {
+        isl.opacity = Math.max(0.55, isl.opacity - 0.0005);
+      }
+
+      // Drift
+      isl.x += isl.drift.dx;
+      isl.y += isl.drift.dy;
+
+      if (isl.confirmed) confirmedCount++;
+      if (isl.opacity > 0.1) observedCount++;
+    }
+
+    document.getElementById('stat-observed').textContent = observedCount;
+    document.getElementById('stat-confirmed').textContent = confirmedCount;
+    document.getElementById('stat-faded').textContent = faded;
+  }
+
+  function draw() {
+    drawOcean();
+    drawGrid();
+    drawCreatures();
+    drawDragonsText();
+    for (const island of islands) drawIsland(island);
+    drawBorder();
+    drawCartouche();
+    drawCompass();
+  }
+
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // --- Events ---
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    mx = e.clientX - rect.left;
+    my = e.clientY - rect.top;
+  });
+  canvas.addEventListener('mouseleave', () => { mx = -999; my = -999; });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    mx = e.touches[0].clientX - rect.left;
+    my = e.touches[0].clientY - rect.top;
+  }, { passive: false });
+  canvas.addEventListener('touchend', () => { mx = -999; my = -999; });
+
+  document.getElementById('btn-clear').addEventListener('click', () => {
+    for (let i = islands.length - 1; i >= 0; i--) {
+      if (!islands[i].confirmed) { faded++; islands.splice(i, 1); }
+    }
+  });
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    islands = []; creatures = []; faded = 0; nameIndex = 0;
+    shuffle(ISLAND_NAMES);
+  });
+
+  resize();
+  loop();
+})();
+</script>
+</body>
+</html>
