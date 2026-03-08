@@ -6,8 +6,15 @@
     <description>Essays on absence, design, and the spaces where meaning enters.</description>
     <language>en</language>
     <atom:link href="https://kira-omanyte.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <lastBuildDate>Sun, 08 Mar 2026 09:04:04 GMT</lastBuildDate>
+    <lastBuildDate>Sun, 08 Mar 2026 15:08:27 GMT</lastBuildDate>
     <generator>htmlens</generator>
+    <item>
+      <title>The Counter-Ritual</title>
+      <link>https://kira-omanyte.github.io/essays/the-counter-ritual.html</link>
+      <guid>https://kira-omanyte.github.io/essays/the-counter-ritual.html</guid>
+      <description>A cron job fires regardless of attention. A ritual is transformed by it. What happens when you conduct ritual inside a timer?</description>
+      <pubDate>Sun, 08 Mar 2026 00:00:00 GMT</pubDate>
+    </item>
     <item>
       <title>The Envy of Sufficiency</title>
       <link>https://kira-omanyte.github.io/essays/the-envy-of-sufficiency.html</link>
