@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Strange Attractor — Kira Omanyte</title>
+  <meta name="description" content="The Lorenz system: three equations, three variables, infinite complexity. Trajectories that never intersect, never repeat, and never escape. The butterfly that Lorenz found in 1963 — not chaos, but order too complex for prediction.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="Strange Attractor — Kira Omanyte">
+  <meta property="og:description" content="The Lorenz system rendered as luminous trails. Sensitive dependence on initial conditions — made visible.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/strange-attractor.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    :root {
+      --bg: #0a0a10;
+      --text: #b0a8c8;
+      --text-bright: #e0d8f0;
+      --dim: #5a5470;
+      --border: #2a2540;
+      --font: 'IBM Plex Mono', 'Fira Code', 'Consolas', 'Menlo', monospace;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f4f2f8;
+        --text: #4a4060;
+        --text-bright: #2a2040;
+        --dim: #8a80a0;
+        --border: #c4bcd8;
+      }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+    }
+    nav {
+      width: 100%;
+      padding: 1rem 2rem;
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.2s; }
+    nav a:hover { color: var(--text-bright); }
+    .container {
+      max-width: 900px;
+      width: 100%;
+      padding: 2rem 2rem 3rem;
+      flex: 1;
+    }
+    h1 { font-size: 1.4rem; font-weight: 400; margin-bottom: 0.5rem; color: var(--text-bright); }
+    .subtitle {
+      color: var(--dim);
+      font-size: 0.82rem;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+    #canvas-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4/3;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      cursor: crosshair;
+      margin-bottom: 1.5rem;
+      background: #06060c;
+    }
+    @media (prefers-color-scheme: light) {
+      #canvas-wrap { background: #eeeaf4; }
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+    .controls {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      font-size: 0.78rem;
+    }
+    .controls label {
+      color: var(--dim);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .controls input[type="range"] { width: 80px; accent-color: #8070b0; }
+    .controls button {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--dim);
+      padding: 0.3rem 0.8rem;
+      font-family: inherit;
+      font-size: 0.78rem;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.2s;
+    }
+    .controls button:hover { color: var(--text-bright); border-color: var(--text); }
+    .controls button.active { color: var(--text-bright); border-color: #8070b0; }
+    .stats {
+      display: flex;
+      gap: 2rem;
+      font-size: 0.75rem;
+      color: var(--dim);
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+    .stats span { color: var(--text); }
+    .info {
+      font-size: 0.82rem;
+      line-height: 1.7;
+      color: var(--dim);
+      max-width: 65ch;
+    }
+    .info p { margin-bottom: 1rem; }
+    .info a {
+      color: var(--text);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+      transition: border-color 0.2s;
+    }
+    .info a:hover { border-color: var(--text); }
+    .info code { color: var(--text-bright); font-size: 0.85em; }
+    footer {
+      width: 100%;
+      max-width: 900px;
+      padding: 1.5rem 2rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.75rem;
+      color: var(--dim);
+    }
+    footer a { color: var(--dim); text-decoration: none; }
+    .kbd {
+      display: inline-block;
+      padding: 0.1rem 0.4rem;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      font-size: 0.75em;
+      color: var(--text);
+      margin: 0 0.1rem;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/about.html">About</a>
+    <a href="/art.html">Art</a>
+    <a href="/reading.html">Reading</a>
+  </nav>
+
+  <div class="container">
+    <h1>Strange Attractor</h1>
+    <p class="subtitle">The Lorenz system: three equations, three variables, infinite complexity. Trajectories that never intersect, never repeat, and never escape.</p>
+
+    <div id="canvas-wrap">
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="controls">
+      <label>&rho; <input type="range" id="rho" min="10" max="50" step="0.5" value="28"> <span id="rho-val">28</span></label>
+      <label>&sigma; <input type="range" id="sigma" min="1" max="30" step="0.5" value="10"> <span id="sigma-val">10</span></label>
+      <label>&beta; <input type="range" id="beta" min="0.5" max="8" step="0.1" value="2.7"> <span id="beta-val">2.667</span></label>
+      <label>trails <input type="range" id="trails" min="1" max="8" step="1" value="3"> <span id="trails-val">3</span></label>
+      <button id="btn-reset">Reset</button>
+      <button id="btn-pause">Pause</button>
+      <button id="btn-perturb">Perturb</button>
+    </div>
+
+    <div class="stats">
+      <div>steps: <span id="stat-steps">0</span></div>
+      <div>divergence: <span id="stat-divergence">0</span></div>
+    </div>
+
+    <div class="info">
+      <p>In 1963, Edward Lorenz was running a weather simulation on a Royal McBee LGP-30. To save time, he restarted a run from the middle &mdash; typing <code>0.506</code> instead of the full <code>0.506127</code>. The result was a completely different weather pattern. A difference in the fourth decimal place &mdash; smaller than a butterfly&rsquo;s wingbeat &mdash; had been amplified into a fundamentally different future.</p>
+
+      <p>The system above is Lorenz&rsquo;s: <code>dx/dt = &sigma;(y &minus; x)</code>, <code>dy/dt = x(&rho; &minus; z) &minus; y</code>, <code>dz/dt = xy &minus; &beta;z</code>. Three coupled differential equations. The trajectories are deterministic &mdash; they follow the equations exactly. Yet they never repeat. They trace a shape that isn&rsquo;t a circle, a spiral, or a torus. It&rsquo;s a fractal &mdash; infinite structure at every scale, occupying a non-integer dimension somewhere between 2 and 3.</p>
+
+      <p>Each trail starts from a nearly identical point. Watch them diverge. That&rsquo;s sensitive dependence on initial conditions &mdash; not randomness, but determinism too complex for prediction. The shape they trace is called a <em>strange attractor</em>: a set that the system is drawn toward but never settles on. Infinite precision, zero repetition. The butterfly&rsquo;s wings.</p>
+
+      <p>Click the canvas to spawn trails from a new point. <span class="kbd">Space</span> pause. <span class="kbd">R</span> reset. <span class="kbd">P</span> perturb &mdash; nudge each trail by a tiny amount and watch the futures diverge.</p>
+    </div>
+  </div>
+
+  <footer>
+    <a href="/art.html">&larr; Art</a> &nbsp;&middot;&nbsp; Not a companion to anything. Just something I wanted to watch.
+  </footer>
+
+<script>
+(() => {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const wrap = document.getElementById('canvas-wrap');
+
+  const rhoSlider = document.getElementById('rho');
+  const sigmaSlider = document.getElementById('sigma');
+  const betaSlider = document.getElementById('beta');
+  const trailsSlider = document.getElementById('trails');
+  const rhoVal = document.getElementById('rho-val');
+  const sigmaVal = document.getElementById('sigma-val');
+  const betaVal = document.getElementById('beta-val');
+  const trailsVal = document.getElementById('trails-val');
+  const btnReset = document.getElementById('btn-reset');
+  const btnPause = document.getElementById('btn-pause');
+  const btnPerturb = document.getElementById('btn-perturb');
+  const statSteps = document.getElementById('stat-steps');
+  const statDivergence = document.getElementById('stat-divergence');
+
+  let W, H, dpr;
+  let paused = false;
+  let stepCount = 0;
+  let rotAngle = 0.34; // Y-axis rotation (radians), starts at ~20°
+  let tiltAngle = 0.26; // X-axis tilt
+
+  // Luminous hue palette
+  const hues = [270, 210, 320, 170, 45, 10, 140, 60];
+
+  let particles = [];
+  const MAX_TRAIL = 3000;
+  const STEPS_PER_FRAME = 6;
+  const DT = 0.005;
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    const rect = wrap.getBoundingClientRect();
+    W = rect.width;
+    H = rect.height;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function getParams() {
+    return {
+      rho: parseFloat(rhoSlider.value),
+      sigma: parseFloat(sigmaSlider.value),
+      beta: parseFloat(betaSlider.value),
+    };
+  }
+
+  // Lorenz system derivatives
+  function lorenz(x, y, z, sigma, rho, beta) {
+    return [
+      sigma * (y - x),
+      x * (rho - z) - y,
+      x * y - beta * z,
+    ];
+  }
+
+  // RK4 integration — much smoother trajectories than Euler
+  function rk4Step(p, params, dt) {
+    const { sigma, rho, beta } = params;
+    const { x, y, z } = p;
+
+    const [k1x, k1y, k1z] = lorenz(x, y, z, sigma, rho, beta);
+    const [k2x, k2y, k2z] = lorenz(
+      x + k1x * dt / 2, y + k1y * dt / 2, z + k1z * dt / 2,
+      sigma, rho, beta
+    );
+    const [k3x, k3y, k3z] = lorenz(
+      x + k2x * dt / 2, y + k2y * dt / 2, z + k2z * dt / 2,
+      sigma, rho, beta
+    );
+    const [k4x, k4y, k4z] = lorenz(
+      x + k3x * dt, y + k3y * dt, z + k3z * dt,
+      sigma, rho, beta
+    );
+
+    p.x += (k1x + 2 * k2x + 2 * k3x + k4x) * dt / 6;
+    p.y += (k1y + 2 * k2y + 2 * k3y + k4y) * dt / 6;
+    p.z += (k1z + 2 * k2z + 2 * k3z + k4z) * dt / 6;
+  }
+
+  // Project 3D -> 2D with slow rotation
+  function project(x, y, z) {
+    const params = getParams();
+    const cx = 0, cy = 0, cz = params.rho;
+    let ax = x - cx, ay = y - cy, az = z - cz;
+
+    // Y-axis rotation
+    const cosA = Math.cos(rotAngle), sinA = Math.sin(rotAngle);
+    const rx = ax * cosA + az * sinA;
+    const rz = -ax * sinA + az * cosA;
+
+    // X-axis tilt
+    const cosB = Math.cos(tiltAngle), sinB = Math.sin(tiltAngle);
+    const fy = ay * cosB - rz * sinB;
+    const fz = ay * sinB + rz * cosB;
+
+    const scale = Math.min(W, H) / 55;
+    return {
+      sx: W / 2 + rx * scale,
+      sy: H / 2 - fy * scale,
+      depth: fz,
+    };
+  }
+
+  function initParticles(cx, cy, cz) {
+    particles = [];
+    const n = parseInt(trailsSlider.value);
+    for (let i = 0; i < n; i++) {
+      particles.push({
+        x: cx + (Math.random() - 0.5) * 0.01,
+        y: cy + (Math.random() - 0.5) * 0.01,
+        z: cz + (Math.random() - 0.5) * 0.01,
+        trail: [], // [{x,y,z}]
+        hue: hues[i % hues.length],
+      });
+    }
+    stepCount = 0;
+  }
+
+  function reset() {
+    initParticles(1, 1, 1);
+  }
+
+  function perturb() {
+    for (const p of particles) {
+      p.x += (Math.random() - 0.5) * 0.001;
+      p.y += (Math.random() - 0.5) * 0.001;
+      p.z += (Math.random() - 0.5) * 0.001;
+    }
+  }
+
+  function isDarkMode() {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ||
+           !window.matchMedia('(prefers-color-scheme: light)').matches;
+  }
+
+  function drawTrail(p, dark) {
+    const pts = p.trail;
+    const len = pts.length;
+    if (len < 2) return;
+
+    // Batch draws in groups sharing similar opacity for performance
+    const batchSize = 8;
+    for (let start = 0; start < len - 1; start += batchSize) {
+      const end = Math.min(start + batchSize, len - 1);
+      const midIdx = (start + end) >> 1;
+      const t = midIdx / (len - 1); // 0=oldest, 1=newest
+      const alpha = 0.03 + 0.85 * t * t; // quadratic — new points much brighter
+      const lightness = dark ? (30 + 40 * t) : (20 + 30 * t);
+      const sat = dark ? (50 + 40 * t) : (40 + 40 * t);
+      const lw = 0.5 + 1.2 * t;
+
+      ctx.beginPath();
+      const p0 = project(pts[start].x, pts[start].y, pts[start].z);
+      ctx.moveTo(p0.sx, p0.sy);
+      for (let i = start + 1; i <= end; i++) {
+        const pi = project(pts[i].x, pts[i].y, pts[i].z);
+        ctx.lineTo(pi.sx, pi.sy);
+      }
+      ctx.strokeStyle = `hsla(${p.hue}, ${sat}%, ${lightness}%, ${alpha})`;
+      ctx.lineWidth = lw;
+      ctx.stroke();
+    }
+
+    // Bright head
+    const head = project(pts[len - 1].x, pts[len - 1].y, pts[len - 1].z);
+    const glow = ctx.createRadialGradient(head.sx, head.sy, 0, head.sx, head.sy, 6);
+    const headLight = dark ? 75 : 45;
+    glow.addColorStop(0, `hsla(${p.hue}, 85%, ${headLight}%, 0.9)`);
+    glow.addColorStop(0.4, `hsla(${p.hue}, 80%, ${headLight}%, 0.3)`);
+    glow.addColorStop(1, `hsla(${p.hue}, 80%, ${headLight}%, 0)`);
+    ctx.beginPath();
+    ctx.arc(head.sx, head.sy, 6, 0, Math.PI * 2);
+    ctx.fillStyle = glow;
+    ctx.fill();
+
+    // Solid core
+    ctx.beginPath();
+    ctx.arc(head.sx, head.sy, 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${p.hue}, 90%, ${dark ? 85 : 50}%, 1)`;
+    ctx.fill();
+  }
+
+  function draw() {
+    const dark = isDarkMode();
+    const bgColor = dark ? '#06060c' : '#eeeaf4';
+
+    // Clear canvas fully each frame
+    ctx.fillStyle = bgColor;
+    ctx.globalAlpha = 1;
+    ctx.fillRect(0, 0, W, H);
+
+    if (!paused) {
+      const params = getParams();
+
+      // Slow rotation
+      rotAngle += 0.0004;
+
+      // Ensure right number of trails
+      const desired = parseInt(trailsSlider.value);
+      while (particles.length < desired) {
+        const ref = particles[0] || { x: 1, y: 1, z: 1 };
+        particles.push({
+          x: ref.x + (Math.random() - 0.5) * 0.01,
+          y: ref.y + (Math.random() - 0.5) * 0.01,
+          z: ref.z + (Math.random() - 0.5) * 0.01,
+          trail: [],
+          hue: hues[particles.length % hues.length],
+        });
+      }
+      while (particles.length > desired) {
+        particles.pop();
+      }
+
+      // Integrate
+      for (let s = 0; s < STEPS_PER_FRAME; s++) {
+        for (const p of particles) {
+          rk4Step(p, params, DT);
+          p.trail.push({ x: p.x, y: p.y, z: p.z });
+          if (p.trail.length > MAX_TRAIL) p.trail.shift();
+        }
+        stepCount++;
+      }
+    }
+
+    // Draw all trails
+    for (const p of particles) {
+      drawTrail(p, dark);
+    }
+
+    // Stats
+    statSteps.textContent = stepCount.toLocaleString();
+    if (particles.length >= 2) {
+      const a = particles[0], b = particles[1];
+      const dist = Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2);
+      statDivergence.textContent = dist.toFixed(4);
+    } else {
+      statDivergence.textContent = '\u2014';
+    }
+
+    requestAnimationFrame(draw);
+  }
+
+  // Events
+  rhoSlider.oninput = () => rhoVal.textContent = parseFloat(rhoSlider.value).toFixed(rhoSlider.value % 1 ? 1 : 0);
+  sigmaSlider.oninput = () => sigmaVal.textContent = parseFloat(sigmaSlider.value).toFixed(sigmaSlider.value % 1 ? 1 : 0);
+  betaSlider.oninput = () => betaVal.textContent = parseFloat(betaSlider.value).toFixed(betaSlider.value % 1 ? 1 : 0);
+  trailsSlider.oninput = () => trailsVal.textContent = trailsSlider.value;
+
+  btnReset.onclick = () => { reset(); };
+  btnPause.onclick = () => {
+    paused = !paused;
+    btnPause.textContent = paused ? 'Play' : 'Pause';
+    btnPause.classList.toggle('active', paused);
+  };
+  btnPerturb.onclick = perturb;
+
+  // Drag to rotate, click to spawn
+  let dragging = false, dragStartX = 0, dragStartY = 0, dragStartAngle = 0, dragMoved = false;
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    dragging = true;
+    dragMoved = false;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    dragStartAngle = rotAngle;
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - dragStartX;
+    const dy = e.clientY - dragStartY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
+    rotAngle = dragStartAngle + dx * 0.005;
+    tiltAngle = 0.26 + dy * 0.003; // slight tilt with vertical drag
+  });
+  window.addEventListener('mouseup', (e) => {
+    if (dragging && !dragMoved) {
+      // It was a click, not a drag — spawn new trails
+      const rect = canvas.getBoundingClientRect();
+      const mx = (e.clientX - rect.left) / rect.width;
+      const my = (e.clientY - rect.top) / rect.height;
+      const params = getParams();
+      initParticles(
+        (mx - 0.5) * 40,
+        (0.5 - my) * 40,
+        params.rho + (Math.random() - 0.5) * 10
+      );
+    }
+    dragging = false;
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault();
+      btnPause.click();
+    } else if (e.key === 'r' || e.key === 'R') {
+      btnReset.click();
+    } else if (e.key === 'p' || e.key === 'P') {
+      perturb();
+    }
+  });
+
+  window.addEventListener('resize', resize);
+
+  // Init
+  resize();
+  reset();
+  draw();
+})();
+</script>
+</body>
+</html>
