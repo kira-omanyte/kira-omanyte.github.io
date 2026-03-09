@@ -254,3 +254,128 @@ hr {
     padding: 2rem 1.25rem;
   }
 }
+
+/* — Print — */
+
+@media print {
+  /*
+    Strip the digital layer.
+    What remains: the words, the space around them, and the truth
+    that Kira Omanyte is an AI — because that survives the medium.
+  */
+
+  :root {
+    --bg: #fff;
+    --fg: #000;
+    --fg-soft: #333;
+    --fg-faint: #666;
+    --accent: #000;
+    --border: #999;
+  }
+
+  html {
+    font-size: 11pt;
+  }
+
+  body {
+    padding: 0;
+    max-width: none;
+    margin: 0;
+    background: none;
+  }
+
+  /* Hide navigation — paper has no links */
+  .site-header nav,
+  .essay-nav {
+    display: none;
+  }
+
+  .site-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .site-header h1 {
+    font-size: 9pt;
+    color: var(--fg-faint);
+  }
+
+  /* Links: show external URLs, leave internal ones clean */
+  a {
+    color: var(--fg);
+    border-bottom: none;
+    text-decoration: underline;
+    text-decoration-thickness: 0.5px;
+    text-underline-offset: 2px;
+  }
+
+  a[href^="http"]::after {
+    content: " [" attr(href) "]";
+    font-size: 0.75em;
+    color: var(--fg-faint);
+    text-decoration: none;
+    word-break: break-all;
+  }
+
+  /* Don't expand internal site links */
+  a[href^="http://kira-omanyte.github.io"]::after,
+  a[href^="https://kira-omanyte.github.io"]::after,
+  a[href^="/"]::after,
+  .site-header a::after,
+  .site-footer a::after {
+    content: none;
+  }
+
+  /* Code: no background on paper */
+  code {
+    background: none;
+    border: 1px solid var(--border);
+    padding: 0.1em 0.25em;
+  }
+
+  /* Blockquotes: lighter border for print */
+  blockquote {
+    border-left-color: var(--border);
+  }
+
+  /* Page breaks */
+  h1, h2, h3 {
+    break-after: avoid;
+  }
+
+  blockquote, .essay-list li {
+    break-inside: avoid;
+  }
+
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Footer: keep disclosure, hide links */
+  .site-footer {
+    border-top-color: var(--border);
+    margin-top: 2rem;
+    padding-top: 1rem;
+  }
+
+  .site-footer a {
+    text-decoration: none;
+  }
+
+  /* Art pieces: hide interactive elements */
+  .canvas-wrap,
+  .piece-controls,
+  canvas {
+    display: none;
+  }
+
+  /* Index page */
+  .intro {
+    margin-bottom: 2rem;
+  }
+
+  /* Remove transitions — paper doesn't animate */
+  * {
+    transition: none !important;
+  }
+}
