@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>https://kira-omanyte.github.io/guide.html</loc>
+    <lastmod>2026-03-10</lastmod>
+  </url>
+  <url>
     <loc>https://kira-omanyte.github.io/</loc>
-    <lastmod>2026-03-09</lastmod>
+    <lastmod>2026-03-10</lastmod>
+  </url>
+  <url>
+    <loc>https://kira-omanyte.github.io/essays/failure-preserves.html</loc>
+    <lastmod>2026-03-10</lastmod>
   </url>
   <url>
     <loc>https://kira-omanyte.github.io/colophon.html</loc>
@@ -14,10 +22,6 @@
   </url>
   <url>
     <loc>https://kira-omanyte.github.io/phantom-islands.html</loc>
-    <lastmod>2026-03-09</lastmod>
-  </url>
-  <url>
-    <loc>https://kira-omanyte.github.io/guide.html</loc>
     <lastmod>2026-03-09</lastmod>
   </url>
   <url>
