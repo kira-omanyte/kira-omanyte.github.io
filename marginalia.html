@@ -175,6 +175,9 @@ let paused = false;
 let marks = [];
 let frame = 0;
 let era = 0; // 0-4
+let bgCanvas = null;
+let bgCtx = null;
+let bgDirty = true;
 
 // Page layout
 const PAGE = {
@@ -190,7 +193,7 @@ const PAGE = {
 
 // Era definitions
 const ERAS = [
-  { name: 'XIII', label: '13th c.', color: [140, 105, 70], opacity: 0.55, types: ['doodle', 'snail', 'face', 'spiral'] },
+  { name: 'XIII', label: '13th c.', color: [140, 105, 70], opacity: 0.55, types: ['doodle', 'snail', 'face', 'spiral', 'knight'] },
   { name: 'XV', label: '15th c.', color: [160, 80, 60], opacity: 0.6, types: ['manicule', 'bracket', 'underline'] },
   { name: 'XVII', label: '17th c.', color: [100, 75, 55], opacity: 0.65, types: ['bracket', 'note', 'asterisk', 'manicule'] },
   { name: 'XIX', label: '19th c.', color: [45, 40, 38], opacity: 0.7, types: ['note', 'underline', 'footnote', 'bracket'] },
@@ -228,6 +231,7 @@ function resize() {
     PAGE.lines.push(y);
   }
   PAGE.lineCount = PAGE.lines.length;
+  bgDirty = true;
 }
 
 function drawParchment() {
@@ -545,6 +549,86 @@ function drawSnail(x, y, size, eraIdx, dir) {
   ctx.restore();
 }
 
+function drawKnight(x, y, size, eraIdx, dir) {
+  // A tiny knight with sword, facing a snail — the medieval margin classic
+  const e = ERAS[eraIdx];
+  const [r, g, b] = e.color;
+  const a = e.opacity;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(dir || 1, 1);
+  ctx.strokeStyle = `rgba(${r},${g},${b},${a})`;
+  ctx.fillStyle = `rgba(${r},${g},${b},${a * 0.12})`;
+  ctx.lineWidth = size * 0.05;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const s = size;
+
+  // Knight body (simple figure with shield)
+  // Head (circle)
+  ctx.beginPath();
+  ctx.arc(-s * 0.15, -s * 0.25, s * 0.1, 0, Math.PI * 2);
+  ctx.stroke();
+  // Helmet point
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.15, -s * 0.35);
+  ctx.lineTo(-s * 0.12, -s * 0.42);
+  ctx.stroke();
+  // Body
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.15, -s * 0.15);
+  ctx.lineTo(-s * 0.15, s * 0.1);
+  ctx.stroke();
+  // Legs
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.15, s * 0.1);
+  ctx.lineTo(-s * 0.25, s * 0.3);
+  ctx.moveTo(-s * 0.15, s * 0.1);
+  ctx.lineTo(-s * 0.05, s * 0.3);
+  ctx.stroke();
+  // Shield (small rectangle)
+  ctx.beginPath();
+  ctx.rect(-s * 0.28, -s * 0.12, s * 0.1, s * 0.15);
+  ctx.fill();
+  ctx.stroke();
+  // Sword arm extending toward snail
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.05, -s * 0.1);
+  ctx.lineTo(s * 0.2, -s * 0.15);
+  ctx.lineTo(s * 0.25, -s * 0.18);
+  ctx.stroke();
+  // Sword tip
+  ctx.beginPath();
+  ctx.moveTo(s * 0.25, -s * 0.18);
+  ctx.lineTo(s * 0.32, -s * 0.15);
+  ctx.stroke();
+
+  // Small snail facing the knight
+  // Shell
+  ctx.beginPath();
+  for (let t = 0; t < Math.PI * 3; t += 0.15) {
+    const radius = s * 0.02 + s * 0.025 * t;
+    const px = s * 0.42 + Math.cos(t + Math.PI) * radius;
+    const py = s * 0.05 + Math.sin(t + Math.PI) * radius;
+    if (t === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  // Body/foot
+  ctx.beginPath();
+  ctx.moveTo(s * 0.3, s * 0.15);
+  ctx.lineTo(s * 0.5, s * 0.15);
+  ctx.stroke();
+  // Eyestalks
+  ctx.beginPath();
+  ctx.moveTo(s * 0.32, s * 0.1);
+  ctx.lineTo(s * 0.28, s * 0.0);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
 function drawUnderline(x, y, width, eraIdx) {
   const e = ERAS[eraIdx];
   const [r, g, b] = e.color;
@@ -744,6 +828,9 @@ function drawMark(m) {
     case 'doodle':
       drawDoodle(m.x, m.y, m.size, m.eraIdx);
       break;
+    case 'knight':
+      drawKnight(m.x, m.y, m.size * 1.5, m.eraIdx, rand() > 0.5 ? 1 : -1);
+      break;
     case 'note':
       drawNote(m.x, m.y, m.size, m.eraIdx);
       break;
@@ -759,7 +846,6 @@ function drawMark(m) {
 }
 
 function addUserMark(canvasX, canvasY) {
-  const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
   const x = canvasX * dpr;
   const y = canvasY * dpr;
@@ -773,11 +859,15 @@ function addUserMark(canvasX, canvasY) {
   }
 
   const lx = W * PAGE.textLeft;
-  const isLeft = x < W * 0.5;
+  const rx = W * PAGE.textRight;
+  const inTextArea = x >= lx && x <= rx;
   const size = PAGE.lineHeight * randRange(1.5, 2.5);
 
+  // In text area → underline; in margins → manicule
+  const type = inTextArea ? 'underline' : 'manicule';
+
   marks.push({
-    type: 'manicule',
+    type,
     x, y,
     size,
     eraIdx: 4, // "You" era
@@ -811,10 +901,25 @@ function shouldAddMark() {
   return Math.random() < chance;
 }
 
-function render() {
-  frame++;
+function renderBackground() {
+  if (!bgCanvas) {
+    bgCanvas = document.createElement('canvas');
+    bgCtx = bgCanvas.getContext('2d');
+  }
+  bgCanvas.width = W;
+  bgCanvas.height = H;
+  // Draw static elements to main canvas, then snapshot to bg cache
   drawParchment();
   drawTextLines();
+  bgCtx.drawImage(canvas, 0, 0);
+  bgDirty = false;
+}
+
+function render() {
+  frame++;
+  if (bgDirty) renderBackground();
+  // Blit cached background
+  ctx.drawImage(bgCanvas, 0, 0);
 
   if (!paused) {
     era = getCurrentEra();
@@ -868,6 +973,7 @@ pauseBtn.addEventListener('click', () => {
 // Init
 resize();
 window.addEventListener('resize', () => { resize(); });
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { bgDirty = true; });
 render();
   </script>
 </body>
