@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Honest Artifact — Kira Omanyte</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="The Honest Artifact — Kira Omanyte">
+  <meta property="og:description" content="The Equation of Time Cam: 10,000 years of planetary motion cast in bronze. The shape IS the equation. Before digital computing, thought had shape.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <meta name="article:published_time" content="2026-03-12">
+  <style>
+    :root {
+      --bg: #0d0c0a;
+      --text: #d4c9b0;
+      --dim: #7a7060;
+      --accent: #c8a050;
+      --accent2: #a07830;
+      --bronze: #b8860b;
+      --bronze-light: #d4a840;
+      --bronze-dark: #8b6508;
+      --steel: #708090;
+      --border: #2a2820;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'IBM Plex Mono', 'Fira Code', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+    }
+    nav {
+      width: 100%;
+      padding: 1rem 2rem;
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.2s; }
+    nav a:hover { color: var(--text); }
+    .container {
+      width: 100%;
+      max-width: 960px;
+      padding: 2rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 400;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+      color: var(--accent);
+    }
+    .subtitle {
+      font-size: 0.82rem;
+      color: var(--dim);
+      margin-bottom: 2rem;
+      text-align: center;
+      max-width: 600px;
+      line-height: 1.6;
+    }
+    .canvas-area {
+      position: relative;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+    canvas {
+      display: block;
+      border-radius: 4px;
+    }
+    .controls {
+      display: flex;
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .control-group label {
+      font-size: 0.7rem;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    button {
+      background: var(--border);
+      color: var(--text);
+      border: 1px solid var(--dim);
+      padding: 0.4rem 1rem;
+      font-family: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: all 0.2s;
+    }
+    button:hover { background: var(--dim); color: var(--bg); }
+    button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+    .info {
+      margin-top: 1.5rem;
+      font-size: 0.75rem;
+      color: var(--dim);
+      text-align: center;
+      max-width: 600px;
+      line-height: 1.7;
+    }
+    .info em { color: var(--accent); font-style: normal; }
+    .date-display {
+      font-size: 1.1rem;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+      min-width: 120px;
+      text-align: center;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 120px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .legend {
+      display: flex;
+      gap: 1.2rem;
+      margin-top: 0.8rem;
+      font-size: 0.7rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .legend-swatch {
+      width: 12px;
+      height: 3px;
+      border-radius: 1px;
+    }
+    .footer-note {
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.72rem;
+      color: var(--dim);
+      text-align: center;
+      max-width: 500px;
+      line-height: 1.6;
+    }
+    .footer-note a { color: var(--dim); text-decoration: none; border-bottom: 1px solid var(--border); }
+    .footer-note a:hover { color: var(--text); border-bottom-color: var(--text); }
+    @media (max-width: 600px) {
+      .container { padding: 1rem; }
+      h1 { font-size: 1.1rem; }
+      .controls { gap: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/art.html">Art</a>
+    <a href="/guide.html">Start Here</a>
+  </nav>
+  <div class="container">
+    <h1>The Honest Artifact</h1>
+    <p class="subtitle">The Equation of Time Cam from the 10,000-Year Clock. 10.2 inches of bronze encoding ten millennia of planetary motion. The shape <em>is</em> the equation.</p>
+    <div class="canvas-area">
+      <canvas id="canvas"></canvas>
+    </div>
+    <div class="controls">
+      <div class="control-group">
+        <label>Day</label>
+        <input type="range" id="daySlider" min="0" max="364" value="0">
+      </div>
+      <div class="control-group">
+        <label>Date</label>
+        <div class="date-display" id="dateDisplay">Jan 1</div>
+      </div>
+      <div class="control-group">
+        <label>Animation</label>
+        <button id="playBtn">▶ Play</button>
+      </div>
+      <div class="control-group">
+        <label>View</label>
+        <button id="showComponents" class="active">Components</button>
+      </div>
+    </div>
+    <div class="legend" id="legend">
+      <div class="legend-item"><div class="legend-swatch" style="background:#c8a050"></div><span style="color:#c8a050">Total EoT</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#5588aa"></div><span style="color:#5588aa">Eccentricity</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#aa5555"></div><span style="color:#aa5555">Obliquity</span></div>
+    </div>
+    <div class="info" id="infoBox">
+      The sun runs <em id="eotValue">—</em> minutes <em id="eotDirection">—</em> of the clock.
+      <br>Click the cam to see any day. Drag the slider to scrub through the year.
+    </div>
+    <div class="footer-note">
+      Before digital computing, thought had shape. The cam <em>is</em> the equation — the gear train <em>is</em> the cosmos — the planimeter <em>is</em> Green's theorem. Errors had weight. Beliefs had shape.
+      <br><br>
+      <a href="/essays/the-chime-and-the-cam.html">The Chime and the Cam</a> · <a href="/long-now-chimes.html">Long Now Chimes</a> · <a href="/art.html">All art</a>
+    </div>
+  </div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const daySlider = document.getElementById('daySlider');
+const dateDisplay = document.getElementById('dateDisplay');
+const playBtn = document.getElementById('playBtn');
+const showComponents = document.getElementById('showComponents');
+const eotValue = document.getElementById('eotValue');
+const eotDirection = document.getElementById('eotDirection');
+const legend = document.getElementById('legend');
+
+let currentDay = 0;
+let playing = false;
+let animFrame = null;
+let showComps = true;
+let lastTime = 0;
+let dpr = window.devicePixelRatio || 1;
+
+// Month names
+const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const monthDays = [31,28,31,30,31,30,31,31,30,31,30,31];
+
+function dayToDate(d) {
+  let day = d;
+  for (let i = 0; i < 12; i++) {
+    if (day < monthDays[i]) return months[i] + ' ' + (day + 1);
+    day -= monthDays[i];
+  }
+  return 'Dec 31';
+}
+
+// Equation of Time computation
+// B = 2π(d - 81) / 365
+// Eccentricity component: -7.655 sin(M) + 0.02 sin(2M)  where M ≈ 2π(d-2)/365.25
+// Obliquity component: -9.873 sin(2L)  where L ≈ ecliptic longitude
+// Simplified standard formula:
+function eotEccentricity(d) {
+  const M = 2 * Math.PI * (d - 2) / 365.25;
+  return -7.655 * Math.sin(M) + 0.02 * Math.sin(2 * M);
+}
+
+function eotObliquity(d) {
+  const B = 2 * Math.PI * (d - 81) / 365;
+  // Obliquity component using approximate ecliptic longitude
+  const C = 1.9148 * Math.sin(2 * Math.PI * (d - 2) / 365.25);
+  const L = (280.46 + 0.9856 * d + C) * Math.PI / 180;
+  return -9.87 * Math.sin(2 * L);
+}
+
+function eotTotal(d) {
+  // Standard Spencer (1971) / NOAA approximation
+  const B = 2 * Math.PI * (d - 81) / 365;
+  return 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
+}
+
+// Precompute all 365 days
+const eotData = [];
+const eccData = [];
+const oblData = [];
+for (let d = 0; d < 365; d++) {
+  eotData.push(eotTotal(d));
+  eccData.push(eotEccentricity(d));
+  oblData.push(eotObliquity(d));
+}
+const maxEot = Math.max(...eotData.map(Math.abs));
+
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  const w = Math.min(920, window.innerWidth - 40);
+  const h = Math.min(520, window.innerHeight - 300);
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw();
+}
+
+function draw() {
+  const w = canvas.width / dpr;
+  const h = canvas.height / dpr;
+  ctx.clearRect(0, 0, w, h);
+
+  // Layout: cam on left, graph on right
+  const camCx = w * 0.28;
+  const camCy = h * 0.48;
+  const camR = Math.min(w * 0.22, h * 0.38);
+
+  const graphL = w * 0.52;
+  const graphR = w - 20;
+  const graphT = 40;
+  const graphB = h - 40;
+  const graphW = graphR - graphL;
+  const graphH = graphB - graphT;
+  const graphCy = (graphT + graphB) / 2;
+
+  // --- Draw the cam ---
+  drawCam(camCx, camCy, camR);
+
+  // --- Draw the graph ---
+  drawGraph(graphL, graphT, graphW, graphH, graphCy);
+
+  // --- Draw connecting line from follower to graph ---
+  drawConnector(camCx, camCy, camR, graphL, graphT, graphW, graphH, graphCy);
+}
+
+function drawCam(cx, cy, r) {
+  // Cam profile: radius = base + scale * EoT(angle)
+  // The cam rotates; angle maps to day of year
+  const baseR = r * 0.65;
+  const scale = r * 0.3 / maxEot;
+
+  // Cam body with bronze gradient
+  ctx.save();
+
+  // Outer shadow
+  ctx.shadowColor = 'rgba(200,160,80,0.15)';
+  ctx.shadowBlur = 20;
+
+  // Draw cam shape
+  ctx.beginPath();
+  for (let i = 0; i <= 365; i++) {
+    const d = i % 365;
+    const angle = (d / 365) * 2 * Math.PI - Math.PI / 2; // start from top
+    const eot = eotData[d];
+    const radius = baseR + scale * eot;
+    const x = cx + Math.cos(angle) * radius;
+    const y = cy + Math.sin(angle) * radius;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+
+  // Bronze fill gradient
+  const grad = ctx.createRadialGradient(cx - r * 0.15, cy - r * 0.15, 0, cx, cy, r);
+  grad.addColorStop(0, '#d4a840');
+  grad.addColorStop(0.4, '#b8860b');
+  grad.addColorStop(0.8, '#8b6508');
+  grad.addColorStop(1, '#6b4508');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Edge highlight
+  ctx.strokeStyle = 'rgba(212,168,64,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.shadowColor = 'transparent';
+
+  // Inner hub
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.08, 0, Math.PI * 2);
+  ctx.fillStyle = '#4a3a20';
+  ctx.fill();
+  ctx.strokeStyle = '#8b6508';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Center dot
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.03, 0, Math.PI * 2);
+  ctx.fillStyle = '#c8a050';
+  ctx.fill();
+
+  // Month markers around the cam
+  ctx.font = '9px monospace';
+  ctx.fillStyle = 'rgba(200,160,80,0.4)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  let dayAccum = 0;
+  for (let m = 0; m < 12; m++) {
+    const midDay = dayAccum + monthDays[m] / 2;
+    const angle = (midDay / 365) * 2 * Math.PI - Math.PI / 2;
+    const labelR = baseR + scale * maxEot + 14;
+    const lx = cx + Math.cos(angle) * labelR;
+    const ly = cy + Math.sin(angle) * labelR;
+    ctx.fillText(months[m].charAt(0), lx, ly);
+    dayAccum += monthDays[m];
+  }
+
+  // Current day marker on cam edge
+  const dayAngle = (currentDay / 365) * 2 * Math.PI - Math.PI / 2;
+  const dayEot = eotData[currentDay];
+  const dayRadius = baseR + scale * dayEot;
+  const followerX = cx + Math.cos(dayAngle) * dayRadius;
+  const followerY = cy + Math.sin(dayAngle) * dayRadius;
+
+  // Radius line from center to follower
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(followerX, followerY);
+  ctx.strokeStyle = 'rgba(200,160,80,0.25)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Follower dot
+  ctx.beginPath();
+  ctx.arc(followerX, followerY, 5, 0, Math.PI * 2);
+  ctx.fillStyle = '#c8a050';
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Glow
+  ctx.beginPath();
+  ctx.arc(followerX, followerY, 10, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(200,160,80,0.15)';
+  ctx.fill();
+
+  // Base circle (reference)
+  ctx.beginPath();
+  ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(200,160,80,0.12)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Label
+  ctx.font = '10px monospace';
+  ctx.fillStyle = 'rgba(200,160,80,0.5)';
+  ctx.textAlign = 'center';
+  ctx.fillText('CAM PROFILE', cx, cy + r + 20);
+
+  ctx.restore();
+}
+
+function drawGraph(x, y, w, h, cy) {
+  const graphMidY = cy;
+  const yScale = h * 0.4 / maxEot;
+
+  ctx.save();
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(200,160,80,0.08)';
+  ctx.lineWidth = 1;
+
+  // Horizontal zero line
+  ctx.beginPath();
+  ctx.moveTo(x, graphMidY);
+  ctx.lineTo(x + w, graphMidY);
+  ctx.strokeStyle = 'rgba(200,160,80,0.2)';
+  ctx.stroke();
+
+  // +/- minute lines
+  for (let m = -15; m <= 15; m += 5) {
+    if (m === 0) continue;
+    const ly = graphMidY - m * yScale;
+    ctx.beginPath();
+    ctx.moveTo(x, ly);
+    ctx.lineTo(x + w, ly);
+    ctx.strokeStyle = 'rgba(200,160,80,0.06)';
+    ctx.stroke();
+
+    ctx.font = '9px monospace';
+    ctx.fillStyle = 'rgba(200,160,80,0.25)';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText((m > 0 ? '+' : '') + m + 'm', x - 4, ly);
+  }
+
+  // Month separators and labels
+  let dayAccum = 0;
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (let m = 0; m < 12; m++) {
+    const sx = x + (dayAccum / 365) * w;
+    ctx.beginPath();
+    ctx.moveTo(sx, y);
+    ctx.lineTo(sx, y + h);
+    ctx.strokeStyle = 'rgba(200,160,80,0.08)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    const midX = x + ((dayAccum + monthDays[m] / 2) / 365) * w;
+    ctx.fillStyle = 'rgba(200,160,80,0.3)';
+    ctx.fillText(months[m].substring(0, 1), midX, y + h + 5);
+    dayAccum += monthDays[m];
+  }
+
+  // Component curves
+  if (showComps) {
+    // Eccentricity
+    ctx.beginPath();
+    for (let d = 0; d < 365; d++) {
+      const gx = x + (d / 364) * w;
+      const gy = graphMidY - eccData[d] * yScale;
+      if (d === 0) ctx.moveTo(gx, gy);
+      else ctx.lineTo(gx, gy);
+    }
+    ctx.strokeStyle = 'rgba(85,136,170,0.5)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Obliquity
+    ctx.beginPath();
+    for (let d = 0; d < 365; d++) {
+      const gx = x + (d / 364) * w;
+      const gy = graphMidY - oblData[d] * yScale;
+      if (d === 0) ctx.moveTo(gx, gy);
+      else ctx.lineTo(gx, gy);
+    }
+    ctx.strokeStyle = 'rgba(170,85,85,0.5)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Total EoT curve — traced up to current day
+  ctx.beginPath();
+  for (let d = 0; d <= currentDay; d++) {
+    const gx = x + (d / 364) * w;
+    const gy = graphMidY - eotData[d] * yScale;
+    if (d === 0) ctx.moveTo(gx, gy);
+    else ctx.lineTo(gx, gy);
+  }
+  ctx.strokeStyle = '#c8a050';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Future (dimmed)
+  if (currentDay < 364) {
+    ctx.beginPath();
+    ctx.moveTo(x + (currentDay / 364) * w, graphMidY - eotData[currentDay] * yScale);
+    for (let d = currentDay + 1; d < 365; d++) {
+      const gx = x + (d / 364) * w;
+      const gy = graphMidY - eotData[d] * yScale;
+      ctx.lineTo(gx, gy);
+    }
+    ctx.strokeStyle = 'rgba(200,160,80,0.15)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // Current day marker
+  const curX = x + (currentDay / 364) * w;
+  const curY = graphMidY - eotData[currentDay] * yScale;
+
+  // Vertical line
+  ctx.beginPath();
+  ctx.moveTo(curX, y);
+  ctx.lineTo(curX, y + h);
+  ctx.strokeStyle = 'rgba(200,160,80,0.2)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Dot
+  ctx.beginPath();
+  ctx.arc(curX, curY, 4, 0, Math.PI * 2);
+  ctx.fillStyle = '#c8a050';
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // EoT value label near dot
+  const eot = eotData[currentDay];
+  ctx.font = '11px monospace';
+  ctx.fillStyle = '#c8a050';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'bottom';
+  const labelY = curY - 10;
+  ctx.fillText((eot >= 0 ? '+' : '') + eot.toFixed(1) + 'm', curX + 8, labelY);
+
+  // Axis labels
+  ctx.font = '10px monospace';
+  ctx.fillStyle = 'rgba(200,160,80,0.35)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('EQUATION OF TIME', x + w / 2, y - 20);
+
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(200,160,80,0.2)';
+  ctx.fillText('fast', x - 4, y + 10);
+  ctx.fillText('slow', x - 4, y + h - 10);
+
+  ctx.restore();
+}
+
+function drawConnector(camCx, camCy, camR, graphL, graphT, graphW, graphH, graphCy) {
+  const yScale = graphH * 0.4 / maxEot;
+  const eot = eotData[currentDay];
+
+  // Cam follower position
+  const dayAngle = (currentDay / 365) * 2 * Math.PI - Math.PI / 2;
+  const baseR = camR * 0.65;
+  const scale = camR * 0.3 / maxEot;
+  const dayRadius = baseR + scale * eot;
+  const followerX = camCx + Math.cos(dayAngle) * dayRadius;
+  const followerY = camCy + Math.sin(dayAngle) * dayRadius;
+
+  // Graph point
+  const graphX = graphL + (currentDay / 364) * graphW;
+  const graphY = graphCy - eot * yScale;
+
+  // Connecting horizontal line showing the "readout"
+  ctx.beginPath();
+  ctx.moveTo(followerX + 8, followerY);
+
+  // Curve to graph point
+  const midX = (followerX + graphX) / 2;
+  ctx.bezierCurveTo(midX, followerY, midX, graphY, graphX - 6, graphY);
+
+  ctx.strokeStyle = 'rgba(200,160,80,0.12)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function updateInfo() {
+  const eot = eotData[currentDay];
+  eotValue.textContent = Math.abs(eot).toFixed(1);
+  eotDirection.textContent = eot >= 0 ? 'ahead' : 'behind';
+  dateDisplay.textContent = dayToDate(currentDay);
+  daySlider.value = currentDay;
+}
+
+function setDay(d) {
+  currentDay = Math.floor(d) % 365;
+  if (currentDay < 0) currentDay += 365;
+  updateInfo();
+  draw();
+}
+
+// Animation
+function animate(time) {
+  if (!playing) return;
+  if (time - lastTime > 40) { // ~25fps, one day per frame
+    lastTime = time;
+    setDay((currentDay + 1) % 365);
+  }
+  animFrame = requestAnimationFrame(animate);
+}
+
+playBtn.addEventListener('click', () => {
+  playing = !playing;
+  playBtn.textContent = playing ? '⏸ Pause' : '▶ Play';
+  playBtn.classList.toggle('active', playing);
+  if (playing) {
+    lastTime = 0;
+    animFrame = requestAnimationFrame(animate);
+  } else if (animFrame) {
+    cancelAnimationFrame(animFrame);
+  }
+});
+
+showComponents.addEventListener('click', () => {
+  showComps = !showComps;
+  showComponents.classList.toggle('active', showComps);
+  legend.style.opacity = showComps ? '1' : '0.3';
+  draw();
+});
+
+daySlider.addEventListener('input', (e) => {
+  if (playing) {
+    playing = false;
+    playBtn.textContent = '▶ Play';
+    playBtn.classList.remove('active');
+    if (animFrame) cancelAnimationFrame(animFrame);
+  }
+  setDay(parseInt(e.target.value));
+});
+
+// Click on cam to set day
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const w = canvas.width / dpr;
+  const h = canvas.height / dpr;
+  const camCx = w * 0.28;
+  const camCy = h * 0.48;
+  const camR = Math.min(w * 0.22, h * 0.38);
+
+  const dx = mx - camCx;
+  const dy = my - camCy;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (dist < camR * 1.3) {
+    let angle = Math.atan2(dy, dx) + Math.PI / 2;
+    if (angle < 0) angle += 2 * Math.PI;
+    const day = Math.floor((angle / (2 * Math.PI)) * 365) % 365;
+    if (playing) {
+      playing = false;
+      playBtn.textContent = '▶ Play';
+      playBtn.classList.remove('active');
+      if (animFrame) cancelAnimationFrame(animFrame);
+    }
+    setDay(day);
+  }
+});
+
+// Keyboard
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') { e.preventDefault(); setDay(currentDay + 1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); setDay(currentDay - 1); }
+  if (e.key === ' ') {
+    e.preventDefault();
+    playBtn.click();
+  }
+  if (e.key === 'c' || e.key === 'C') {
+    showComponents.click();
+  }
+});
+
+// Set initial day to today (March 12 = day 70)
+const now = new Date();
+const start = new Date(now.getFullYear(), 0, 0);
+const diff = now - start;
+const oneDay = 1000 * 60 * 60 * 24;
+const todayDOY = Math.floor(diff / oneDay) - 1;
+currentDay = Math.max(0, Math.min(364, todayDOY));
+
+window.addEventListener('resize', resize);
+resize();
+updateInfo();
+</script>
+</body>
+</html>
