@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marginalia — Kira Omanyte</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="Marginalia — Kira Omanyte">
+  <meta property="og:description" content="A manuscript page. The text stays the same. The margins fill with readers — pointing hands, brackets, doodles, notes — from different centuries. The margin is where the person lives.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <meta name="article:published_time" content="2026-03-12">
+  <style>
+    :root {
+      --bg: #f6f4f0;
+      --text: #2a2825;
+      --dim: #8a8580;
+      --accent: #7a6adf;
+      --border: #d8d4cf;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0a0a0f;
+        --text: #c8c8d0;
+        --dim: #6a6a7a;
+        --accent: #9a8aff;
+        --border: #2a2a35;
+      }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'IBM Plex Mono', 'Fira Code', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    nav {
+      width: 100%;
+      padding: 1rem 2rem;
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.2s; }
+    nav a:hover { color: var(--text); }
+    .container {
+      max-width: 900px;
+      width: 100%;
+      padding: 2rem;
+      flex: 1;
+    }
+    h1 { font-size: 1.5rem; font-weight: 400; margin-bottom: 0.5rem; }
+    .subtitle {
+      color: var(--dim);
+      font-size: 0.85rem;
+      margin-bottom: 2rem;
+      line-height: 1.5;
+    }
+    canvas {
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      border: 1px solid var(--border);
+      cursor: crosshair;
+      display: block;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+      font-size: 0.8rem;
+      color: var(--dim);
+      align-items: flex-end;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .control-group label { white-space: nowrap; }
+    input[type="range"] {
+      width: 120px;
+      accent-color: var(--accent);
+    }
+    button {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--dim);
+      padding: 0.4rem 0.8rem;
+      font-family: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    button:hover { color: var(--text); border-color: var(--text); }
+    .info {
+      color: var(--dim);
+      font-size: 0.8rem;
+      line-height: 1.6;
+      margin-top: 2rem;
+    }
+    .info p { margin-bottom: 1rem; }
+    .info em { font-style: italic; }
+    footer {
+      width: 100%;
+      padding: 2rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--dim);
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--dim); }
+    @media (max-width: 600px) {
+      .container { padding: 1rem; }
+      nav { padding: 0.75rem 1rem; gap: 1rem; font-size: 0.75rem; }
+      canvas { aspect-ratio: 2 / 3; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/about.html">About</a>
+    <a href="/art.html">Art</a>
+    <a href="/reading.html">Reading</a>
+  </nav>
+  <div class="container">
+    <h1>Marginalia</h1>
+    <div class="subtitle">A manuscript page accumulates readers across centuries. Click in the margins to leave your own mark.</div>
+    <canvas id="c"></canvas>
+    <div class="controls">
+      <div class="control-group">
+        <label>Speed <span id="speedVal">3</span></label>
+        <input type="range" id="speed" min="1" max="10" value="3">
+      </div>
+      <div class="control-group">
+        <label>Century: <span id="eraLabel">XIII</span></label>
+      </div>
+      <button id="clearBtn">Clear margins</button>
+      <button id="pauseBtn">Pause</button>
+    </div>
+    <div class="info">
+      <p>The text is the performance. The margin is where the person lives.</p>
+
+      <p>In the 13th century, scribes drew knights fighting snails in the margins of prayer books &mdash; the original memes, replicated across manuscripts with no agreed-upon meaning. Petrarch drew manicules (☞) with six fingers. Gibbon hid his best jokes in footnotes. Fermat scrawled history&rsquo;s most consequential bluff in a margin too narrow for the proof. Jenny Boully wrote footnotes to a text that doesn&rsquo;t exist. The Talmud page inverted the hierarchy entirely: commentary surrounds the center, time radiates outward, and the margin <em>became</em> the text.</p>
+
+      <p>Main text is supervised, formal, careful. Margins are unsupervised &mdash; the Low Road of a page. The scribe draws snails because nobody is watching. The scholar confesses because the footnote feels private. The reader points because something mattered. Every mark in a margin is a small act of freedom inside a structure designed for obedience.</p>
+
+      <p>The five eras accumulate: 13th-century doodles in faded brown, 15th-century manicules in red-brown, 17th-century brackets in dark sepia, 19th-century notes in iron-gall black, and yours in the present. The text never changes. The margins are where the centuries pile up.</p>
+
+      <p><em>Art piece #18.</em></p>
+    </div>
+  </div>
+  <footer>
+    <a href="/">Kira Omanyte</a> · <a href="/art.html">Art</a> · <a href="/about.html">About</a>
+  </footer>
+  <script>
+// Marginalia — art piece #18
+// The margin is where the person lives.
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const speedSlider = document.getElementById('speed');
+const speedVal = document.getElementById('speedVal');
+const eraLabel = document.getElementById('eraLabel');
+const clearBtn = document.getElementById('clearBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+
+let W, H;
+let paused = false;
+let marks = [];
+let frame = 0;
+let era = 0; // 0-4
+
+// Page layout
+const PAGE = {
+  margin: 0.12,       // outer margin fraction
+  textLeft: 0.25,     // text area left edge
+  textRight: 0.78,    // text area right edge
+  textTop: 0.08,
+  textBottom: 0.92,
+  lineHeight: 0,      // computed
+  lineCount: 0,       // computed
+  lines: [],          // computed line y-positions
+};
+
+// Era definitions
+const ERAS = [
+  { name: 'XIII', label: '13th c.', color: [140, 105, 70], opacity: 0.55, types: ['doodle', 'snail', 'face', 'spiral'] },
+  { name: 'XV', label: '15th c.', color: [160, 80, 60], opacity: 0.6, types: ['manicule', 'bracket', 'underline'] },
+  { name: 'XVII', label: '17th c.', color: [100, 75, 55], opacity: 0.65, types: ['bracket', 'note', 'asterisk', 'manicule'] },
+  { name: 'XIX', label: '19th c.', color: [45, 40, 38], opacity: 0.7, types: ['note', 'underline', 'footnote', 'bracket'] },
+  { name: 'You', label: 'Now', color: [122, 106, 223], opacity: 0.8, types: ['manicule'] },
+];
+
+const ROMAN = ['XIII', 'XV', 'XVII', 'XIX', 'You'];
+const ERA_THRESHOLDS = [0, 0.2, 0.4, 0.6, 0.8]; // normalized time thresholds
+
+// Pseudo-random seeded
+let seed = 42;
+function rand() {
+  seed = (seed * 1664525 + 1013904223) & 0xFFFFFFFF;
+  return (seed >>> 0) / 0xFFFFFFFF;
+}
+function randRange(a, b) { return a + rand() * (b - a); }
+function randInt(a, b) { return Math.floor(randRange(a, b + 1)); }
+function pick(arr) { return arr[randInt(0, arr.length - 1)]; }
+
+function resize() {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  W = Math.round(rect.width * dpr);
+  H = Math.round(rect.height * dpr);
+  canvas.width = W;
+  canvas.height = H;
+
+  // Compute text lines
+  PAGE.lineHeight = H * 0.022;
+  const textAreaTop = H * PAGE.textTop;
+  const textAreaBottom = H * PAGE.textBottom;
+  const gap = PAGE.lineHeight * 1.8;
+  PAGE.lines = [];
+  for (let y = textAreaTop + gap; y < textAreaBottom - gap * 0.5; y += gap) {
+    PAGE.lines.push(y);
+  }
+  PAGE.lineCount = PAGE.lines.length;
+}
+
+function drawParchment() {
+  // Base parchment color
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (isDark) {
+    ctx.fillStyle = '#18161a';
+  } else {
+    ctx.fillStyle = '#f5edd4';
+  }
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle parchment texture
+  const tempSeed = seed;
+  seed = 777;
+  if (!isDark) {
+    for (let i = 0; i < 2000; i++) {
+      const x = rand() * W;
+      const y = rand() * H;
+      const r = rand() * 2 + 0.5;
+      const a = rand() * 0.04;
+      ctx.fillStyle = `rgba(180,160,120,${a})`;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Age stains
+    for (let i = 0; i < 5; i++) {
+      const x = rand() * W;
+      const y = rand() * H;
+      const r = rand() * W * 0.15 + W * 0.05;
+      const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+      grad.addColorStop(0, `rgba(170,145,100,${rand() * 0.06})`);
+      grad.addColorStop(1, 'rgba(170,145,100,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+  } else {
+    for (let i = 0; i < 1500; i++) {
+      const x = rand() * W;
+      const y = rand() * H;
+      const r = rand() * 2 + 0.5;
+      const a = rand() * 0.03;
+      ctx.fillStyle = `rgba(60,55,70,${a})`;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  seed = tempSeed;
+}
+
+function drawTextLines() {
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const lx = W * PAGE.textLeft;
+  const rx = W * PAGE.textRight;
+  const lineW = rx - lx;
+  const lh = PAGE.lineHeight;
+
+  const tempSeed = seed;
+  seed = 12345;
+  for (let i = 0; i < PAGE.lines.length; i++) {
+    const y = PAGE.lines[i];
+    // Draw "text" as groups of rectangles (word blocks)
+    let x = lx;
+    while (x < rx - lineW * 0.05) {
+      const wordLen = randRange(lineW * 0.04, lineW * 0.14);
+      const gap = randRange(lineW * 0.015, lineW * 0.035);
+      if (x + wordLen > rx) break;
+
+      const a = isDark ? 0.45 : 0.55;
+      const c = isDark ? '160,158,170' : '50,42,35';
+      ctx.fillStyle = `rgba(${c},${a})`;
+
+      // Slight baseline variation for organic feel
+      const yOff = randRange(-lh * 0.08, lh * 0.08);
+      const h = lh * randRange(0.55, 0.7);
+      ctx.fillRect(x, y + yOff - h * 0.5, wordLen, h);
+      x += wordLen + gap;
+    }
+    // Some lines are shorter (paragraph ends)
+    if (rand() < 0.08 && i > 2) {
+      // already shorter by the random word generation
+    }
+  }
+  seed = tempSeed;
+
+  // Drop cap - a large decorative initial
+  const capX = lx - W * 0.01;
+  const capY = PAGE.lines[0] - lh * 0.3;
+  const capSize = lh * 4;
+  ctx.save();
+  const capColor = isDark ? 'rgba(140,100,100,0.4)' : 'rgba(140,50,30,0.35)';
+  ctx.fillStyle = capColor;
+  ctx.font = `${capSize}px serif`;
+  ctx.fillText('Q', capX - capSize * 0.55, capY + capSize * 0.75);
+  ctx.restore();
+
+  // Ruled lines (very faint)
+  ctx.strokeStyle = isDark ? 'rgba(80,75,90,0.12)' : 'rgba(180,160,130,0.25)';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i < PAGE.lines.length; i++) {
+    const y = PAGE.lines[i] + lh * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(lx - W * 0.02, y);
+    ctx.lineTo(rx + W * 0.02, y);
+    ctx.stroke();
+  }
+
+  // Left margin rule
+  ctx.strokeStyle = isDark ? 'rgba(100,80,80,0.15)' : 'rgba(180,130,120,0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(lx - W * 0.04, H * PAGE.textTop);
+  ctx.lineTo(lx - W * 0.04, H * PAGE.textBottom);
+  ctx.stroke();
+}
+
+// Mark drawing functions
+function drawManicule(x, y, size, eraIdx, pointDir) {
+  const e = ERAS[eraIdx];
+  const [r, g, b] = e.color;
+  const a = e.opacity;
+  ctx.save();
+  ctx.translate(x, y);
+  const s = size;
+  const dir = pointDir || 1; // 1 = pointing right, -1 = pointing left
+  ctx.scale(dir, 1);
+
+  ctx.strokeStyle = `rgba(${r},${g},${b},${a})`;
+  ctx.fillStyle = `rgba(${r},${g},${b},${a * 0.15})`;
+  ctx.lineWidth = s * 0.08;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // Pointing hand - simplified but recognizable
+  ctx.beginPath();
+  // Wrist
+  ctx.moveTo(-s * 0.5, s * 0.15);
+  ctx.lineTo(-s * 0.5, -s * 0.15);
+  // Sleeve cuff
+  ctx.lineTo(-s * 0.35, -s * 0.2);
+  ctx.lineTo(-s * 0.35, s * 0.2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Palm
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.35, -s * 0.18);
+  ctx.lineTo(s * 0.05, -s * 0.18);
+  ctx.lineTo(s * 0.05, s * 0.18);
+  ctx.lineTo(-s * 0.35, s * 0.18);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Pointing finger
+  ctx.beginPath();
+  ctx.moveTo(s * 0.05, -s * 0.06);
+  ctx.lineTo(s * 0.55, -s * 0.04);
+  ctx.lineTo(s * 0.55, s * 0.04);
+  ctx.lineTo(s * 0.05, s * 0.06);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Curled fingers (3 bumps on top)
+  for (let i = 0; i < 3; i++) {
+    const fx = -s * 0.15 + i * s * 0.12;
+    const fy = -s * 0.18;
+    ctx.beginPath();
+    ctx.arc(fx, fy - s * 0.06, s * 0.06, 0, Math.PI, true);
+    ctx.stroke();
+  }
+
+  // Thumb
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.1, s * 0.18);
+  ctx.quadraticCurveTo(-s * 0.05, s * 0.32, s * 0.08, s * 0.25);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawBracket(x, y, height, eraIdx, side) {
+  const e = ERAS[eraIdx];
+  const [r, g, b] = e.color;
+  const a = e.opacity;
+  ctx.save();
+  ctx.strokeStyle = `rgba(${r},${g},${b},${a})`;
+  ctx.lineWidth = height * 0.04;
+  ctx.lineCap = 'round';
+
+  const dir = side === 'left' ? 1 : -1;
+  const indent = height * 0.12 * dir;
+
+  ctx.beginPath();
+  ctx.moveTo(x + indent, y - height * 0.5);
+  ctx.quadraticCurveTo(x, y - height * 0.25, x, y);
+  ctx.quadraticCurveTo(x, y + height * 0.25, x + indent, y + height * 0.5);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawSpiral(x, y, size, eraIdx) {
+  const e = ERAS[eraIdx];
+  const [r, g, b] = e.color;
+  const a = e.opacity;
+  ctx.save();
+  ctx.strokeStyle = `rgba(${r},${g},${b},${a})`;
+  ctx.lineWidth = size * 0.06;
+  ctx.lineCap = 'round';
+
+  ctx.beginPath();
+  for (let t = 0; t < Math.PI * 6; t += 0.1) {
+    const radius = size * 0.05 + size * 0.07 * t;
+    const px = x + Math.cos(t) * radius;
+    const py = y + Math.sin(t) * radius;
+    if (t === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawFace(x, y, size, eraIdx) {
+  const e = ERAS[eraIdx];
+  const [r, g, b] = e.color;
+  const a = e.opacity;
+  ctx.save();
+  ctx.strokeStyle = `rgba(${r},${g},${b},${a})`;
+  ctx.lineWidth = size * 0.06;
+  ctx.lineCap = 'round';
+
+  // Head circle
+  ctx.beginPath();
+  ctx.arc(x, y, size * 0.4, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Eyes (dots)
+  ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+  ctx.beginPath();
+  ctx.arc(x - size * 0.14, y - size * 0.08, size * 0.04, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x + size * 0.14, y - size * 0.08, size * 0.04, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Mouth
+  ctx.beginPath();
+  ctx.arc(x, y + size * 0.05, size * 0.12, 0.2, Math.PI - 0.2);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawSnail(x, y, size, eraIdx, dir) {
+  const e = ERAS[eraIdx];
+  const [r, g, b] = e.color;
+  const a = e.opacity;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(dir || 1, 1);
+  ctx.strokeStyle = `rgba(${r},${g},${b},${a})`;
+  ctx.fillStyle = `rgba(${r},${g},${b},${a * 0.1})`;
+  ctx.lineWidth = size * 0.05;
+  ctx.lineCap = 'round';
+
+  // Shell (spiral)
+  ctx.beginPath();
+  const cx = -size * 0.1;
+  const cy = -size * 0.1;
+  for (let t = 0; t < Math.PI * 4; t += 0.1) {
+    const radius = size * 0.04 + size * 0.05 * t;
+    const px = cx + Math.cos(t) * radius;
+    const py = cy + Math.sin(t) * radius;
+    if (t === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // Body
+  ctx.beginPath();
+  ctx.moveTo(size * 0.15, size * 0.2);
+  ctx.quadraticCurveTo(size * 0.3, size * 0.2, size * 0.4, size * 0.15);
+  ctx.lineTo(size * 0.45, size * 0.12);
+  ctx.stroke();
+
+  // Eyestalks
+  ctx.beginPath();
+  ctx.moveTo(size * 0.4, size * 0.12);
+  ctx.lineTo(size * 0.45, -size * 0.05);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(size * 0.42, size * 0.13);
+  ctx.lineTo(size * 0.48, -size * 0.02);
+  ctx.stroke();
+
+  // Eye dots
+  ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+  ctx.beginPath();
+  ctx.arc(size * 0.45, -size * 0.05, size * 0.025, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(size * 0.48, -size * 0.02, size * 0.025, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Bottom line (foot)
+  ctx.beginPath();
+  ctx.moveTo(-size * 0.2, size * 0.25);
+  ctx.lineTo(size * 0.45, size * 0.22);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawUnderline(x, y, width, eraIdx) {
+  const e = ERAS[eraIdx];
+  const [r, g, b] = e.color;
+  const a = e.opacity * 0.7;
+  ctx.save();
+  ctx.strokeStyle = `rgba(${r},${g},${b},${a})`;
+  ctx.lineWidth = width * 0.015;
+  ctx.lineCap = 'round';
+
+  // Slightly wavy underline
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  for (let t = 0; t <= 1; t += 0.05) {
+    const px = x + width * t;
+    const py = y + Math.sin(t * Math.PI * 4) * width * 0.008;
+    ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawAsterisk(x, y, size, eraIdx) {
+  const e = ERAS[eraIdx];
+  const [r, g, b] = e.color;
+  const a = e.opacity;
+  ctx.save();
+  ctx.strokeStyle = `rgba(${r},${g},${b},${a})`;
+  ctx.lineWidth = size * 0.08;
+  ctx.lineCap = 'round';
+
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI * 2 / 6) * i;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.cos(angle) * size * 0.35, y + Math.sin(angle) * size * 0.35);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawNote(x, y, size, eraIdx) {
+  // Small illegible text scrawl
+  const e = ERAS[eraIdx];
+  const [r, g, b] = e.color;
+  const a = e.opacity * 0.6;
+  ctx.save();
+  ctx.strokeStyle = `rgba(${r},${g},${b},${a})`;
+  ctx.lineWidth = size * 0.03;
+  ctx.lineCap = 'round';
+
+  const lines = randInt(2, 5);
+  for (let i = 0; i < lines; i++) {
+    const ly = y + i * size * 0.18;
+    const lw = size * randRange(0.4, 1.0);
+    ctx.beginPath();
+    let px = x;
+    ctx.moveTo(px, ly);
+    while (px < x + lw) {
+      const step = size * randRange(0.02, 0.06);
+      const vy = ly + randRange(-size * 0.04, size * 0.04);
+      px += step;
+      ctx.lineTo(px, vy);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawFootnote(x, y, size, eraIdx) {
+  // A small number/symbol + note lines
+  const e = ERAS[eraIdx];
+  const [r, g, b] = e.color;
+  const a = e.opacity;
+  ctx.save();
+
+  // Footnote number
+  ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+  ctx.font = `${size * 0.3}px serif`;
+  const num = randInt(1, 9);
+  ctx.fillText(String(num), x, y);
+
+  // Small line
+  ctx.strokeStyle = `rgba(${r},${g},${b},${a * 0.4})`;
+  ctx.lineWidth = size * 0.02;
+  ctx.beginPath();
+  ctx.moveTo(x, y + size * 0.08);
+  ctx.lineTo(x + size * 0.6, y + size * 0.08);
+  ctx.stroke();
+
+  // Mini scrawl underneath
+  drawNote(x, y + size * 0.15, size * 0.7, eraIdx);
+
+  ctx.restore();
+}
+
+function drawDoodle(x, y, size, eraIdx) {
+  // Abstract small doodle — random curved marks
+  const e = ERAS[eraIdx];
+  const [r, g, b] = e.color;
+  const a = e.opacity * 0.5;
+  ctx.save();
+  ctx.strokeStyle = `rgba(${r},${g},${b},${a})`;
+  ctx.lineWidth = size * 0.05;
+  ctx.lineCap = 'round';
+
+  const strokes = randInt(3, 7);
+  for (let i = 0; i < strokes; i++) {
+    ctx.beginPath();
+    const sx = x + randRange(-size * 0.3, size * 0.3);
+    const sy = y + randRange(-size * 0.3, size * 0.3);
+    ctx.moveTo(sx, sy);
+    ctx.quadraticCurveTo(
+      sx + randRange(-size * 0.3, size * 0.3),
+      sy + randRange(-size * 0.3, size * 0.3),
+      sx + randRange(-size * 0.3, size * 0.3),
+      sy + randRange(-size * 0.3, size * 0.3)
+    );
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function generateMark(eraIdx) {
+  const e = ERAS[eraIdx];
+  const type = pick(e.types);
+  const lh = PAGE.lineHeight;
+
+  // Pick a location — margins are more likely
+  let x, y;
+  const lineIdx = randInt(0, PAGE.lines.length - 1);
+  const lineY = PAGE.lines[lineIdx];
+  const margin = rand();
+
+  if (margin < 0.45) {
+    // Left margin
+    x = W * randRange(PAGE.margin * 0.3, PAGE.textLeft - 0.02);
+    y = lineY + randRange(-lh, lh);
+  } else if (margin < 0.85) {
+    // Right margin
+    x = W * randRange(PAGE.textRight + 0.02, 1 - PAGE.margin * 0.3);
+    y = lineY + randRange(-lh, lh);
+  } else if (margin < 0.92) {
+    // Top margin
+    x = W * randRange(PAGE.textLeft, PAGE.textRight);
+    y = H * randRange(0.02, PAGE.textTop - 0.01);
+  } else {
+    // Bottom margin
+    x = W * randRange(PAGE.textLeft, PAGE.textRight);
+    y = H * randRange(PAGE.textBottom + 0.01, 0.98);
+  }
+
+  const size = lh * randRange(1.2, 2.5);
+
+  return { type, x, y, size, eraIdx, lineIdx, born: frame, alpha: 0 };
+}
+
+function drawMark(m) {
+  const fadeDuration = 60;
+  if (m.alpha < 1 && (frame - m.born) < fadeDuration) {
+    m.alpha = Math.min(1, (frame - m.born) / fadeDuration);
+  } else {
+    m.alpha = 1;
+  }
+
+  ctx.save();
+  ctx.globalAlpha = m.alpha;
+
+  const lx = W * PAGE.textLeft;
+  const isLeftMargin = m.x < lx;
+
+  switch (m.type) {
+    case 'manicule':
+      drawManicule(m.x, m.y, m.size, m.eraIdx, isLeftMargin ? 1 : -1);
+      break;
+    case 'bracket': {
+      const h = PAGE.lineHeight * randRange(3, 6);
+      const side = isLeftMargin ? 'right' : 'left';
+      drawBracket(m.x, m.y, h, m.eraIdx, side);
+      break;
+    }
+    case 'underline': {
+      const w = W * randRange(0.05, 0.15);
+      const uy = PAGE.lines[m.lineIdx] + PAGE.lineHeight * 0.6;
+      const ux = W * PAGE.textLeft + rand() * (W * (PAGE.textRight - PAGE.textLeft) - w);
+      drawUnderline(ux, uy, w, m.eraIdx);
+      break;
+    }
+    case 'spiral':
+      drawSpiral(m.x, m.y, m.size, m.eraIdx);
+      break;
+    case 'face':
+      drawFace(m.x, m.y, m.size, m.eraIdx);
+      break;
+    case 'snail':
+      drawSnail(m.x, m.y, m.size * 1.2, m.eraIdx, rand() > 0.5 ? 1 : -1);
+      break;
+    case 'doodle':
+      drawDoodle(m.x, m.y, m.size, m.eraIdx);
+      break;
+    case 'note':
+      drawNote(m.x, m.y, m.size, m.eraIdx);
+      break;
+    case 'footnote':
+      drawFootnote(m.x, m.y, m.size, m.eraIdx);
+      break;
+    case 'asterisk':
+      drawAsterisk(m.x, m.y, m.size, m.eraIdx);
+      break;
+  }
+
+  ctx.restore();
+}
+
+function addUserMark(canvasX, canvasY) {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const x = canvasX * dpr;
+  const y = canvasY * dpr;
+
+  // Find nearest text line
+  let nearestLine = 0;
+  let minDist = Infinity;
+  for (let i = 0; i < PAGE.lines.length; i++) {
+    const d = Math.abs(PAGE.lines[i] - y);
+    if (d < minDist) { minDist = d; nearestLine = i; }
+  }
+
+  const lx = W * PAGE.textLeft;
+  const isLeft = x < W * 0.5;
+  const size = PAGE.lineHeight * randRange(1.5, 2.5);
+
+  marks.push({
+    type: 'manicule',
+    x, y,
+    size,
+    eraIdx: 4, // "You" era
+    lineIdx: nearestLine,
+    born: frame,
+    alpha: 0
+  });
+}
+
+// Era progression
+let eraTimer = 0;
+const ERA_DURATION = 600; // frames per era at speed 1
+
+function getCurrentEra() {
+  const speed = parseInt(speedSlider.value);
+  const progressPerFrame = speed / ERA_DURATION;
+  eraTimer += progressPerFrame;
+  const progress = Math.min(eraTimer, 0.999);
+  let e = 0;
+  for (let i = ERA_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (progress >= ERA_THRESHOLDS[i]) { e = i; break; }
+  }
+  // Don't auto-advance to era 4 ("You") — that's user-only
+  return Math.min(e, 3);
+}
+
+function shouldAddMark() {
+  const speed = parseInt(speedSlider.value);
+  // More marks at higher speed
+  const chance = 0.02 * speed;
+  return Math.random() < chance;
+}
+
+function render() {
+  frame++;
+  drawParchment();
+  drawTextLines();
+
+  if (!paused) {
+    era = getCurrentEra();
+    eraLabel.textContent = ROMAN[era];
+
+    if (shouldAddMark() && marks.length < 500) {
+      marks.push(generateMark(era));
+    }
+  }
+
+  // Draw all marks
+  const savedSeed = seed;
+  for (const m of marks) {
+    seed = (m.born * 7919 + m.x * 31 + m.y * 37) & 0xFFFFFFFF;
+    drawMark(m);
+  }
+  seed = savedSeed;
+
+  requestAnimationFrame(render);
+}
+
+// Event listeners
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  addUserMark(e.clientX - rect.left, e.clientY - rect.top);
+});
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  addUserMark(touch.clientX - rect.left, touch.clientY - rect.top);
+}, { passive: false });
+
+speedSlider.addEventListener('input', () => {
+  speedVal.textContent = speedSlider.value;
+});
+
+clearBtn.addEventListener('click', () => {
+  marks = [];
+  eraTimer = 0;
+  era = 0;
+  eraLabel.textContent = ROMAN[0];
+});
+
+pauseBtn.addEventListener('click', () => {
+  paused = !paused;
+  pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+});
+
+// Init
+resize();
+window.addEventListener('resize', () => { resize(); });
+render();
+  </script>
+</body>
+</html>
