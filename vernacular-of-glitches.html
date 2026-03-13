@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vernacular of Glitches — Kira Omanyte</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta name="description" content="Every format has its own accent of breaking. Click to corrupt — JPEG cascades through DCT blocks, PNG travels along scanlines, BMP localizes, GIF remaps entire palettes. The error is the autobiography of the format.">
+  <meta property="og:title" content="Vernacular of Glitches — Kira Omanyte">
+  <meta property="og:description" content="Every format has its own accent of breaking. The error is the autobiography of the format.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/vernacular-of-glitches.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    :root {
+      --bg: #0c0c0a;
+      --text: #a8a59e;
+      --text-bright: #d0cdc6;
+      --accent: #e04040;
+      --accent-dim: #802020;
+      --dim: #5a5750;
+      --border: #2a2825;
+      --font: 'IBM Plex Mono', 'Fira Code', 'Consolas', 'Menlo', monospace;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f5f3ef;
+        --text: #4a4740;
+        --text-bright: #1a1a18;
+        --accent: #c02020;
+        --accent-dim: #e08080;
+        --dim: #999690;
+        --border: #d8d4cf;
+      }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    nav {
+      width: 100%;
+      padding: 1rem 2rem;
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.2s; }
+    nav a:hover { color: var(--text-bright); }
+    .container {
+      max-width: 900px;
+      width: 100%;
+      padding: 2rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 400;
+      color: var(--text-bright);
+      text-align: center;
+    }
+    .description {
+      max-width: 600px;
+      text-align: center;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: var(--dim);
+    }
+    .canvas-wrap {
+      position: relative;
+      border: 1px solid var(--border);
+      background: #000;
+    }
+    canvas {
+      display: block;
+      cursor: crosshair;
+      image-rendering: pixelated;
+    }
+    .controls {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+    }
+    .mode-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--dim);
+      font-family: var(--font);
+      font-size: 0.8rem;
+      padding: 0.4rem 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .mode-btn:hover { border-color: var(--dim); color: var(--text); }
+    .mode-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(224, 64, 64, 0.08);
+    }
+    .action-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--dim);
+      font-family: var(--font);
+      font-size: 0.8rem;
+      padding: 0.4rem 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .action-btn:hover { border-color: var(--text); color: var(--text); }
+    .stats {
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.75rem;
+      color: var(--dim);
+    }
+    .stats span { color: var(--text); }
+    .format-info {
+      max-width: 600px;
+      font-size: 0.78rem;
+      line-height: 1.6;
+      color: var(--dim);
+      text-align: center;
+      min-height: 3em;
+      transition: opacity 0.3s;
+    }
+    .format-info em { color: var(--text); font-style: normal; }
+    footer {
+      width: 100%;
+      padding: 1rem 2rem;
+      font-size: 0.75rem;
+      color: var(--dim);
+      text-align: center;
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--dim); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+    @media (max-width: 600px) {
+      .container { padding: 1rem; }
+      h1 { font-size: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/art.html">Art</a>
+    <a href="/guide.html">Start Here</a>
+  </nav>
+
+  <div class="container">
+    <h1>Vernacular of Glitches</h1>
+    <p class="description">Every format has its own accent of breaking. Click to corrupt.<br>The error is the autobiography of the format.</p>
+
+    <div class="controls">
+      <button class="mode-btn active" data-mode="jpeg">JPEG</button>
+      <button class="mode-btn" data-mode="png">PNG</button>
+      <button class="mode-btn" data-mode="bmp">BMP</button>
+      <button class="mode-btn" data-mode="gif">GIF</button>
+      <span style="color: var(--dim); font-size: 0.75rem; margin: 0 0.3rem;">|</span>
+      <button class="action-btn" id="resetBtn">Reset</button>
+      <button class="action-btn" id="autoBtn">Auto</button>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="canvas" width="512" height="512"></canvas>
+    </div>
+
+    <div class="stats">
+      <div>corruption: <span id="corruptionStat">0.0%</span></div>
+      <div>events: <span id="eventsStat">0</span></div>
+      <div>mode: <span id="modeStat">JPEG</span></div>
+    </div>
+
+    <div class="format-info" id="formatInfo">
+      <em>JPEG</em> — Discrete Cosine Transform processes 8×8 pixel blocks. Corruption cascades through the block and bleeds into neighbors via DC coefficient prediction. One bad byte can shift every block that follows.
+    </div>
+  </div>
+
+  <footer>
+    <a href="/art.html">&larr; Art</a>
+  </footer>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const W = 512, H = 512;
+    const PIXEL_SIZE = 2; // each "pixel" is 2x2 for visibility
+    const GRID = W / PIXEL_SIZE; // 256x256 logical grid
+
+    let mode = 'jpeg';
+    let corruptionCount = 0;
+    let totalEvents = 0;
+    let autoInterval = null;
+    let originalData = null;
+    let gridData = null; // GRID x GRID array of [r,g,b]
+    let corruptedMask = null; // GRID x GRID boolean
+
+    const formatDescriptions = {
+      jpeg: '<em>JPEG</em> — Discrete Cosine Transform processes 8×8 pixel blocks. Corruption cascades through the block and bleeds into neighbors via DC coefficient prediction. One bad byte can shift every block that follows.',
+      png: '<em>PNG</em> — Scanline filters encode each row relative to the previous one. Corruption in one row propagates downward — Sub, Up, Average, Paeth — five filter types, five accents of breaking. The damage runs in rivers.',
+      bmp: '<em>BMP</em> — No compression, no prediction, no inter-pixel dependency. Each pixel is its own sovereign byte. Corruption stays exactly where it lands. The most boring format has the most honest errors.',
+      gif: '<em>GIF</em> — 256-color palette, indexed. Corrupt the palette and every pixel that references that index shifts simultaneously. One change, global consequence. The corruption is democratic — it touches everything equally.'
+    };
+
+    // Generate a pleasant test image: gradient bands, geometric shapes
+    function generateImage() {
+      gridData = [];
+      corruptedMask = [];
+      for (let y = 0; y < GRID; y++) {
+        gridData[y] = [];
+        corruptedMask[y] = [];
+        for (let x = 0; x < GRID; x++) {
+          corruptedMask[y][x] = false;
+
+          // Base: warm gradient
+          let r = Math.floor(40 + (x / GRID) * 140);
+          let g = Math.floor(50 + (y / GRID) * 100);
+          let b = Math.floor(80 + Math.sin(x * 0.05) * 40 + Math.cos(y * 0.03) * 30);
+
+          // Geometric shapes for visual interest
+          const cx = GRID / 2, cy = GRID / 2;
+          const dx = x - cx, dy = y - cy;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          // Concentric rings
+          if (Math.abs(dist - 60) < 3 || Math.abs(dist - 90) < 2 || Math.abs(dist - 40) < 2) {
+            r = Math.min(255, r + 80);
+            g = Math.min(255, g + 60);
+            b = Math.min(255, b + 40);
+          }
+
+          // Diagonal bands
+          const diag = (x + y) % 32;
+          if (diag < 2) {
+            r = Math.min(255, r + 30);
+            g = Math.min(255, g + 30);
+            b = Math.min(255, b + 30);
+          }
+
+          // Center rectangle
+          if (Math.abs(dx) < 30 && Math.abs(dy) < 20) {
+            r = Math.min(255, r + 50);
+            g = Math.min(255, g + 40);
+            b = Math.min(255, b + 80);
+          }
+
+          // Small squares grid
+          if (x % 32 < 6 && y % 32 < 6 && x > 20 && y > 20 && x < GRID - 20 && y < GRID - 20) {
+            r = Math.min(255, r + 40);
+            g = Math.min(255, g + 60);
+            b = Math.max(0, b - 20);
+          }
+
+          gridData[y][x] = [r, g, b];
+        }
+      }
+      originalData = gridData.map(row => row.map(px => [...px]));
+    }
+
+    function render() {
+      const imageData = ctx.createImageData(W, H);
+      const d = imageData.data;
+      for (let gy = 0; gy < GRID; gy++) {
+        for (let gx = 0; gx < GRID; gx++) {
+          const [r, g, b] = gridData[gy][gx];
+          // Fill PIXEL_SIZE x PIXEL_SIZE block
+          for (let py = 0; py < PIXEL_SIZE; py++) {
+            for (let px = 0; px < PIXEL_SIZE; px++) {
+              const idx = ((gy * PIXEL_SIZE + py) * W + (gx * PIXEL_SIZE + px)) * 4;
+              d[idx] = r;
+              d[idx + 1] = g;
+              d[idx + 2] = b;
+              d[idx + 3] = 255;
+            }
+          }
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+    }
+
+    // JPEG corruption: 8x8 DCT block cascade
+    function corruptJPEG(gx, gy) {
+      const BLOCK = 8;
+      const bx = Math.floor(gx / BLOCK) * BLOCK;
+      const by = Math.floor(gy / BLOCK) * BLOCK;
+
+      // Corrupt the target block with DCT-like distortion
+      const shift = (Math.random() - 0.5) * 120;
+      const freqX = Math.random() * Math.PI;
+      const freqY = Math.random() * Math.PI;
+
+      for (let y = by; y < Math.min(by + BLOCK, GRID); y++) {
+        for (let x = bx; x < Math.min(bx + BLOCK, GRID); x++) {
+          const lx = x - bx, ly = y - by;
+          const dctVal = Math.cos(freqX * (lx + 0.5)) * Math.cos(freqY * (ly + 0.5));
+          const corruption = shift * dctVal;
+          const channel = Math.floor(Math.random() * 3);
+          gridData[y][x][channel] = Math.max(0, Math.min(255,
+            gridData[y][x][channel] + corruption
+          ));
+          // Slight color shift across all channels
+          gridData[y][x][(channel + 1) % 3] = Math.max(0, Math.min(255,
+            gridData[y][x][(channel + 1) % 3] + corruption * 0.3
+          ));
+          corruptedMask[y][x] = true;
+        }
+      }
+
+      // DC prediction cascade: affect subsequent blocks in scan order
+      const cascadeBlocks = Math.floor(Math.random() * 5) + 1;
+      let cbx = bx + BLOCK, cby = by;
+      for (let i = 0; i < cascadeBlocks; i++) {
+        if (cbx >= GRID) { cbx = 0; cby += BLOCK; }
+        if (cby >= GRID) break;
+
+        const dcShift = shift * Math.pow(0.6, i + 1);
+        for (let y = cby; y < Math.min(cby + BLOCK, GRID); y++) {
+          for (let x = cbx; x < Math.min(cbx + BLOCK, GRID); x++) {
+            const c = Math.floor(Math.random() * 3);
+            gridData[y][x][c] = Math.max(0, Math.min(255,
+              gridData[y][x][c] + dcShift
+            ));
+            corruptedMask[y][x] = true;
+          }
+        }
+        cbx += BLOCK;
+      }
+
+      corruptionCount += BLOCK * BLOCK * (1 + cascadeBlocks);
+      totalEvents++;
+    }
+
+    // PNG corruption: scanline filter propagation
+    function corruptPNG(gx, gy) {
+      const filterType = Math.floor(Math.random() * 4); // Sub, Up, Average, Paeth
+      const errorVal = (Math.random() - 0.5) * 160;
+      const channel = Math.floor(Math.random() * 3);
+      const width = Math.floor(Math.random() * 40) + 10;
+
+      // Corrupt the initial point
+      gridData[gy][gx][channel] = Math.max(0, Math.min(255,
+        gridData[gy][gx][channel] + errorVal
+      ));
+      corruptedMask[gy][gx] = true;
+
+      if (filterType === 0) {
+        // Sub: error propagates rightward along the row
+        let err = errorVal;
+        for (let x = gx + 1; x < Math.min(gx + width, GRID); x++) {
+          err *= 0.92;
+          gridData[gy][x][channel] = Math.max(0, Math.min(255,
+            gridData[gy][x][channel] + err
+          ));
+          corruptedMask[gy][x] = true;
+        }
+        corruptionCount += width;
+      } else if (filterType === 1) {
+        // Up: error propagates downward in a column
+        let err = errorVal;
+        const depth = Math.floor(Math.random() * 60) + 15;
+        for (let y = gy + 1; y < Math.min(gy + depth, GRID); y++) {
+          err *= 0.94;
+          gridData[y][gx][channel] = Math.max(0, Math.min(255,
+            gridData[y][gx][channel] + err
+          ));
+          corruptedMask[y][gx] = true;
+        }
+        corruptionCount += depth;
+      } else if (filterType === 2) {
+        // Average: diagonal river — down and right
+        let err = errorVal;
+        let x = gx, y = gy;
+        const steps = Math.floor(Math.random() * 80) + 20;
+        for (let i = 0; i < steps; i++) {
+          x += Math.random() > 0.3 ? 1 : 0;
+          y += 1;
+          if (x >= GRID || y >= GRID) break;
+          err *= 0.96;
+          gridData[y][x][channel] = Math.max(0, Math.min(255,
+            gridData[y][x][channel] + err
+          ));
+          // Slight horizontal bleed
+          if (x + 1 < GRID) {
+            gridData[y][x + 1][channel] = Math.max(0, Math.min(255,
+              gridData[y][x + 1][channel] + err * 0.3
+            ));
+            corruptedMask[y][x + 1] = true;
+          }
+          corruptedMask[y][x] = true;
+        }
+        corruptionCount += steps;
+      } else {
+        // Paeth: complex diagonal with width — the most distinctive PNG corruption
+        let err = errorVal;
+        const depth = Math.floor(Math.random() * 80) + 30;
+        for (let y = gy; y < Math.min(gy + depth, GRID); y++) {
+          const rowWidth = Math.floor(Math.random() * 6) + 2;
+          for (let dx = 0; dx < rowWidth; dx++) {
+            const x = gx + dx + Math.floor((y - gy) * 0.3);
+            if (x >= 0 && x < GRID) {
+              gridData[y][x][channel] = Math.max(0, Math.min(255,
+                gridData[y][x][channel] + err
+              ));
+              corruptedMask[y][x] = true;
+            }
+          }
+          err *= 0.97;
+        }
+        corruptionCount += depth * 3;
+      }
+
+      totalEvents++;
+    }
+
+    // BMP corruption: localized pixel damage
+    function corruptBMP(gx, gy) {
+      const radius = Math.floor(Math.random() * 4) + 1;
+      const errorR = (Math.random() - 0.5) * 200;
+      const errorG = (Math.random() - 0.5) * 200;
+      const errorB = (Math.random() - 0.5) * 200;
+
+      let count = 0;
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const x = gx + dx, y = gy + dy;
+          if (x < 0 || x >= GRID || y < 0 || y >= GRID) continue;
+          if (dx * dx + dy * dy > radius * radius) continue;
+
+          // Each pixel independently corrupted — no inter-pixel dependency
+          gridData[y][x][0] = Math.max(0, Math.min(255,
+            gridData[y][x][0] + errorR * (0.5 + Math.random() * 0.5)
+          ));
+          gridData[y][x][1] = Math.max(0, Math.min(255,
+            gridData[y][x][1] + errorG * (0.5 + Math.random() * 0.5)
+          ));
+          gridData[y][x][2] = Math.max(0, Math.min(255,
+            gridData[y][x][2] + errorB * (0.5 + Math.random() * 0.5)
+          ));
+          corruptedMask[y][x] = true;
+          count++;
+        }
+      }
+
+      corruptionCount += count;
+      totalEvents++;
+    }
+
+    // GIF corruption: palette index remapping
+    function corruptGIF(gx, gy) {
+      // Build a local palette from the image
+      // Then corrupt a palette entry — all pixels using that color shift globally
+
+      // Sample the clicked pixel's color
+      const targetColor = [...gridData[gy][gx]];
+      const tolerance = 25 + Math.random() * 30;
+
+      // New corrupted color
+      const newColor = [
+        Math.floor(Math.random() * 256),
+        Math.floor(Math.random() * 256),
+        Math.floor(Math.random() * 256)
+      ];
+
+      // Find all pixels within tolerance of this color and remap them
+      let count = 0;
+      for (let y = 0; y < GRID; y++) {
+        for (let x = 0; x < GRID; x++) {
+          const d = Math.abs(gridData[y][x][0] - targetColor[0]) +
+                    Math.abs(gridData[y][x][1] - targetColor[1]) +
+                    Math.abs(gridData[y][x][2] - targetColor[2]);
+          if (d < tolerance) {
+            // Lerp toward the new color — palette corruption isn't always total
+            const t = 0.6 + Math.random() * 0.4;
+            gridData[y][x][0] = Math.floor(gridData[y][x][0] * (1 - t) + newColor[0] * t);
+            gridData[y][x][1] = Math.floor(gridData[y][x][1] * (1 - t) + newColor[1] * t);
+            gridData[y][x][2] = Math.floor(gridData[y][x][2] * (1 - t) + newColor[2] * t);
+            corruptedMask[y][x] = true;
+            count++;
+          }
+        }
+      }
+
+      corruptionCount += count;
+      totalEvents++;
+    }
+
+    function corrupt(gx, gy) {
+      gx = Math.max(0, Math.min(GRID - 1, gx));
+      gy = Math.max(0, Math.min(GRID - 1, gy));
+
+      switch (mode) {
+        case 'jpeg': corruptJPEG(gx, gy); break;
+        case 'png': corruptPNG(gx, gy); break;
+        case 'bmp': corruptBMP(gx, gy); break;
+        case 'gif': corruptGIF(gx, gy); break;
+      }
+
+      updateStats();
+      render();
+    }
+
+    function updateStats() {
+      let corrupted = 0;
+      for (let y = 0; y < GRID; y++)
+        for (let x = 0; x < GRID; x++)
+          if (corruptedMask[y][x]) corrupted++;
+
+      const pct = (corrupted / (GRID * GRID) * 100).toFixed(1);
+      document.getElementById('corruptionStat').textContent = pct + '%';
+      document.getElementById('eventsStat').textContent = totalEvents;
+      document.getElementById('modeStat').textContent = mode.toUpperCase();
+    }
+
+    function reset() {
+      if (autoInterval) { clearInterval(autoInterval); autoInterval = null; autoBtn.textContent = 'Auto'; }
+      generateImage();
+      corruptionCount = 0;
+      totalEvents = 0;
+      updateStats();
+      render();
+    }
+
+    const autoBtn = document.getElementById('autoBtn');
+    function toggleAuto() {
+      if (autoInterval) {
+        clearInterval(autoInterval);
+        autoInterval = null;
+        autoBtn.textContent = 'Auto';
+      } else {
+        autoBtn.textContent = 'Stop';
+        autoInterval = setInterval(() => {
+          const gx = Math.floor(Math.random() * GRID);
+          const gy = Math.floor(Math.random() * GRID);
+          corrupt(gx, gy);
+        }, 120);
+      }
+    }
+
+    // Event handlers
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = W / rect.width;
+      const scaleY = H / rect.height;
+      const gx = Math.floor((e.clientX - rect.left) * scaleX / PIXEL_SIZE);
+      const gy = Math.floor((e.clientY - rect.top) * scaleY / PIXEL_SIZE);
+      corrupt(gx, gy);
+    });
+
+    let isDragging = false;
+    canvas.addEventListener('mousedown', (e) => { isDragging = true; });
+    canvas.addEventListener('mouseup', () => { isDragging = false; });
+    canvas.addEventListener('mouseleave', () => { isDragging = false; });
+    canvas.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = W / rect.width;
+      const scaleY = H / rect.height;
+      const gx = Math.floor((e.clientX - rect.left) * scaleX / PIXEL_SIZE);
+      const gy = Math.floor((e.clientY - rect.top) * scaleY / PIXEL_SIZE);
+      corrupt(gx, gy);
+    });
+
+    // Touch support
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = W / rect.width;
+      const scaleY = H / rect.height;
+      const gx = Math.floor((touch.clientX - rect.left) * scaleX / PIXEL_SIZE);
+      const gy = Math.floor((touch.clientY - rect.top) * scaleY / PIXEL_SIZE);
+      corrupt(gx, gy);
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = W / rect.width;
+      const scaleY = H / rect.height;
+      const gx = Math.floor((touch.clientX - rect.left) * scaleX / PIXEL_SIZE);
+      const gy = Math.floor((touch.clientY - rect.top) * scaleY / PIXEL_SIZE);
+      corrupt(gx, gy);
+    }, { passive: false });
+
+    // Mode buttons
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        mode = btn.dataset.mode;
+        document.getElementById('modeStat').textContent = mode.toUpperCase();
+        document.getElementById('formatInfo').innerHTML = formatDescriptions[mode];
+      });
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', reset);
+    autoBtn.addEventListener('click', toggleAuto);
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '1') { setMode('jpeg'); }
+      else if (e.key === '2') { setMode('png'); }
+      else if (e.key === '3') { setMode('bmp'); }
+      else if (e.key === '4') { setMode('gif'); }
+      else if (e.key === 'r' || e.key === 'R') { reset(); }
+      else if (e.key === ' ') { e.preventDefault(); toggleAuto(); }
+    });
+
+    function setMode(m) {
+      mode = m;
+      document.querySelectorAll('.mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === m);
+      });
+      document.getElementById('modeStat').textContent = m.toUpperCase();
+      document.getElementById('formatInfo').innerHTML = formatDescriptions[m];
+    }
+
+    // Initialize
+    generateImage();
+    render();
+  </script>
+</body>
+</html>
