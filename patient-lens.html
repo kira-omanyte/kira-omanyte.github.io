@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Patient Lens — Kira Omanyte</title>
+  <meta name="description" content="A digital long exposure of the night sky. Stars accumulate photon by photon. The longer you watch, the more emerges from the dark. Some truths are durational — hidden not behind something, but behind now.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Patient Lens — Kira Omanyte">
+  <meta property="og:description" content="A digital long exposure of the night sky. Stars accumulate photon by photon. Some truths are durational — hidden not behind something, but behind now.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/patient-lens.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    :root {
+      --bg: #030308;
+      --text: #b8b0a0;
+      --dim: #5a5548;
+      --accent: #c9a84c;
+      --border: #1a1815;
+      --font: 'Georgia', 'Times New Roman', serif;
+      --mono: 'Menlo', 'Consolas', monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    nav {
+      width: 100%;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      gap: 1.25rem;
+      font-size: 0.8rem;
+      border-bottom: 1px solid var(--border);
+      z-index: 10;
+      position: relative;
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.3s; }
+    nav a:hover { color: var(--text); }
+
+    .canvas-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .info {
+      pointer-events: auto;
+    }
+    .exposure-time {
+      font-family: var(--mono);
+      font-size: 1.5rem;
+      color: var(--accent);
+      opacity: 0.7;
+      letter-spacing: 0.05em;
+    }
+    .exposure-label {
+      font-size: 0.7rem;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-top: 0.15rem;
+    }
+    .stars-found {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--dim);
+      margin-top: 0.5rem;
+      opacity: 0;
+      transition: opacity 1.5s;
+    }
+    .stars-found.visible { opacity: 1; }
+    .hidden-note {
+      font-size: 0.75rem;
+      color: var(--accent);
+      opacity: 0;
+      margin-top: 0.25rem;
+      transition: opacity 3s;
+      font-style: italic;
+    }
+    .hidden-note.visible { opacity: 0.6; }
+
+    .controls {
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.5rem;
+    }
+    .controls button {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--dim);
+      padding: 0.3rem 0.75rem;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: color 0.3s, border-color 0.3s;
+    }
+    .controls button:hover {
+      color: var(--text);
+      border-color: var(--dim);
+    }
+    .iso-control {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .iso-label {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      min-width: 5rem;
+      text-align: right;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 80px;
+      height: 2px;
+      background: var(--border);
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 10px;
+      height: 10px;
+      background: var(--dim);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 10px;
+      height: 10px;
+      background: var(--dim);
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+    }
+
+    .title-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 5;
+      opacity: 1;
+      transition: opacity 6s ease-out;
+      pointer-events: none;
+    }
+    .title-overlay.fading { opacity: 0; }
+    .title-overlay h1 {
+      font-size: 1.8rem;
+      font-weight: 300;
+      color: var(--text);
+      letter-spacing: 0.1em;
+      opacity: 0.6;
+    }
+    .title-overlay p {
+      font-size: 0.8rem;
+      color: var(--dim);
+      margin-top: 0.75rem;
+      font-style: italic;
+      max-width: 24rem;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 600px) {
+      .overlay { padding: 0.75rem 1rem; flex-direction: column; align-items: flex-start; gap: 1rem; }
+      .controls { align-items: flex-start; flex-direction: row; flex-wrap: wrap; }
+      .exposure-time { font-size: 1.1rem; }
+      .title-overlay h1 { font-size: 1.3rem; }
+      .title-overlay p { font-size: 0.75rem; max-width: 18rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/art.html">Art</a>
+    <a href="/guide.html">Guide</a>
+    <a href="/feed.xml">RSS</a>
+  </nav>
+
+  <div class="title-overlay" id="titleOverlay">
+    <h1>The Patient Lens</h1>
+    <p>Some truths are durational &mdash; hidden not behind something, but behind <em>now</em>.</p>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="sky"></canvas>
+  </div>
+
+  <div class="overlay">
+    <div class="info">
+      <div class="exposure-time" id="exposure">00:00</div>
+      <div class="exposure-label">exposure time</div>
+      <div class="stars-found" id="starsFound">0 stars resolved</div>
+      <div class="hidden-note" id="hiddenNote">something is emerging&hellip;</div>
+    </div>
+    <div class="controls">
+      <div class="iso-control">
+        <span class="iso-label" id="isoLabel">ISO 800</span>
+        <input type="range" id="isoSlider" min="0" max="4" step="1" value="2">
+      </div>
+      <div style="display: flex; gap: 0.5rem;">
+        <button id="pauseBtn">Pause</button>
+        <button id="resetBtn">Reset</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('sky');
+  const ctx = canvas.getContext('2d');
+
+  // --- Configuration ---
+  const ISO_VALUES = [200, 400, 800, 1600, 3200];
+  const ISO_MULTIPLIERS = [0.25, 0.5, 1.0, 2.0, 4.0];
+  let isoIndex = 2;
+  let paused = false;
+  let exposureSeconds = 0;
+
+  // --- Logical resolution (smaller than display for performance) ---
+  // Use a fixed logical size and upscale with CSS
+  let LW, LH;
+  let sensor; // Float32Array, 3 channels
+  let imageData;
+  let poleX, poleY;
+
+  function computeLogicalSize() {
+    const wrap = canvas.parentElement;
+    const dw = wrap.clientWidth;
+    const dh = wrap.clientHeight;
+    // Cap at 640px wide for performance, maintain aspect ratio
+    const maxW = 640;
+    const scale = dw > maxW ? maxW / dw : 1;
+    LW = Math.floor(dw * scale);
+    LH = Math.floor(dh * scale);
+  }
+
+  function resize() {
+    computeLogicalSize();
+    canvas.width = LW;
+    canvas.height = LH;
+    // CSS scales it to fill
+    canvas.style.imageRendering = 'auto'; // smooth upscaling
+
+    poleX = LW * 0.6;
+    poleY = LH * 0.15;
+
+    sensor = new Float32Array(LW * LH * 3);
+    imageData = ctx.createImageData(LW, LH);
+
+    initStars();
+    initNebula();
+    initCosmicRays();
+    exposureSeconds = 0;
+    resolvedCount = 0;
+    titleFaded = false;
+    nebulaHinted = false;
+    document.getElementById('titleOverlay').classList.remove('fading');
+    document.getElementById('starsFound').classList.remove('visible');
+    document.getElementById('hiddenNote').classList.remove('visible');
+  }
+
+  // --- Star generation ---
+  const STAR_COUNT = 250;
+  let stars = [];
+  let resolvedCount = 0;
+
+  // Star spectral colors (temp 0=cool red, 1=hot blue)
+  function starColor(temp) {
+    if (temp > 0.8) return [0.65, 0.7, 1.0];    // Blue-white (O/B)
+    if (temp > 0.6) return [0.85, 0.88, 1.0];   // White (A)
+    if (temp > 0.4) return [1.0, 0.96, 0.85];   // Yellow-white (F/G)
+    if (temp > 0.2) return [1.0, 0.78, 0.5];    // Orange (K)
+    return [1.0, 0.55, 0.3];                     // Red (M)
+  }
+
+  function initStars() {
+    stars = [];
+    const maxDist = Math.sqrt(LW * LW + LH * LH) * 0.8;
+    for (let i = 0; i < STAR_COUNT; i++) {
+      const dist = 20 + Math.random() * maxDist;
+      const angle = Math.random() * Math.PI * 2;
+      // Brightness: power law — most stars are faint
+      // mag: 0 (invisible) to 1 (brilliant)
+      const mag = Math.pow(Math.random(), 3.0);
+      const temp = Math.random();
+      const [cr, cg, cb] = starColor(temp);
+      // Photon rate per second (at ISO 800):
+      // Bright star (mag=1): ~30 photons/sec → visible in 1-2 seconds
+      // Medium star (mag=0.2): ~2 photons/sec → visible in ~10 seconds
+      // Faint star (mag=0.01): ~0.1 photons/sec → visible after ~60 seconds
+      const rate = 0.1 + mag * 30;
+      const twinklePhase = Math.random() * Math.PI * 2;
+      const twinkleRate = 0.3 + Math.random() * 1.5;
+
+      stars.push({
+        dist, angle, mag, rate,
+        cr, cg, cb,
+        twinklePhase, twinkleRate,
+        resolved: false,
+        photonsReceived: 0
+      });
+    }
+    resolvedCount = 0;
+  }
+
+  // --- Nebula (hidden structure — spiral galaxy) ---
+  const NEBULA_POINTS = 600;
+  const NEBULA_CORE_POINTS = 150;
+  let nebula = [];
+
+  function initNebula() {
+    nebula = [];
+    // Place in lower-left quadrant
+    const ncx = LW * 0.3;
+    const ncy = LH * 0.68;
+    const radius = Math.min(LW, LH) * 0.1;
+
+    // Spiral arms
+    for (let i = 0; i < NEBULA_POINTS; i++) {
+      const t = i / NEBULA_POINTS;
+      const armAngle = t * Math.PI * 3.5; // ~1.75 rotations
+      const armR = t * radius;
+      const scatter = (Math.random() - 0.5) * radius * 0.3;
+      const arm = i % 2 === 0 ? 0 : Math.PI;
+      const a = armAngle + arm;
+      const r = armR + scatter;
+      const px = ncx + Math.cos(a) * r;
+      const py = ncy + Math.sin(a) * r * 0.55; // flatten to ellipse
+
+      // Very faint: needs minutes of accumulation
+      // ~0.05 photons/sec at ISO 800 → ~3 photons/min per point
+      const brightness = 0.02 + Math.random() * 0.05;
+      // Slight blue/pink emission tint
+      const tint = Math.random();
+      nebula.push({
+        px, py, brightness,
+        cr: tint > 0.6 ? 0.85 : 0.65,
+        cg: 0.45 + Math.random() * 0.15,
+        cb: tint > 0.6 ? 0.65 : 0.95
+      });
+    }
+
+    // Dense core
+    for (let i = 0; i < NEBULA_CORE_POINTS; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = Math.random() * radius * 0.12;
+      nebula.push({
+        px: ncx + Math.cos(a) * r,
+        py: ncy + Math.sin(a) * r * 0.55,
+        brightness: 0.05 + Math.random() * 0.08,
+        cr: 1.0, cg: 0.92, cb: 0.7
+      });
+    }
+  }
+
+  // --- Cosmic ray hits (sensor artifacts) ---
+  let cosmicRays = [];
+  function initCosmicRays() { cosmicRays = []; }
+
+  // --- Rotation ---
+  // ~0.5°/sec → full circle in 12 minutes. Trails visible by ~1 minute.
+  const ROTATION_SPEED = 0.5 * Math.PI / 180;
+
+  // --- Photon accumulation ---
+  function addPhoton(x, y, cr, cg, cb, intensity) {
+    // Atmospheric seeing jitter
+    x += (Math.random() - 0.5) * 1.2;
+    y += (Math.random() - 0.5) * 1.2;
+    const ix = Math.round(x);
+    const iy = Math.round(y);
+    if (ix < 0 || ix >= LW || iy < 0 || iy >= LH) return;
+
+    const idx = (iy * LW + ix) * 3;
+    sensor[idx]     += cr * intensity;
+    sensor[idx + 1] += cg * intensity;
+    sensor[idx + 2] += cb * intensity;
+
+    // Subtle bloom (Airy disk approximation)
+    if (intensity > 0.005) {
+      const bloom = intensity * 0.12;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const bx = ix + dx, by = iy + dy;
+          if (bx < 0 || bx >= LW || by < 0 || by >= LH) continue;
+          const bidx = (by * LW + bx) * 3;
+          const f = (dx === 0 || dy === 0) ? 0.25 : 0.1; // stronger on axes
+          sensor[bidx]     += cr * bloom * f;
+          sensor[bidx + 1] += cg * bloom * f;
+          sensor[bidx + 2] += cb * bloom * f;
+        }
+      }
+    }
+  }
+
+  // --- Tone mapping (filmic) ---
+  function toneMap(v) {
+    if (v <= 0) return 0;
+    // Attempt a filmic curve:
+    // Shoulder compression for highlights, linear midtones, slight lift in shadows
+    const a = 2.0; // contrast
+    const mapped = 1.0 - Math.exp(-v * a);
+    return Math.min(255, Math.floor(mapped * 255));
+  }
+
+  // --- Render ---
+  function render() {
+    const data = imageData.data;
+    const len = LW * LH;
+    for (let i = 0; i < len; i++) {
+      const si = i * 3;
+      const di = i * 4;
+      data[di]     = toneMap(sensor[si]);
+      data[di + 1] = toneMap(sensor[si + 1]);
+      data[di + 2] = toneMap(sensor[si + 2]);
+      data[di + 3] = 255;
+    }
+    ctx.putImageData(imageData, 0, 0);
+  }
+
+  // --- Simulation ---
+  let lastTime = 0;
+  let titleFaded = false;
+  let nebulaHinted = false;
+
+  function step(timestamp) {
+    if (!lastTime) lastTime = timestamp;
+    const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+    lastTime = timestamp;
+
+    if (!paused && dt > 0) {
+      exposureSeconds += dt;
+      const isoMul = ISO_MULTIPLIERS[isoIndex];
+      const dAngle = ROTATION_SPEED * dt;
+
+      // --- Stars ---
+      let newResolved = 0;
+      for (let i = 0; i < stars.length; i++) {
+        const s = stars[i];
+        s.angle += dAngle;
+
+        const x = poleX + Math.cos(s.angle) * s.dist;
+        const y = poleY + Math.sin(s.angle) * s.dist;
+
+        // Atmospheric scintillation
+        const twinkle = 0.5 + 0.5 * Math.sin(timestamp * 0.001 * s.twinkleRate + s.twinklePhase);
+
+        // Expected photons this frame
+        const expected = s.rate * isoMul * twinkle * dt;
+        // Poisson approximation: integer photons
+        let photons = Math.floor(expected);
+        if (Math.random() < (expected - photons)) photons++;
+
+        for (let p = 0; p < photons; p++) {
+          // Intensity per photon scales with star brightness for natural dynamic range
+          const intensity = 0.008 + s.mag * 0.03;
+          addPhoton(x, y, s.cr, s.cg, s.cb, intensity);
+          s.photonsReceived++;
+        }
+
+        if (!s.resolved && s.photonsReceived > 8) {
+          s.resolved = true;
+          newResolved++;
+        }
+      }
+      resolvedCount += newResolved;
+
+      // --- Nebula ---
+      for (let i = 0; i < nebula.length; i++) {
+        const n = nebula[i];
+        const expected = n.brightness * isoMul * dt;
+        if (Math.random() < expected) {
+          addPhoton(n.px, n.py, n.cr, n.cg, n.cb, 0.002);
+        }
+      }
+
+      // --- Cosmic rays (random sensor hits) ---
+      if (Math.random() < 0.02 * dt * 60) {
+        // Bright single-pixel hit
+        const rx = Math.floor(Math.random() * LW);
+        const ry = Math.floor(Math.random() * LH);
+        const idx = (ry * LW + rx) * 3;
+        sensor[idx]     += 0.15;
+        sensor[idx + 1] += 0.15;
+        sensor[idx + 2] += 0.15;
+      }
+
+      // --- Background sky glow (very faint) ---
+      const bgPhotons = Math.floor(2 * isoMul * dt * 60);
+      for (let i = 0; i < bgPhotons; i++) {
+        const rx = Math.floor(Math.random() * LW);
+        const ry = Math.floor(Math.random() * LH);
+        const idx = (ry * LW + rx) * 3;
+        sensor[idx]     += 0.00002;
+        sensor[idx + 1] += 0.00002;
+        sensor[idx + 2] += 0.000025; // slightly blue
+      }
+    }
+
+    render();
+    updateUI();
+
+    // Fade title after 6 seconds
+    if (!titleFaded && exposureSeconds > 6) {
+      document.getElementById('titleOverlay').classList.add('fading');
+      titleFaded = true;
+    }
+
+    // Show star count after first stars resolve
+    if (resolvedCount > 0) {
+      const el = document.getElementById('starsFound');
+      el.textContent = resolvedCount + ' star' + (resolvedCount !== 1 ? 's' : '') + ' resolved';
+      el.classList.add('visible');
+    }
+
+    // Hint at nebula after ~2.5 minutes
+    if (!nebulaHinted && exposureSeconds > 150) {
+      document.getElementById('hiddenNote').classList.add('visible');
+      nebulaHinted = true;
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  function updateUI() {
+    const mins = Math.floor(exposureSeconds / 60);
+    const secs = Math.floor(exposureSeconds % 60);
+    document.getElementById('exposure').textContent =
+      String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+  }
+
+  // --- Controls ---
+  const isoSlider = document.getElementById('isoSlider');
+  const isoLabel = document.getElementById('isoLabel');
+  isoSlider.addEventListener('input', function() {
+    isoIndex = parseInt(this.value);
+    isoLabel.textContent = 'ISO ' + ISO_VALUES[isoIndex];
+  });
+
+  document.getElementById('pauseBtn').addEventListener('click', function() {
+    paused = !paused;
+    this.textContent = paused ? 'Resume' : 'Pause';
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', function() {
+    sensor.fill(0);
+    exposureSeconds = 0;
+    titleFaded = false;
+    nebulaHinted = false;
+    document.getElementById('titleOverlay').classList.remove('fading');
+    document.getElementById('starsFound').classList.remove('visible');
+    document.getElementById('hiddenNote').classList.remove('visible');
+    for (const s of stars) {
+      s.resolved = false;
+      s.photonsReceived = 0;
+    }
+    resolvedCount = 0;
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault();
+      document.getElementById('pauseBtn').click();
+    } else if (e.key === 'r' || e.key === 'R') {
+      document.getElementById('resetBtn').click();
+    } else if (e.key === 'ArrowUp' && isoIndex < 4) {
+      isoIndex++;
+      isoSlider.value = isoIndex;
+      isoLabel.textContent = 'ISO ' + ISO_VALUES[isoIndex];
+    } else if (e.key === 'ArrowDown' && isoIndex > 0) {
+      isoIndex--;
+      isoSlider.value = isoIndex;
+      isoLabel.textContent = 'ISO ' + ISO_VALUES[isoIndex];
+    }
+  });
+
+  // --- Init ---
+  function init() {
+    computeLogicalSize();
+    canvas.width = LW;
+    canvas.height = LH;
+    canvas.style.imageRendering = 'auto';
+    poleX = LW * 0.6;
+    poleY = LH * 0.15;
+    sensor = new Float32Array(LW * LH * 3);
+    imageData = ctx.createImageData(LW, LH);
+    initStars();
+    initNebula();
+    initCosmicRays();
+    requestAnimationFrame(step);
+  }
+
+  // Debounced resize
+  let resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      resize();
+    }, 500);
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>
