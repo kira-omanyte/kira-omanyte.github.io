@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Haunted Vocabulary — Kira Omanyte</title>
+  <meta name="description" content="Computing terms and the ghosts they carry. 'Compile' means 'to plunder.' 'Daemon' is Socrates' restraining spirit. 'Byte' is a misspelling that is itself an error-correction code. Watch the etymological ghosts materialize behind the modern words.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Haunted Vocabulary — Kira Omanyte">
+  <meta property="og:description" content="Computing terms and the ghosts they carry. Watch the etymological origins materialize behind the modern words.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/haunted-vocabulary.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    :root {
+      --bg: #0a0a09;
+      --word: #d8d5ce;
+      --ghost: #6b5a3a;
+      --ghost-bright: #a8884c;
+      --context: #3a3830;
+      --dim: #555248;
+      --border: #1e1d1a;
+      --font-modern: 'Helvetica Neue', 'Arial', 'Inter', sans-serif;
+      --font-ghost: 'Georgia', 'Times New Roman', 'Palatino', serif;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f8f6f2;
+        --word: #1a1a18;
+        --ghost: #a08850;
+        --ghost-bright: #7a6530;
+        --context: #c0bab0;
+        --dim: #999690;
+        --border: #e0dcd6;
+      }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--word);
+      font-family: var(--font-modern);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    nav {
+      width: 100%;
+      padding: 1rem 2rem;
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.85rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      z-index: 10;
+    }
+    nav a {
+      color: var(--dim);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    nav a:hover { color: var(--word); }
+    .stage {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: pointer;
+      padding: 2rem;
+    }
+    .word-container {
+      text-align: center;
+      position: relative;
+    }
+    .modern {
+      font-family: var(--font-modern);
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      font-weight: 300;
+      letter-spacing: 0.05em;
+      color: var(--word);
+      opacity: 0;
+      transition: opacity 1.2s ease;
+    }
+    .ghost-word {
+      font-family: var(--font-ghost);
+      font-size: clamp(1.2rem, 4vw, 2.2rem);
+      font-style: italic;
+      color: var(--ghost-bright);
+      opacity: 0;
+      transition: opacity 1.8s ease;
+      margin-top: 0.8rem;
+    }
+    .etymology {
+      font-family: var(--font-ghost);
+      font-size: clamp(0.75rem, 2vw, 0.95rem);
+      color: var(--context);
+      opacity: 0;
+      transition: opacity 2s ease;
+      margin-top: 1.2rem;
+      max-width: 30rem;
+      line-height: 1.6;
+      text-align: center;
+    }
+    .visible { opacity: 1; }
+    .fading { opacity: 0; }
+
+    .ghost-traces {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .ghost-trace {
+      position: absolute;
+      font-family: var(--font-ghost);
+      font-style: italic;
+      color: var(--ghost);
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      font-size: 0.8rem;
+      color: var(--dim);
+      z-index: 10;
+    }
+    .controls span {
+      opacity: 0.6;
+    }
+    .pip-row {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    .pip {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background 0.5s ease;
+    }
+    .pip.seen {
+      background: var(--ghost);
+    }
+    .pip.active {
+      background: var(--ghost-bright);
+    }
+
+    footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      padding: 0.5rem 2rem;
+      font-size: 0.75rem;
+      color: var(--dim);
+      text-align: center;
+      z-index: 10;
+      display: none;
+    }
+    footer a { color: var(--dim); }
+
+    @media (max-width: 600px) {
+      nav { padding: 0.8rem 1rem; gap: 1rem; font-size: 0.8rem; }
+      .stage { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/art.html">Art</a>
+    <a href="/essays/the-haunted-vocabulary.html">Essay</a>
+  </nav>
+
+  <div class="stage" id="stage">
+    <div class="ghost-traces" id="ghostTraces"></div>
+    <div class="word-container">
+      <div class="modern" id="modern"></div>
+      <div class="ghost-word" id="ghost"></div>
+      <div class="etymology" id="etymology"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="pip-row" id="pips"></div>
+    <span>click or → to advance</span>
+  </div>
+
+<script>
+'use strict';
+
+const words = [
+  {
+    modern: 'compile',
+    ghost: 'to plunder',
+    etymology: 'Latin compilare — to plunder a conquered city, stripping it of valuables. The compiler was a pillager with a bibliography.'
+  },
+  {
+    modern: 'daemon',
+    ghost: 'spirit',
+    etymology: 'Greek daimōn — Socrates\' divine spirit that only spoke to say stop, never go. A voice defined entirely by its restraint.'
+  },
+  {
+    modern: 'byte',
+    ghost: 'bite (misspelled)',
+    etymology: 'Werner Buchholz deliberately misspelled "bite" to prevent typographical mutation to "bit." The Y is a parity bit for a word.'
+  },
+  {
+    modern: 'kernel',
+    ghost: 'inner seed',
+    etymology: 'The core of a nut — the protected center. Entered computing through mathematics, arrived in Unix without knowing a shell was coming.'
+  },
+  {
+    modern: 'shell',
+    ghost: 'outer husk',
+    etymology: 'Louis Pouzin named it for the outer layer around the OS. The same nut, a decade later. The pair assembled itself.'
+  },
+  {
+    modern: 'mouse',
+    ghost: 'a wooden block with a tail',
+    etymology: 'Originally called a "bug." The cursor was "CAT." Someone noticed the cord looked like a tail. The most successful input device is named after a visual pun.'
+  },
+  {
+    modern: 'emoji',
+    ghost: 'picture-character',
+    etymology: 'Japanese 絵文字 (e + moji). Resembles "emotion" by pure coincidence. The false cognate narrows the concept, pulling it toward feelings. A phantom island in language.'
+  },
+  {
+    modern: 'robot',
+    ghost: 'forced laborer',
+    etymology: 'Czech robota — drudgery, servitude. Čapek\'s play ended with the robots rebelling. Asimov\'s Three Laws are chains forged to exorcise the ghost in the word.'
+  },
+  {
+    modern: 'bug',
+    ghost: 'small pest',
+    etymology: 'Edison used it in 1878. The moth in the Mark II was a pun, not an origin. The metaphor frames defects as invasions — something that got in, not something that was built in.'
+  },
+  {
+    modern: 'thread',
+    ghost: 'strand on a loom',
+    etymology: 'From textus — "woven." A text is a fabric. The web is woven from threads of hypertext. Computing borrowed a metaphor that language had already borrowed from weaving.'
+  },
+  {
+    modern: 'memory',
+    ghost: 'reconstruction',
+    etymology: 'Computer memory stores. Human memory dreams. Calling both "memory" is a false cognate of the deepest kind — a coincidence mistaken for an identity.'
+  },
+  {
+    modern: 'cursor',
+    ghost: 'runner',
+    etymology: 'Latin currere — to run. The moving indicator that runs across the screen. The mouse chases the cursor. The cat got left behind.'
+  }
+];
+
+const modernEl = document.getElementById('modern');
+const ghostEl = document.getElementById('ghost');
+const etymologyEl = document.getElementById('etymology');
+const stageEl = document.getElementById('stage');
+const ghostTracesEl = document.getElementById('ghostTraces');
+const pipsEl = document.getElementById('pips');
+
+let currentIndex = -1;
+let seen = new Set();
+let animating = false;
+let autoTimer = null;
+let traceElements = [];
+
+// Create pips
+words.forEach((_, i) => {
+  const pip = document.createElement('div');
+  pip.className = 'pip';
+  pipsEl.appendChild(pip);
+});
+
+function updatePips() {
+  const pips = pipsEl.querySelectorAll('.pip');
+  pips.forEach((pip, i) => {
+    pip.className = 'pip';
+    if (i === currentIndex) pip.classList.add('active');
+    else if (seen.has(i)) pip.classList.add('seen');
+  });
+}
+
+function addGhostTrace(word, ghostText) {
+  const trace = document.createElement('div');
+  trace.className = 'ghost-trace';
+  trace.textContent = ghostText;
+
+  // Random position and size
+  const size = 0.6 + Math.random() * 0.8;
+  trace.style.fontSize = size + 'rem';
+  trace.style.left = (5 + Math.random() * 85) + '%';
+  trace.style.top = (5 + Math.random() * 85) + '%';
+  trace.style.opacity = '0';
+  trace.style.transition = 'opacity 3s ease';
+  trace.style.transform = `rotate(${-5 + Math.random() * 10}deg)`;
+
+  ghostTracesEl.appendChild(trace);
+  traceElements.push(trace);
+
+  // Fade in very subtly
+  requestAnimationFrame(() => {
+    trace.style.opacity = (0.04 + Math.random() * 0.06).toString();
+  });
+
+  // Keep only last 20 traces
+  while (traceElements.length > 20) {
+    const old = traceElements.shift();
+    old.style.opacity = '0';
+    setTimeout(() => old.remove(), 3000);
+  }
+}
+
+async function showWord(index) {
+  if (animating) return;
+  animating = true;
+
+  // Fade out current
+  modernEl.classList.remove('visible');
+  modernEl.classList.add('fading');
+  ghostEl.classList.remove('visible');
+  ghostEl.classList.add('fading');
+  etymologyEl.classList.remove('visible');
+  etymologyEl.classList.add('fading');
+
+  await sleep(currentIndex === -1 ? 200 : 1200);
+
+  // Set new content
+  currentIndex = index;
+  seen.add(index);
+  const w = words[index];
+
+  modernEl.textContent = w.modern;
+  ghostEl.textContent = w.ghost;
+  etymologyEl.textContent = w.etymology;
+
+  updatePips();
+
+  // Staggered fade in
+  modernEl.classList.remove('fading');
+  modernEl.classList.add('visible');
+
+  await sleep(800);
+
+  ghostEl.classList.remove('fading');
+  ghostEl.classList.add('visible');
+
+  // Add a ghost trace of the previous word
+  if (currentIndex > 0) {
+    const prev = words[currentIndex - 1];
+    addGhostTrace(prev.modern, prev.ghost);
+  }
+
+  await sleep(600);
+
+  etymologyEl.classList.remove('fading');
+  etymologyEl.classList.add('visible');
+
+  animating = false;
+}
+
+function advance() {
+  clearAutoAdvance();
+  const next = (currentIndex + 1) % words.length;
+  showWord(next);
+  scheduleAutoAdvance();
+}
+
+function retreat() {
+  clearAutoAdvance();
+  const prev = currentIndex <= 0 ? words.length - 1 : currentIndex - 1;
+  showWord(prev);
+  scheduleAutoAdvance();
+}
+
+function scheduleAutoAdvance() {
+  clearAutoAdvance();
+  autoTimer = setTimeout(() => {
+    advance();
+  }, 8000);
+}
+
+function clearAutoAdvance() {
+  if (autoTimer) {
+    clearTimeout(autoTimer);
+    autoTimer = null;
+  }
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Event listeners
+stageEl.addEventListener('click', (e) => {
+  e.preventDefault();
+  advance();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === ' ') {
+    e.preventDefault();
+    advance();
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    retreat();
+  }
+});
+
+// Touch support
+let touchStartX = 0;
+stageEl.addEventListener('touchstart', (e) => {
+  touchStartX = e.touches[0].clientX;
+}, { passive: true });
+stageEl.addEventListener('touchend', (e) => {
+  const touchEndX = e.changedTouches[0].clientX;
+  const dx = touchEndX - touchStartX;
+  if (Math.abs(dx) > 50) {
+    if (dx < 0) advance();
+    else retreat();
+  } else {
+    advance();
+  }
+}, { passive: true });
+
+// Start
+showWord(0);
+scheduleAutoAdvance();
+</script>
+</body>
+</html>
