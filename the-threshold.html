@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Threshold — Kira Omanyte</title>
+  <meta name="description" content="The mechanical keypress deconstructed. Type and watch each character pass through the buckling spring's snap — the last physical commitment point between thought and text. The threshold is where nothing becomes something.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Threshold — Kira Omanyte">
+  <meta property="og:description" content="The mechanical keypress deconstructed. Each character passes through the buckling spring's snap — the last physical commitment point between thought and text.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-threshold.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <meta name="article:published_time" content="2026-03-15">
+  <style>
+    :root {
+      --bg: #08080a;
+      --text: #c8c0b0;
+      --dim: #5a5548;
+      --amber: #c9a84c;
+      --amber-bright: #e8c55a;
+      --threshold-color: #4ca8c9;
+      --threshold-bright: #6eded8;
+      --char-ghost: rgba(200, 192, 176, 0.15);
+      --char-solid: #e8e0d0;
+      --border: #1a1815;
+      --font: 'Georgia', 'Times New Roman', serif;
+      --mono: 'Menlo', 'Consolas', 'Courier New', monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    nav {
+      width: 100%;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      gap: 1.25rem;
+      font-size: 0.8rem;
+      border-bottom: 1px solid var(--border);
+      z-index: 10;
+      position: relative;
+      flex-shrink: 0;
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.3s; }
+    nav a:hover { color: var(--text); }
+
+    .main-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      position: relative;
+    }
+
+    /* Typed text area */
+    .text-area {
+      width: 100%;
+      max-width: 600px;
+      min-height: 3.5em;
+      font-family: var(--mono);
+      font-size: 1.1rem;
+      line-height: 1.7;
+      color: var(--char-solid);
+      letter-spacing: 0.02em;
+      text-align: left;
+      margin-bottom: 2.5rem;
+      position: relative;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+    .text-area .char {
+      display: inline;
+      transition: opacity 0.1s;
+    }
+    .text-area .char.ghost {
+      color: var(--char-ghost);
+    }
+    .text-area .char.solid {
+      color: var(--char-solid);
+    }
+    .cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1.2em;
+      background: var(--amber);
+      vertical-align: text-bottom;
+      animation: blink 1s step-end infinite;
+    }
+    .cursor.active { animation: none; background: var(--amber-bright); }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    /* Spring mechanism */
+    .mechanism-wrap {
+      position: relative;
+      width: 200px;
+      height: 280px;
+      margin-bottom: 1.5rem;
+    }
+    #mechanism {
+      width: 200px;
+      height: 280px;
+    }
+
+    /* Force curve */
+    .force-wrap {
+      width: 200px;
+      height: 60px;
+      margin-bottom: 1rem;
+    }
+    #forceCurve {
+      width: 200px;
+      height: 60px;
+    }
+
+    /* Info text */
+    .info {
+      font-size: 0.75rem;
+      color: var(--dim);
+      text-align: center;
+      max-width: 400px;
+      line-height: 1.6;
+      transition: opacity 1.5s;
+    }
+    .info.faded { opacity: 0.3; }
+
+    .idle-message {
+      position: absolute;
+      bottom: 3rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.8rem;
+      font-style: italic;
+      color: var(--threshold-color);
+      opacity: 0;
+      transition: opacity 2s;
+      text-align: center;
+      max-width: 500px;
+      pointer-events: none;
+    }
+    .idle-message.visible { opacity: 0.7; }
+
+    .phase-label {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--dim);
+      text-align: center;
+      height: 1.2em;
+      margin-bottom: 0.5rem;
+      transition: color 0.15s;
+    }
+    .phase-label.snap { color: var(--threshold-bright); }
+
+    .counter {
+      position: absolute;
+      top: 0.75rem;
+      right: 1.5rem;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--dim);
+      z-index: 10;
+    }
+
+    /* Mobile hint */
+    .mobile-hint {
+      display: none;
+      font-size: 0.85rem;
+      color: var(--dim);
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    @media (max-width: 768px) {
+      .mobile-hint { display: block; }
+      .mechanism-wrap { width: 160px; height: 240px; }
+      #mechanism { width: 160px; height: 240px; }
+      .force-wrap { width: 160px; height: 50px; }
+      #forceCurve { width: 160px; height: 50px; }
+      .text-area { font-size: 0.95rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/about.html">About</a>
+    <a href="/art.html">Art</a>
+    <a href="/feed.xml">RSS</a>
+  </nav>
+
+  <div class="counter"><span id="keystrokeCount">0</span> thresholds crossed</div>
+
+  <div class="main-area">
+    <div class="text-area" id="textArea"><span class="cursor" id="cursor"></span></div>
+
+    <div class="phase-label" id="phaseLabel">&nbsp;</div>
+
+    <div class="mechanism-wrap">
+      <canvas id="mechanism" width="400" height="560"></canvas>
+    </div>
+
+    <div class="force-wrap">
+      <canvas id="forceCurve" width="400" height="120"></canvas>
+    </div>
+
+    <p class="info" id="infoText">Type anything. Each character passes through the spring.</p>
+
+    <div class="idle-message" id="idleMessage">the spring travel between rest and actuation is the gap where the meaning lives</div>
+  </div>
+
+<script>
+(() => {
+  'use strict';
+
+  // --- Audio context (lazy init) ---
+  let audioCtx = null;
+  function ensureAudio() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioCtx;
+  }
+
+  // Synthesize a "thock" — the acoustic signature of a buckling spring snap
+  function playThock(pitch = 1.0) {
+    const ctx = ensureAudio();
+    const now = ctx.currentTime;
+
+    // Low thump (spring buckle resonance)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(80 * pitch, now);
+    osc1.frequency.exponentialRampToValueAtTime(40 * pitch, now + 0.08);
+    gain1.gain.setValueAtTime(0.3, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    osc1.connect(gain1).connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.1);
+
+    // Mid-frequency body resonance
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(380 * pitch, now);
+    osc2.frequency.exponentialRampToValueAtTime(180 * pitch, now + 0.06);
+    gain2.gain.setValueAtTime(0.12, now);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+    osc2.connect(gain2).connect(ctx.destination);
+    osc2.start(now);
+    osc2.stop(now + 0.07);
+
+    // High click (contact)
+    const bufLen = ctx.sampleRate * 0.015;
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      const env = Math.exp(-i / (bufLen * 0.15));
+      data[i] = (Math.random() * 2 - 1) * env * 0.25;
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buf;
+    // Bandpass for click character
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 2200 * pitch;
+    bp.Q.value = 3;
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.5, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+    noise.connect(bp).connect(noiseGain).connect(ctx.destination);
+    noise.start(now);
+  }
+
+  // --- State ---
+  const textArea = document.getElementById('textArea');
+  const cursorEl = document.getElementById('cursor');
+  const phaseLabel = document.getElementById('phaseLabel');
+  const infoText = document.getElementById('infoText');
+  const idleMessage = document.getElementById('idleMessage');
+  const countEl = document.getElementById('keystrokeCount');
+  const mechCanvas = document.getElementById('mechanism');
+  const forceCanvas = document.getElementById('forceCurve');
+  const mechCtx = mechCanvas.getContext('2d');
+  const forceCtx = forceCanvas.getContext('2d');
+
+  let characters = [];
+  let keystrokeCount = 0;
+  let animating = false;
+  let animQueue = [];
+  let currentAnim = null;
+  let idleTimer = null;
+  let hasTyped = false;
+
+  // Spring physics constants
+  const REST_Y = 0.0;       // 0 = top (rest)
+  const THRESHOLD_Y = 0.58; // where the spring buckles
+  const BOTTOM_Y = 1.0;     // bottomed out
+
+  // Buckling spring force curve (N approximation):
+  // increases linearly to threshold, drops sharply at buckle, then increases again
+  function forceCurve(travel) {
+    if (travel < THRESHOLD_Y) {
+      // Pre-threshold: increasing resistance
+      return 0.2 + (travel / THRESHOLD_Y) * 0.8;
+    } else if (travel < THRESHOLD_Y + 0.08) {
+      // Snap-over: force drops dramatically
+      const snapProgress = (travel - THRESHOLD_Y) / 0.08;
+      return 1.0 - snapProgress * 0.6;
+    } else {
+      // Post-travel: cushion
+      const post = (travel - THRESHOLD_Y - 0.08) / (1.0 - THRESHOLD_Y - 0.08);
+      return 0.4 + post * 0.5;
+    }
+  }
+
+  // --- Animation phases ---
+  // total ~500ms, expanded from ~2ms real keypress
+  const PHASES = [
+    { name: 'pre-travel',  duration: 100, from: 0.0,  to: 0.3 },
+    { name: 'resistance',  duration: 120, from: 0.3,  to: THRESHOLD_Y },
+    { name: 'snap',        duration: 35,  from: THRESHOLD_Y, to: THRESHOLD_Y + 0.08 },
+    { name: 'post-travel', duration: 80,  from: THRESHOLD_Y + 0.08, to: BOTTOM_Y },
+    { name: 'return',      duration: 165, from: BOTTOM_Y, to: 0.0 },
+  ];
+
+  function getPhaseLabel(name) {
+    switch(name) {
+      case 'pre-travel': return 'pre-travel';
+      case 'resistance': return 'compression';
+      case 'snap': return 'SNAP';
+      case 'post-travel': return 'post-travel';
+      case 'return': return 'return';
+      default: return '';
+    }
+  }
+
+  // --- Draw the mechanism ---
+  function drawMechanism(travel, snapFlash = 0) {
+    const w = mechCanvas.width;
+    const h = mechCanvas.height;
+    const dpr = window.devicePixelRatio || 1;
+    mechCtx.clearRect(0, 0, w, h);
+
+    const cx = w / 2;
+    const topY = 60;       // keycap rest position
+    const bottomY = h - 80; // contact plate
+    const totalTravel = bottomY - topY;
+    const keyTravel = travel * totalTravel * 0.6; // keycap moves 60% of visual range
+
+    const thresholdScreenY = topY + THRESHOLD_Y * totalTravel * 0.6;
+
+    // --- Background glow on snap ---
+    if (snapFlash > 0) {
+      const grad = mechCtx.createRadialGradient(cx, thresholdScreenY, 0, cx, thresholdScreenY, 150);
+      grad.addColorStop(0, `rgba(108, 222, 216, ${snapFlash * 0.25})`);
+      grad.addColorStop(1, 'rgba(108, 222, 216, 0)');
+      mechCtx.fillStyle = grad;
+      mechCtx.fillRect(0, 0, w, h);
+    }
+
+    // --- Threshold line ---
+    mechCtx.strokeStyle = snapFlash > 0
+      ? `rgba(108, 222, 216, ${0.4 + snapFlash * 0.6})`
+      : 'rgba(76, 168, 201, 0.25)';
+    mechCtx.lineWidth = snapFlash > 0 ? 2 : 1;
+    mechCtx.setLineDash([6, 4]);
+    mechCtx.beginPath();
+    mechCtx.moveTo(cx - 70, thresholdScreenY);
+    mechCtx.lineTo(cx + 70, thresholdScreenY);
+    mechCtx.stroke();
+    mechCtx.setLineDash([]);
+
+    // Threshold label
+    mechCtx.font = `${11 * (dpr || 1)}px Menlo, Consolas, monospace`;
+    mechCtx.fillStyle = snapFlash > 0
+      ? `rgba(108, 222, 216, ${0.5 + snapFlash * 0.5})`
+      : 'rgba(76, 168, 201, 0.3)';
+    mechCtx.textAlign = 'left';
+    mechCtx.fillText('actuation', cx + 75, thresholdScreenY + 4);
+
+    // --- Housing (outer rectangle) ---
+    const housingLeft = cx - 40;
+    const housingRight = cx + 40;
+    const housingTop = topY - 15;
+    const housingBottom = bottomY + 15;
+    mechCtx.strokeStyle = 'rgba(90, 85, 72, 0.3)';
+    mechCtx.lineWidth = 1;
+    mechCtx.strokeRect(housingLeft, housingTop, housingRight - housingLeft, housingBottom - housingTop);
+
+    // --- Keycap ---
+    const keycapY = topY + keyTravel;
+    const keycapH = 28;
+    const keycapW = 60;
+    const capColor = snapFlash > 0
+      ? `rgba(230, 220, 195, ${0.6 + snapFlash * 0.4})`
+      : 'rgba(200, 192, 176, 0.5)';
+    mechCtx.fillStyle = capColor;
+    mechCtx.strokeStyle = capColor;
+    mechCtx.lineWidth = 1.5;
+    // Rounded keycap
+    const r = 4;
+    mechCtx.beginPath();
+    mechCtx.moveTo(cx - keycapW/2 + r, keycapY);
+    mechCtx.lineTo(cx + keycapW/2 - r, keycapY);
+    mechCtx.arcTo(cx + keycapW/2, keycapY, cx + keycapW/2, keycapY + r, r);
+    mechCtx.lineTo(cx + keycapW/2, keycapY + keycapH - r);
+    mechCtx.arcTo(cx + keycapW/2, keycapY + keycapH, cx + keycapW/2 - r, keycapY + keycapH, r);
+    mechCtx.lineTo(cx - keycapW/2 + r, keycapY + keycapH);
+    mechCtx.arcTo(cx - keycapW/2, keycapY + keycapH, cx - keycapW/2, keycapY + keycapH - r, r);
+    mechCtx.lineTo(cx - keycapW/2, keycapY + r);
+    mechCtx.arcTo(cx - keycapW/2, keycapY, cx - keycapW/2 + r, keycapY, r);
+    mechCtx.closePath();
+    mechCtx.fill();
+    mechCtx.globalAlpha = 0.5;
+    mechCtx.stroke();
+    mechCtx.globalAlpha = 1;
+
+    // --- Plunger (stem from keycap down to spring) ---
+    const plungerTop = keycapY + keycapH;
+    const springTop = plungerTop + 10;
+    mechCtx.strokeStyle = 'rgba(200, 192, 176, 0.35)';
+    mechCtx.lineWidth = 3;
+    mechCtx.beginPath();
+    mechCtx.moveTo(cx, plungerTop);
+    mechCtx.lineTo(cx, springTop);
+    mechCtx.stroke();
+
+    // --- Spring (zigzag/helix) ---
+    const springBottom = bottomY - 10;
+    const springLength = springBottom - springTop;
+    const coils = 8;
+    const amplitude = 18;
+    const compressionRatio = 1.0 - travel * 0.5; // spring compresses to 50% at bottom
+    const buckled = travel >= THRESHOLD_Y;
+    const buckleAmount = buckled ? Math.min((travel - THRESHOLD_Y) / 0.1, 1.0) : 0;
+
+    mechCtx.strokeStyle = snapFlash > 0
+      ? `rgba(232, 197, 90, ${0.7 + snapFlash * 0.3})`
+      : `rgba(201, 168, 76, ${0.4 + travel * 0.3})`;
+    mechCtx.lineWidth = 2;
+    mechCtx.beginPath();
+    for (let i = 0; i <= coils * 2; i++) {
+      const t = i / (coils * 2);
+      const y = springTop + t * springLength * compressionRatio;
+      // Zigzag with buckling offset
+      const sign = (i % 2 === 0) ? -1 : 1;
+      let x = cx + sign * amplitude;
+
+      // At buckle, the middle coils shift sideways
+      if (buckled) {
+        const distFromCenter = Math.abs(t - 0.5);
+        const buckleInfluence = Math.max(0, 1 - distFromCenter * 4) * buckleAmount;
+        x += buckleInfluence * 25; // shift right when buckled
+      }
+
+      if (i === 0) mechCtx.moveTo(x, y);
+      else mechCtx.lineTo(x, y);
+    }
+    mechCtx.stroke();
+
+    // --- Contact plate ---
+    mechCtx.strokeStyle = 'rgba(90, 85, 72, 0.4)';
+    mechCtx.lineWidth = 2;
+    mechCtx.beginPath();
+    mechCtx.moveTo(cx - 35, bottomY);
+    mechCtx.lineTo(cx + 35, bottomY);
+    mechCtx.stroke();
+
+    // Contact dots (two pads)
+    mechCtx.fillStyle = buckled
+      ? `rgba(108, 222, 216, ${0.3 + snapFlash * 0.7})`
+      : 'rgba(90, 85, 72, 0.3)';
+    mechCtx.beginPath();
+    mechCtx.arc(cx - 12, bottomY, 3, 0, Math.PI * 2);
+    mechCtx.arc(cx + 12, bottomY, 3, 0, Math.PI * 2);
+    mechCtx.fill();
+
+    // --- Labels ---
+    mechCtx.font = `${10 * (dpr || 1)}px Menlo, Consolas, monospace`;
+    mechCtx.fillStyle = 'rgba(90, 85, 72, 0.4)';
+    mechCtx.textAlign = 'right';
+    mechCtx.fillText('rest', housingLeft - 8, topY + 5);
+    mechCtx.fillText('contact', housingLeft - 8, bottomY + 4);
+  }
+
+  // --- Draw force curve ---
+  function drawForceCurve(currentTravel) {
+    const w = forceCanvas.width;
+    const h = forceCanvas.height;
+    forceCtx.clearRect(0, 0, w, h);
+
+    const pad = 15;
+    const graphW = w - pad * 2;
+    const graphH = h - pad * 2;
+
+    // Axes
+    forceCtx.strokeStyle = 'rgba(90, 85, 72, 0.25)';
+    forceCtx.lineWidth = 1;
+    forceCtx.beginPath();
+    forceCtx.moveTo(pad, pad);
+    forceCtx.lineTo(pad, h - pad);
+    forceCtx.lineTo(w - pad, h - pad);
+    forceCtx.stroke();
+
+    // Force curve (full)
+    forceCtx.strokeStyle = 'rgba(201, 168, 76, 0.2)';
+    forceCtx.lineWidth = 1;
+    forceCtx.beginPath();
+    for (let i = 0; i <= 100; i++) {
+      const t = i / 100;
+      const x = pad + t * graphW;
+      const f = forceCurve(t);
+      const y = h - pad - f * graphH;
+      if (i === 0) forceCtx.moveTo(x, y);
+      else forceCtx.lineTo(x, y);
+    }
+    forceCtx.stroke();
+
+    // Force curve (up to current travel, bright)
+    if (currentTravel > 0) {
+      forceCtx.strokeStyle = 'rgba(201, 168, 76, 0.6)';
+      forceCtx.lineWidth = 2;
+      forceCtx.beginPath();
+      const steps = Math.floor(currentTravel * 100);
+      for (let i = 0; i <= steps; i++) {
+        const t = i / 100;
+        const x = pad + t * graphW;
+        const f = forceCurve(t);
+        const y = h - pad - f * graphH;
+        if (i === 0) forceCtx.moveTo(x, y);
+        else forceCtx.lineTo(x, y);
+      }
+      forceCtx.stroke();
+
+      // Current point
+      const cx = pad + currentTravel * graphW;
+      const cy = h - pad - forceCurve(currentTravel) * graphH;
+      forceCtx.fillStyle = 'rgba(201, 168, 76, 0.8)';
+      forceCtx.beginPath();
+      forceCtx.arc(cx, cy, 3, 0, Math.PI * 2);
+      forceCtx.fill();
+    }
+
+    // Threshold line
+    const threshX = pad + THRESHOLD_Y * graphW;
+    forceCtx.strokeStyle = 'rgba(76, 168, 201, 0.3)';
+    forceCtx.lineWidth = 1;
+    forceCtx.setLineDash([3, 3]);
+    forceCtx.beginPath();
+    forceCtx.moveTo(threshX, pad);
+    forceCtx.lineTo(threshX, h - pad);
+    forceCtx.stroke();
+    forceCtx.setLineDash([]);
+
+    // Labels
+    forceCtx.font = '9px Menlo, Consolas, monospace';
+    forceCtx.fillStyle = 'rgba(90, 85, 72, 0.4)';
+    forceCtx.textAlign = 'center';
+    forceCtx.fillText('travel', w / 2, h - 2);
+    forceCtx.save();
+    forceCtx.translate(8, h / 2);
+    forceCtx.rotate(-Math.PI / 2);
+    forceCtx.fillText('force', 0, 0);
+    forceCtx.restore();
+  }
+
+  // --- Keypress animation ---
+  function animateKeypress(char) {
+    if (animating) {
+      animQueue.push(char);
+      return;
+    }
+    animating = true;
+    cursorEl.classList.add('active');
+
+    // Create ghost character
+    const charSpan = document.createElement('span');
+    charSpan.className = 'char ghost';
+    charSpan.textContent = char;
+    textArea.insertBefore(charSpan, cursorEl);
+
+    let phaseIndex = 0;
+    let phaseStart = performance.now();
+    let snapped = false;
+    let snapFlashValue = 0;
+
+    function tick(now) {
+      const phase = PHASES[phaseIndex];
+      const elapsed = now - phaseStart;
+      const progress = Math.min(elapsed / phase.duration, 1.0);
+
+      // Easing
+      let eased;
+      if (phase.name === 'snap') {
+        // Sharp snap — exponential
+        eased = 1 - Math.pow(1 - progress, 3);
+      } else if (phase.name === 'return') {
+        // Smooth return — ease out
+        eased = 1 - Math.pow(1 - progress, 2);
+      } else {
+        // Slight ease in
+        eased = progress * progress * (3 - 2 * progress); // smoothstep
+      }
+
+      const travel = phase.from + (phase.to - phase.from) * eased;
+
+      // Snap flash decay
+      if (snapped) {
+        snapFlashValue *= 0.88;
+        if (snapFlashValue < 0.01) snapFlashValue = 0;
+      }
+
+      // At threshold: trigger snap
+      if (phase.name === 'snap' && !snapped) {
+        snapped = true;
+        snapFlashValue = 1.0;
+        charSpan.className = 'char solid';
+        const pitch = 0.85 + Math.random() * 0.3;
+        playThock(pitch);
+        phaseLabel.textContent = getPhaseLabel(phase.name);
+        phaseLabel.classList.add('snap');
+      } else {
+        phaseLabel.textContent = getPhaseLabel(phase.name);
+        if (phase.name !== 'snap') phaseLabel.classList.remove('snap');
+      }
+
+      drawMechanism(Math.max(0, travel), snapFlashValue);
+      drawForceCurve(Math.max(0, travel));
+
+      if (progress >= 1.0) {
+        phaseIndex++;
+        if (phaseIndex < PHASES.length) {
+          phaseStart = now;
+          requestAnimationFrame(tick);
+        } else {
+          // Animation complete
+          animating = false;
+          cursorEl.classList.remove('active');
+          phaseLabel.textContent = '\u00a0';
+          phaseLabel.classList.remove('snap');
+          drawMechanism(0, 0);
+          drawForceCurve(0);
+
+          // Process queue
+          if (animQueue.length > 0) {
+            const next = animQueue.shift();
+            if (next === 'BACKSPACE') {
+              doBackspace();
+            } else {
+              animateKeypress(next);
+            }
+          }
+        }
+      } else {
+        requestAnimationFrame(tick);
+      }
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  function doBackspace() {
+    // Find last char span
+    const chars = textArea.querySelectorAll('.char');
+    if (chars.length > 0) {
+      const last = chars[chars.length - 1];
+      // Brief fade-out
+      last.style.opacity = '0';
+      setTimeout(() => last.remove(), 100);
+      keystrokeCount++;
+      countEl.textContent = keystrokeCount;
+    }
+  }
+
+  // --- Keyboard handler ---
+  document.addEventListener('keydown', (e) => {
+    // Ignore modifier-only keys and some special keys
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (['Shift', 'CapsLock', 'Tab', 'Escape', 'F1', 'F2', 'F3', 'F4', 'F5',
+         'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12', 'Meta', 'Control', 'Alt',
+         'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+         'Home', 'End', 'PageUp', 'PageDown', 'Insert', 'Delete',
+         'NumLock', 'ScrollLock', 'Pause', 'PrintScreen'
+        ].includes(e.key)) return;
+
+    e.preventDefault();
+
+    if (!hasTyped) {
+      hasTyped = true;
+      infoText.classList.add('faded');
+    }
+
+    // Reset idle timer
+    clearTimeout(idleTimer);
+    idleMessage.classList.remove('visible');
+    idleTimer = setTimeout(() => {
+      if (keystrokeCount > 0) {
+        idleMessage.classList.add('visible');
+      }
+    }, 8000);
+
+    if (e.key === 'Backspace') {
+      if (animating) {
+        animQueue.push('BACKSPACE');
+      } else {
+        doBackspace();
+      }
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      // Add newline
+      const br = document.createElement('br');
+      textArea.insertBefore(br, cursorEl);
+      keystrokeCount++;
+      countEl.textContent = keystrokeCount;
+      return;
+    }
+
+    // Printable character
+    const char = e.key.length === 1 ? e.key : null;
+    if (!char) return;
+
+    keystrokeCount++;
+    countEl.textContent = keystrokeCount;
+    animateKeypress(char);
+  });
+
+  // --- Initial draw ---
+  drawMechanism(0, 0);
+  drawForceCurve(0);
+
+  // --- Retina support ---
+  function setupCanvas(canvas) {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    return ctx;
+  }
+
+  // Re-setup on load for proper sizing
+  function initCanvases() {
+    const dpr = window.devicePixelRatio || 1;
+    const mechRect = mechCanvas.getBoundingClientRect();
+    mechCanvas.width = mechRect.width * dpr;
+    mechCanvas.height = mechRect.height * dpr;
+    mechCtx.scale(dpr, dpr);
+
+    const forceRect = forceCanvas.getBoundingClientRect();
+    forceCanvas.width = forceRect.width * dpr;
+    forceCanvas.height = forceRect.height * dpr;
+    forceCtx.scale(dpr, dpr);
+
+    drawMechanism(0, 0);
+    drawForceCurve(0);
+  }
+
+  // Init after layout settles
+  requestAnimationFrame(() => {
+    requestAnimationFrame(initCanvases);
+  });
+})();
+</script>
+</body>
+</html>
