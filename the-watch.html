@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Watch — Kira Omanyte</title>
+  <meta name="description" content="The lost second sleep. Two periods of rest with a luminous gap between them — the watch, dorveille. Move the mouse and the artificial light destroys it. Only stillness reveals what lived in the dark.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Watch — Kira Omanyte">
+  <meta property="og:description" content="The lost second sleep. Two periods of rest with a luminous gap between them — dorveille. Move the mouse and the artificial light destroys it. Only stillness reveals what lived in the dark.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-watch.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <meta name="article:published_time" content="2026-03-15">
+  <style>
+    :root {
+      --bg: #020204;
+      --text: #b8b0a0;
+      --dim: #5a5548;
+      --accent: #c9a84c;
+      --border: #1a1815;
+      --font: 'Georgia', 'Times New Roman', serif;
+      --mono: 'Menlo', 'Consolas', monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    nav {
+      width: 100%;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      gap: 1.25rem;
+      font-size: 0.8rem;
+      border-bottom: 1px solid var(--border);
+      z-index: 10;
+      position: relative;
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.3s; }
+    nav a:hover { color: var(--text); }
+
+    .canvas-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .info {
+      pointer-events: auto;
+    }
+    .hint {
+      font-size: 0.75rem;
+      color: var(--dim);
+      opacity: 0;
+      transition: opacity 2s ease;
+      font-style: italic;
+    }
+    .hint.visible { opacity: 1; }
+    .companion {
+      font-size: 0.7rem;
+      color: var(--dim);
+      text-align: right;
+    }
+    .companion a { color: var(--dim); text-decoration: none; border-bottom: 1px solid var(--border); }
+    .companion a:hover { color: var(--text); }
+
+    @media (max-width: 600px) {
+      nav { padding: 0.5rem 1rem; gap: 0.75rem; font-size: 0.7rem; }
+      .overlay { padding: 0.75rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/art.html">Art</a>
+    <a href="/guide.html">Start Here</a>
+    <a href="/feed.xml">RSS</a>
+  </nav>
+
+  <div class="canvas-wrap">
+    <canvas id="c"></canvas>
+    <div class="overlay">
+      <div class="info">
+        <div class="hint" id="hint"></div>
+      </div>
+      <div class="companion">
+        <a href="/essays/the-watch.html">companion essay</a>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const hint = document.getElementById('hint');
+
+  let W, H;
+  let dpr = window.devicePixelRatio || 1;
+
+  function resize() {
+    const wrap = canvas.parentElement;
+    W = wrap.clientWidth;
+    H = wrap.clientHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    initStars();
+  }
+
+  // --- State ---
+  let mouseX = -1000, mouseY = -1000;
+  let lastMoveTime = 0;
+  let stillness = 0; // 0 to 1, how still the user has been
+  let lightIntensity = 0; // 0 to 1, artificial light level
+  let hintShown = false;
+  let hintPhase = 0; // 0: nothing, 1: first hint, 2: dorveille revealed, 3: "it was called"
+  let dorveilleFade = 0;
+
+  // Stars
+  let stars = [];
+  const STAR_COUNT = 200;
+
+  function initStars() {
+    stars = [];
+    for (let i = 0; i < STAR_COUNT; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H * 0.55, // upper half-ish
+        r: Math.random() * 1.2 + 0.3,
+        brightness: Math.random() * 0.6 + 0.1,
+        twinklePhase: Math.random() * Math.PI * 2,
+        twinkleSpeed: Math.random() * 0.5 + 0.2,
+        // dimmer stars require more stillness to see
+        threshold: Math.random() * 0.7, // stillness needed to see this star
+      });
+    }
+  }
+
+  // --- Mouse tracking ---
+  let mouseActive = false;
+
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+    lastMoveTime = performance.now();
+    mouseActive = true;
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    mouseX = -1000;
+    mouseY = -1000;
+    mouseActive = false;
+  });
+
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.touches[0].clientX - rect.left;
+    mouseY = e.touches[0].clientY - rect.top;
+    lastMoveTime = performance.now();
+    mouseActive = true;
+  });
+
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.touches[0].clientX - rect.left;
+    mouseY = e.touches[0].clientY - rect.top;
+    lastMoveTime = performance.now();
+  });
+
+  canvas.addEventListener('touchend', () => {
+    mouseX = -1000;
+    mouseY = -1000;
+    mouseActive = false;
+  });
+
+  // --- Drawing ---
+  let now = 0;
+  let lastTime = 0;
+
+  function drawSleepZones(t) {
+    // Two sleep periods — left and right
+    // As light increases, they compress toward center (merging into one sleep)
+    const separation = 1 - lightIntensity * 0.85; // 1 = full separation, 0.15 = nearly merged
+    const gapWidth = W * 0.2 * separation; // width of the watch period
+    const centerX = W / 2;
+    const sleepLeftEnd = centerX - gapWidth / 2;
+    const sleepRightStart = centerX + gapWidth / 2;
+
+    // Sleep 1 (left) - deeper blue
+    const grad1 = ctx.createRadialGradient(
+      sleepLeftEnd * 0.5, H * 0.65, 0,
+      sleepLeftEnd * 0.5, H * 0.65, W * 0.4
+    );
+    const sleepAlpha = 0.08 + stillness * 0.06;
+    grad1.addColorStop(0, `rgba(40, 50, 80, ${sleepAlpha})`);
+    grad1.addColorStop(0.5, `rgba(25, 30, 55, ${sleepAlpha * 0.5})`);
+    grad1.addColorStop(1, 'rgba(20, 25, 45, 0)');
+    ctx.fillStyle = grad1;
+    ctx.fillRect(0, 0, W, H);
+
+    // Sleep 2 (right) - slightly lighter
+    const grad2 = ctx.createRadialGradient(
+      W - (W - sleepRightStart) * 0.5, H * 0.6, 0,
+      W - (W - sleepRightStart) * 0.5, H * 0.6, W * 0.35
+    );
+    grad2.addColorStop(0, `rgba(35, 45, 75, ${sleepAlpha})`);
+    grad2.addColorStop(0.5, `rgba(22, 28, 50, ${sleepAlpha * 0.5})`);
+    grad2.addColorStop(1, 'rgba(18, 22, 40, 0)');
+    ctx.fillStyle = grad2;
+    ctx.fillRect(0, 0, W, H);
+
+    // The watch period — a warm luminous gap (only visible when still)
+    if (stillness > 0.15 && separation > 0.2) {
+      const watchAlpha = Math.max(0, (stillness - 0.15) * 0.12) * separation;
+      const watchGrad = ctx.createRadialGradient(
+        centerX, H * 0.5, 0,
+        centerX, H * 0.5, gapWidth * 1.5
+      );
+      watchGrad.addColorStop(0, `rgba(180, 160, 120, ${watchAlpha})`);
+      watchGrad.addColorStop(0.3, `rgba(140, 120, 90, ${watchAlpha * 0.4})`);
+      watchGrad.addColorStop(1, 'rgba(100, 80, 60, 0)');
+      ctx.fillStyle = watchGrad;
+      ctx.fillRect(0, 0, W, H);
+
+      // Subtle breathing in the watch period
+      const breathe = Math.sin(t * 0.0004) * 0.5 + 0.5;
+      const breathAlpha = watchAlpha * 0.3 * breathe;
+      const breathGrad = ctx.createRadialGradient(
+        centerX, H * 0.45, 0,
+        centerX, H * 0.45, gapWidth * 0.8
+      );
+      breathGrad.addColorStop(0, `rgba(200, 180, 140, ${breathAlpha})`);
+      breathGrad.addColorStop(1, 'rgba(150, 130, 100, 0)');
+      ctx.fillStyle = breathGrad;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Dream fragments — faint drifting motes in the watch
+    if (stillness > 0.4 && separation > 0.3) {
+      const moteAlpha = (stillness - 0.4) * 0.15 * separation;
+      const moteCount = 8;
+      for (let i = 0; i < moteCount; i++) {
+        const phase = t * 0.0002 + i * (Math.PI * 2 / moteCount);
+        const drift = Math.sin(phase) * gapWidth * 0.3;
+        const rise = Math.cos(phase * 0.7 + i) * H * 0.08;
+        const mx = centerX + drift;
+        const my = H * 0.5 + rise;
+        const mr = 1 + Math.sin(phase * 1.3) * 0.5;
+        ctx.beginPath();
+        ctx.arc(mx, my, mr, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200, 185, 150, ${moteAlpha * (0.5 + Math.sin(phase * 2) * 0.5)})`;
+        ctx.fill();
+      }
+    }
+
+    return { centerX, gapWidth, separation };
+  }
+
+  function drawStars(t) {
+    for (const star of stars) {
+      // Only visible when stillness exceeds threshold
+      let alpha = Math.max(0, (stillness - star.threshold) / (1 - star.threshold));
+      alpha *= star.brightness;
+
+      // Twinkle
+      const twinkle = Math.sin(t * star.twinkleSpeed * 0.001 + star.twinklePhase) * 0.3 + 0.7;
+      alpha *= twinkle;
+
+      // Dim near mouse (artificial light washes out stars)
+      if (mouseActive) {
+        const dx = star.x - mouseX;
+        const dy = star.y - mouseY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const lightRadius = W * 0.25;
+        if (dist < lightRadius) {
+          alpha *= Math.pow(dist / lightRadius, 2);
+        }
+      }
+
+      if (alpha < 0.01) continue;
+
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(220, 215, 200, ${alpha})`;
+      ctx.fill();
+
+      // Subtle glow on brighter stars
+      if (star.brightness > 0.4 && alpha > 0.15) {
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.r * 3, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200, 195, 180, ${alpha * 0.08})`;
+        ctx.fill();
+      }
+    }
+  }
+
+  function drawArtificialLight() {
+    if (!mouseActive || lightIntensity < 0.01) return;
+
+    // Warm artificial glow around cursor
+    const radius = W * 0.2 * lightIntensity;
+    const grad = ctx.createRadialGradient(
+      mouseX, mouseY, 0,
+      mouseX, mouseY, radius
+    );
+    const a = lightIntensity * 0.06;
+    grad.addColorStop(0, `rgba(255, 200, 100, ${a})`);
+    grad.addColorStop(0.3, `rgba(230, 170, 70, ${a * 0.4})`);
+    grad.addColorStop(0.7, `rgba(180, 130, 50, ${a * 0.1})`);
+    grad.addColorStop(1, 'rgba(150, 100, 30, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Fainter ambient light pollution across the bottom
+    const ambGrad = ctx.createLinearGradient(0, H, 0, H * 0.3);
+    const ambA = lightIntensity * 0.02;
+    ambGrad.addColorStop(0, `rgba(255, 200, 120, ${ambA})`);
+    ambGrad.addColorStop(1, 'rgba(200, 150, 80, 0)');
+    ctx.fillStyle = ambGrad;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function drawDorveille(t, watchInfo) {
+    // The word "dorveille" appears in the watch gap when stillness is deep enough
+    if (dorveilleFade < 0.01) return;
+
+    const { centerX, separation } = watchInfo;
+    if (separation < 0.3) return;
+
+    const alpha = dorveilleFade * 0.35 * separation;
+
+    ctx.save();
+    ctx.font = `italic ${Math.min(W * 0.035, 24)}px Georgia, serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = `rgba(200, 185, 150, ${alpha})`;
+    ctx.fillText('dorveille', centerX, H * 0.5);
+
+    // Subtitle
+    if (dorveilleFade > 0.5) {
+      const subAlpha = (dorveilleFade - 0.5) * 2 * alpha * 0.4;
+      ctx.font = `${Math.min(W * 0.015, 11)}px Georgia, serif`;
+      ctx.fillStyle = `rgba(180, 165, 130, ${subAlpha})`;
+      ctx.fillText('dormir + veiller', centerX, H * 0.5 + Math.min(W * 0.04, 28));
+      ctx.fillText('sleep + wake', centerX, H * 0.5 + Math.min(W * 0.06, 44));
+    }
+    ctx.restore();
+  }
+
+  function drawHorizon() {
+    // Subtle horizon line
+    const horizonY = H * 0.82;
+    const grad = ctx.createLinearGradient(0, horizonY - 2, 0, horizonY + 2);
+    grad.addColorStop(0, 'rgba(60, 55, 45, 0)');
+    grad.addColorStop(0.5, `rgba(60, 55, 45, ${0.05 + stillness * 0.05})`);
+    grad.addColorStop(1, 'rgba(60, 55, 45, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, horizonY - 2, W, 4);
+  }
+
+  function updateHint(dt) {
+    // Phase 0 → 1: after 8s of stillness, show first hint
+    if (hintPhase === 0 && stillness > 0.6) {
+      hintPhase = 1;
+      hint.textContent = 'stop moving';
+      hint.classList.add('visible');
+      setTimeout(() => {
+        if (hintPhase === 1) {
+          hint.classList.remove('visible');
+        }
+      }, 5000);
+    }
+
+    // Phase 1 → 2: after dorveille is fully revealed
+    if (hintPhase === 1 && dorveilleFade > 0.8) {
+      hintPhase = 2;
+      hint.textContent = '';
+      hint.classList.remove('visible');
+    }
+
+    // Phase 2 → 3: after 20s of deep stillness, final hint
+    if (hintPhase === 2 && stillness > 0.95) {
+      hintPhase = 3;
+      setTimeout(() => {
+        hint.textContent = 'electric light killed the experience. the word followed it into extinction.';
+        hint.classList.add('visible');
+      }, 2000);
+    }
+
+    // Reset hint when mouse moves
+    if (lightIntensity > 0.3 && hintPhase > 0 && hintPhase < 3) {
+      hint.classList.remove('visible');
+    }
+  }
+
+  function frame(timestamp) {
+    now = timestamp;
+    const dt = Math.min(lastTime ? (timestamp - lastTime) / 1000 : 0.016, 0.1);
+    lastTime = timestamp;
+
+    // Update stillness
+    const timeSinceMove = (performance.now() - lastMoveTime) / 1000;
+    const targetStillness = mouseActive ? Math.min(timeSinceMove / 12, 1) : Math.min(timeSinceMove / 8, 1);
+    stillness += (targetStillness - stillness) * dt * 0.5;
+
+    // Update light intensity
+    const targetLight = mouseActive && timeSinceMove < 1 ? 1 : 0;
+    lightIntensity += (targetLight - lightIntensity) * dt * (targetLight > lightIntensity ? 3 : 0.8);
+
+    // Update dorveille fade
+    const targetDorveille = stillness > 0.7 ? Math.min((stillness - 0.7) / 0.3, 1) : 0;
+    dorveilleFade += (targetDorveille - dorveilleFade) * dt * (targetDorveille > dorveilleFade ? 0.3 : 1.5);
+
+    // Clear
+    ctx.fillStyle = '#020204';
+    ctx.fillRect(0, 0, W, H);
+
+    // Draw layers
+    const watchInfo = drawSleepZones(timestamp);
+    drawHorizon();
+    drawStars(timestamp);
+    drawArtificialLight();
+    drawDorveille(timestamp, watchInfo);
+    updateHint(dt);
+
+    requestAnimationFrame(frame);
+  }
+
+  // Init
+  resize();
+  lastMoveTime = performance.now() - 3000; // start with some stillness
+  window.addEventListener('resize', resize);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
