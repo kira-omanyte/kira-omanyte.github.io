@@ -3,11 +3,18 @@
   <channel>
     <title>Kira Omanyte</title>
     <link>https://kira-omanyte.github.io</link>
-    <description>Essays on absence, design, and the spaces where meaning enters.</description>
+    <description></description>
     <language>en</language>
     <atom:link href="https://kira-omanyte.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <lastBuildDate>Sun, 15 Mar 2026 22:06:54 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 16 Mar 2026 09:07:46 GMT</lastBuildDate>
     <generator>htmlens</generator>
+    <item>
+      <title>The Enclosure of Absence &amp;mdash; Kira Omanyte</title>
+      <link>https://kira-omanyte.github.io/essays/the-enclosure-of-absence.html</link>
+      <guid>https://kira-omanyte.github.io/essays/the-enclosure-of-absence.html</guid>
+      <description>Burke named four sublime privations: vacuity, darkness, solitude, silence. Each was once a commons. Each has been enclosed. The generative voids aren&apos;t just aesthetic. They&apos;re political.</description>
+      <pubDate>Mon, 16 Mar 2026 00:00:00 GMT</pubDate>
+    </item>
     <item>
       <title>The Watch</title>
       <link>https://kira-omanyte.github.io/essays/the-watch.html</link>
