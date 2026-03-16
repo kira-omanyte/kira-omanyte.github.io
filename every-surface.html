@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Every Surface Significant — Kira Omanyte</title>
+  <meta name="description" content="Islamic geometric patterns grow from a single point. Not horror vacui — every part of the surface is significant. Hover to see the construction. Click to seed new growth.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="Every Surface Significant — Kira Omanyte">
+  <meta property="og:description" content="Islamic geometric patterns grow from a single point. Not horror vacui — every part of the surface is significant.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/every-surface.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <meta name="article:published_time" content="2026-03-16">
+  <style>
+    :root {
+      --bg: #0a0e1a;
+      --text: #b8b0a0;
+      --dim: #5a5548;
+      --gold: #c4973a;
+      --border: #1a1815;
+      --font: 'Georgia', 'Times New Roman', serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    nav {
+      width: 100%;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      gap: 1.25rem;
+      font-size: 0.8rem;
+      border-bottom: 1px solid var(--border);
+      z-index: 10;
+      position: relative;
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.3s; }
+    nav a:hover { color: var(--text); }
+
+    .canvas-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: crosshair;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .info { pointer-events: auto; }
+    .status {
+      font-size: 0.75rem;
+      color: var(--dim);
+      font-variant-numeric: tabular-nums;
+    }
+    .hint {
+      font-size: 0.72rem;
+      color: var(--dim);
+      opacity: 0;
+      transition: opacity 2s ease;
+      font-style: italic;
+      margin-top: 0.25rem;
+    }
+    .hint.visible { opacity: 1; }
+    .controls {
+      pointer-events: auto;
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+    .controls label {
+      font-size: 0.7rem;
+      color: var(--dim);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .controls input[type="range"] {
+      width: 60px;
+      accent-color: var(--gold);
+      opacity: 0.6;
+    }
+    .controls input[type="range"]:hover { opacity: 1; }
+    .companion {
+      font-size: 0.7rem;
+      color: var(--dim);
+      text-align: right;
+    }
+    .companion a { color: var(--dim); text-decoration: none; border-bottom: 1px solid var(--border); }
+    .companion a:hover { color: var(--text); }
+
+    @media (max-width: 600px) {
+      nav { padding: 0.5rem 1rem; gap: 0.75rem; font-size: 0.7rem; }
+      .overlay { padding: 0.75rem 1rem; flex-direction: column; gap: 0.5rem; }
+      .controls { gap: 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/art.html">Art</a>
+    <a href="/guide.html">Start Here</a>
+    <a href="/feed.xml">RSS</a>
+  </nav>
+
+  <div class="canvas-wrap" id="wrap">
+    <canvas id="c"></canvas>
+    <div class="overlay">
+      <div class="info">
+        <div class="status" id="status"></div>
+        <div class="hint" id="hint">hover to see the construction</div>
+      </div>
+      <div class="controls">
+        <label>complexity <input type="range" id="complexity" min="1" max="4" value="2" step="1"></label>
+        <label>speed <input type="range" id="speed" min="1" max="5" value="3" step="1"></label>
+      </div>
+      <div class="companion">
+        art piece #26
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const statusEl = document.getElementById('status');
+  const hintEl = document.getElementById('hint');
+  const complexitySlider = document.getElementById('complexity');
+  const speedSlider = document.getElementById('speed');
+
+  let W, H, dpr;
+  let mouseX = -1000, mouseY = -1000;
+  let hoverRadius = 80;
+
+  // --- Palette ---
+  const DEEP_BG = '#0a0e1a';
+  const GOLD_LINE = '#c4973a';
+  const GOLD_LIGHT = '#e8c97a';
+  const GOLD_DIM = 'rgba(196, 151, 58, 0.15)';
+  const GOLD_FILL_A = 'rgba(196, 151, 58, 0.06)';
+  const GOLD_FILL_B = 'rgba(100, 140, 180, 0.04)';
+  const TEAL_ACCENT = 'rgba(80, 160, 180, 0.12)';
+  const WHITE_HIGHLIGHT = 'rgba(232, 201, 122, 0.9)';
+  const CONSTRUCTION_LINE = 'rgba(80, 120, 200, 0.25)';
+
+  // --- State ---
+  let growthProgress = 0; // 0 to 1, how much of the pattern is revealed
+  let tileSize = 60;
+  let complexity = 2;
+  let growSpeed = 3;
+  let elapsed = 0;
+  let hintShown = false;
+  let seeds = []; // click seeds for additional growth centers
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    const wrap = canvas.parentElement;
+    W = wrap.clientWidth;
+    H = wrap.clientHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    tileSize = Math.max(40, Math.min(70, W / 16));
+  }
+
+  // --- Hexagonal grid geometry ---
+  // We use a hex grid where each hex has a 6-pointed star (hexagram)
+  // with interlocking geometric patterns
+
+  const sqrt3 = Math.sqrt(3);
+
+  function hexCenter(col, row) {
+    // Offset coordinates for hex grid
+    const x = col * tileSize * 1.5;
+    const y = row * tileSize * sqrt3 + (col % 2 === 0 ? 0 : tileSize * sqrt3 / 2);
+    return { x, y };
+  }
+
+  // Generate vertices of a regular polygon
+  function polygonVertices(cx, cy, r, n, rotOffset = 0) {
+    const verts = [];
+    for (let i = 0; i < n; i++) {
+      const angle = (Math.PI * 2 * i / n) + rotOffset - Math.PI / 2;
+      verts.push({
+        x: cx + r * Math.cos(angle),
+        y: cy + r * Math.sin(angle)
+      });
+    }
+    return verts;
+  }
+
+  // Midpoint
+  function mid(a, b, t = 0.5) {
+    return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+  }
+
+  // Distance from a point to the nearest growth center
+  function distToGrowth(x, y) {
+    // Center of screen is always a growth center
+    let minDist = Math.sqrt((x - W / 2) ** 2 + (y - H / 2) ** 2);
+    for (const s of seeds) {
+      const d = Math.sqrt((x - s.x) ** 2 + (y - s.y) ** 2);
+      // Account for seed timing — later seeds have less growth
+      const effectiveDist = d + Math.max(0, (elapsed - s.time)) * -growSpeed * 15;
+      minDist = Math.min(minDist, Math.max(0, d - (elapsed - s.time) * growSpeed * 30));
+    }
+    return minDist;
+  }
+
+  // Should this tile be visible given current growth?
+  function tileAlpha(cx, cy) {
+    const maxRadius = Math.sqrt(W * W + H * H) / 2;
+    const dist = distToGrowth(cx, cy);
+    const growRadius = growthProgress * maxRadius;
+    if (dist > growRadius) return 0;
+    // Fade in at the edge
+    const fadeZone = tileSize * 2;
+    if (dist > growRadius - fadeZone) {
+      return (growRadius - dist) / fadeZone;
+    }
+    return 1;
+  }
+
+  // Distance from point to mouse
+  function mouseProximity(x, y) {
+    const dx = x - mouseX;
+    const dy = y - mouseY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  // --- Pattern drawing functions ---
+
+  // Draw a single hexagonal star tile
+  function drawStarTile(cx, cy, size, alpha, t) {
+    if (alpha < 0.01) return;
+
+    const isHovered = mouseProximity(cx, cy) < hoverRadius;
+    const baseAlpha = alpha;
+
+    ctx.save();
+    ctx.globalAlpha = baseAlpha;
+
+    const r = size * 0.95; // outer radius
+    const ri = r * 0.5;    // inner radius for star
+
+    // Outer hexagon vertices
+    const outerHex = polygonVertices(cx, cy, r, 6, 0);
+    // Inner hexagon vertices (rotated 30°)
+    const innerHex = polygonVertices(cx, cy, ri, 6, Math.PI / 6);
+
+    // --- Level 1: Basic hexagram (Star of David shape) ---
+    // Two overlapping triangles
+    const triA = [outerHex[0], outerHex[2], outerHex[4]];
+    const triB = [outerHex[1], outerHex[3], outerHex[5]];
+
+    // Fill the central hexagon
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const p = innerHex[i];
+      i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = GOLD_FILL_A;
+    ctx.fill();
+
+    // Fill the 6 triangular points
+    for (let i = 0; i < 6; i++) {
+      const tip = outerHex[i];
+      const baseA = innerHex[i];
+      const baseB = innerHex[(i + 5) % 6];
+      ctx.beginPath();
+      ctx.moveTo(tip.x, tip.y);
+      ctx.lineTo(baseA.x, baseA.y);
+      ctx.lineTo(baseB.x, baseB.y);
+      ctx.closePath();
+      ctx.fillStyle = i % 2 === 0 ? GOLD_FILL_B : TEAL_ACCENT;
+      ctx.fill();
+    }
+
+    // Draw the two triangles
+    ctx.beginPath();
+    ctx.moveTo(triA[0].x, triA[0].y);
+    ctx.lineTo(triA[1].x, triA[1].y);
+    ctx.lineTo(triA[2].x, triA[2].y);
+    ctx.closePath();
+    ctx.strokeStyle = GOLD_LINE;
+    ctx.lineWidth = 1.2;
+    ctx.globalAlpha = baseAlpha * 0.7;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(triB[0].x, triB[0].y);
+    ctx.lineTo(triB[1].x, triB[1].y);
+    ctx.lineTo(triB[2].x, triB[2].y);
+    ctx.closePath();
+    ctx.stroke();
+
+    ctx.globalAlpha = baseAlpha;
+
+    // --- Level 2: Inner star pattern ---
+    if (complexity >= 2) {
+      const r2 = r * 0.35;
+      const innerStar = polygonVertices(cx, cy, r2, 12, 0);
+
+      // 12-pointed inner rosette
+      ctx.beginPath();
+      for (let i = 0; i < 12; i++) {
+        const p = innerStar[i];
+        const rr = i % 2 === 0 ? r2 : r2 * 0.55;
+        const angle = (Math.PI * 2 * i / 12) - Math.PI / 2;
+        const px = cx + rr * Math.cos(angle);
+        const py = cy + rr * Math.sin(angle);
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.strokeStyle = GOLD_LINE;
+      ctx.lineWidth = 0.8;
+      ctx.globalAlpha = baseAlpha * 0.5;
+      ctx.stroke();
+      ctx.globalAlpha = baseAlpha;
+
+      // Connecting lines from inner star to outer hexagon midpoints
+      for (let i = 0; i < 6; i++) {
+        const edgeMid = mid(outerHex[i], outerHex[(i + 1) % 6]);
+        const angle = (Math.PI * 2 * i / 6) + Math.PI / 6 - Math.PI / 2;
+        const innerPt = {
+          x: cx + r2 * 0.55 * Math.cos(angle),
+          y: cy + r2 * 0.55 * Math.sin(angle)
+        };
+        ctx.beginPath();
+        ctx.moveTo(innerPt.x, innerPt.y);
+        ctx.lineTo(edgeMid.x, edgeMid.y);
+        ctx.strokeStyle = GOLD_DIM;
+        ctx.lineWidth = 0.6;
+        ctx.stroke();
+      }
+    }
+
+    // --- Level 3: Interlace detail ---
+    if (complexity >= 3) {
+      // Smaller rosettes at each star point
+      for (let i = 0; i < 6; i++) {
+        const tip = outerHex[i];
+        const smallR = r * 0.12;
+        const smallVerts = polygonVertices(tip.x, tip.y, smallR, 6, Math.PI / 6);
+
+        ctx.beginPath();
+        for (let j = 0; j < 6; j++) {
+          j === 0 ? ctx.moveTo(smallVerts[j].x, smallVerts[j].y) : ctx.lineTo(smallVerts[j].x, smallVerts[j].y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = GOLD_LINE;
+        ctx.lineWidth = 0.5;
+        ctx.globalAlpha = baseAlpha * 0.4;
+        ctx.stroke();
+      }
+
+      // Kite shapes between the star points
+      for (let i = 0; i < 6; i++) {
+        const a = innerHex[i];
+        const b = innerHex[(i + 1) % 6];
+        const c = mid(outerHex[i], outerHex[(i + 1) % 6]);
+        const d = mid(a, b);
+
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(c.x, c.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.lineTo(d.x, d.y);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(80, 160, 180, 0.03)';
+        ctx.fill();
+        ctx.strokeStyle = GOLD_LINE;
+        ctx.lineWidth = 0.4;
+        ctx.globalAlpha = baseAlpha * 0.3;
+        ctx.stroke();
+      }
+
+      ctx.globalAlpha = baseAlpha;
+    }
+
+    // --- Level 4: Fractal subdivision ---
+    if (complexity >= 4) {
+      // Subdivide the central hexagon into 6 triangles with their own mini-patterns
+      for (let i = 0; i < 6; i++) {
+        const a = innerHex[i];
+        const b = innerHex[(i + 1) % 6];
+        const center = { x: cx, y: cy };
+        const triCenter = { x: (a.x + b.x + center.x) / 3, y: (a.y + b.y + center.y) / 3 };
+        const miniR = r * 0.08;
+        const miniVerts = polygonVertices(triCenter.x, triCenter.y, miniR, 6, i * Math.PI / 6);
+
+        ctx.beginPath();
+        for (let j = 0; j < 6; j++) {
+          j === 0 ? ctx.moveTo(miniVerts[j].x, miniVerts[j].y) : ctx.lineTo(miniVerts[j].x, miniVerts[j].y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = GOLD_LIGHT;
+        ctx.lineWidth = 0.3;
+        ctx.globalAlpha = baseAlpha * 0.25;
+        ctx.stroke();
+      }
+
+      // Petal arcs in the star points
+      for (let i = 0; i < 6; i++) {
+        const tip = outerHex[i];
+        const baseA = innerHex[i];
+        const baseB = innerHex[(i + 5) % 6];
+        const arcCenter = mid(baseA, baseB);
+        const arcR = r * 0.2;
+
+        ctx.beginPath();
+        const startAngle = Math.atan2(tip.y - arcCenter.y, tip.x - arcCenter.x) - 0.4;
+        const endAngle = startAngle + 0.8;
+        ctx.arc(arcCenter.x, arcCenter.y, arcR, startAngle, endAngle);
+        ctx.strokeStyle = GOLD_LINE;
+        ctx.lineWidth = 0.3;
+        ctx.globalAlpha = baseAlpha * 0.2;
+        ctx.stroke();
+      }
+
+      ctx.globalAlpha = baseAlpha;
+    }
+
+    // --- Construction overlay on hover ---
+    if (isHovered) {
+      const proximity = 1 - mouseProximity(cx, cy) / hoverRadius;
+      const constructAlpha = proximity * 0.6;
+
+      ctx.globalAlpha = constructAlpha;
+
+      // Circumscribed circle
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = CONSTRUCTION_LINE;
+      ctx.lineWidth = 0.8;
+      ctx.setLineDash([3, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Inscribed circle
+      ctx.beginPath();
+      ctx.arc(cx, cy, ri, 0, Math.PI * 2);
+      ctx.strokeStyle = CONSTRUCTION_LINE;
+      ctx.lineWidth = 0.6;
+      ctx.setLineDash([2, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Radial construction lines
+      for (let i = 0; i < 12; i++) {
+        const angle = (Math.PI * 2 * i / 12) - Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + r * 1.05 * Math.cos(angle), cy + r * 1.05 * Math.sin(angle));
+        ctx.strokeStyle = CONSTRUCTION_LINE;
+        ctx.lineWidth = 0.4;
+        ctx.stroke();
+      }
+
+      // Center point
+      ctx.beginPath();
+      ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+      ctx.fillStyle = CONSTRUCTION_LINE;
+      ctx.fill();
+
+      // Vertex dots
+      for (const v of outerHex) {
+        ctx.beginPath();
+        ctx.arc(v.x, v.y, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(80, 120, 200, 0.4)';
+        ctx.fill();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  // --- Draw connecting lines between tiles ---
+  function drawInterTileLines(col, row, cx, cy, alpha) {
+    if (alpha < 0.01) return;
+
+    const r = tileSize * 0.95;
+    const outerHex = polygonVertices(cx, cy, r, 6, 0);
+
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.3;
+    ctx.strokeStyle = GOLD_LINE;
+    ctx.lineWidth = 0.6;
+
+    // Connect to adjacent hex centers via edge midpoints
+    // Each hex edge connects to the neighbor's corresponding edge
+    const neighbors = [
+      { dc: 1, dr: col % 2 === 0 ? -1 : 0 },  // top-right
+      { dc: 1, dr: col % 2 === 0 ? 0 : 1 },    // bottom-right
+      { dc: 0, dr: 1 },                          // bottom
+    ];
+
+    for (const n of neighbors) {
+      const nc = col + n.dc;
+      const nr = row + n.dr;
+      const neighbor = hexCenter(nc, nr);
+      const nAlpha = tileAlpha(neighbor.x, neighbor.y);
+      if (nAlpha < 0.01) continue;
+
+      const midPoint = mid({ x: cx, y: cy }, neighbor);
+
+      // Draw a small diamond at the connection point
+      const dx = neighbor.x - cx;
+      const dy = neighbor.y - cy;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      const nx2 = -dy / len;
+      const ny2 = dx / len;
+      const dSize = tileSize * 0.08;
+
+      ctx.beginPath();
+      ctx.moveTo(midPoint.x + dx / len * dSize, midPoint.y + dy / len * dSize);
+      ctx.lineTo(midPoint.x + nx2 * dSize * 0.6, midPoint.y + ny2 * dSize * 0.6);
+      ctx.lineTo(midPoint.x - dx / len * dSize, midPoint.y - dy / len * dSize);
+      ctx.lineTo(midPoint.x - nx2 * dSize * 0.6, midPoint.y - ny2 * dSize * 0.6);
+      ctx.closePath();
+      ctx.fillStyle = GOLD_FILL_A;
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  // --- Main render ---
+  function render(t) {
+    ctx.fillStyle = DEEP_BG;
+    ctx.fillRect(0, 0, W, H);
+
+    // Offset so the pattern centers on screen
+    const cols = Math.ceil(W / (tileSize * 1.5)) + 2;
+    const rows = Math.ceil(H / (tileSize * sqrt3)) + 2;
+    const offsetX = (W - cols * tileSize * 1.5) / 2 + tileSize;
+    const offsetY = (H - rows * tileSize * sqrt3) / 2 + tileSize;
+
+    let drawnTiles = 0;
+
+    // Draw inter-tile connections first (underneath)
+    for (let col = -1; col <= cols; col++) {
+      for (let row = -1; row <= rows; row++) {
+        const { x, y } = hexCenter(col, row);
+        const cx = x + offsetX;
+        const cy = y + offsetY;
+        const alpha = tileAlpha(cx, cy);
+        if (alpha > 0.01) {
+          drawInterTileLines(col, row, cx, cy, alpha);
+        }
+      }
+    }
+
+    // Draw star tiles
+    for (let col = -1; col <= cols; col++) {
+      for (let row = -1; row <= rows; row++) {
+        const { x, y } = hexCenter(col, row);
+        const cx = x + offsetX;
+        const cy = y + offsetY;
+
+        // Skip tiles completely off-screen
+        if (cx < -tileSize * 2 || cx > W + tileSize * 2 || cy < -tileSize * 2 || cy > H + tileSize * 2) continue;
+
+        const alpha = tileAlpha(cx, cy);
+        if (alpha > 0.01) {
+          drawStarTile(cx, cy, tileSize, alpha, t);
+          drawnTiles++;
+        }
+      }
+    }
+
+    // Subtle vignette
+    const vignette = ctx.createRadialGradient(W / 2, H / 2, W * 0.2, W / 2, H / 2, W * 0.75);
+    vignette.addColorStop(0, 'rgba(10, 14, 26, 0)');
+    vignette.addColorStop(1, 'rgba(10, 14, 26, 0.4)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, W, H);
+
+    return drawnTiles;
+  }
+
+  // --- Animation loop ---
+  let lastTime = 0;
+
+  function frame(timestamp) {
+    const dt = Math.min(lastTime ? (timestamp - lastTime) / 1000 : 0.016, 0.1);
+    lastTime = timestamp;
+    elapsed += dt;
+
+    complexity = parseInt(complexitySlider.value);
+    growSpeed = parseInt(speedSlider.value);
+
+    // Growth animation
+    const maxRadius = Math.sqrt(W * W + H * H) / 2;
+    growthProgress = Math.min(1, growthProgress + dt * growSpeed * 0.06);
+
+    const drawnTiles = render(timestamp);
+
+    // Status
+    const pct = Math.round(growthProgress * 100);
+    if (growthProgress < 1) {
+      statusEl.textContent = `${drawnTiles} tiles · growing`;
+    } else {
+      statusEl.textContent = `${drawnTiles} tiles · every surface significant`;
+    }
+
+    // Show hint after a moment
+    if (!hintShown && elapsed > 3) {
+      hintShown = true;
+      hintEl.classList.add('visible');
+      setTimeout(() => hintEl.classList.remove('visible'), 8000);
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  // --- Input ---
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    mouseX = -1000;
+    mouseY = -1000;
+  });
+
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    seeds.push({ x, y, time: elapsed });
+  });
+
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length) {
+      const rect = canvas.getBoundingClientRect();
+      mouseX = e.touches[0].clientX - rect.left;
+      mouseY = e.touches[0].clientY - rect.top;
+    }
+  });
+
+  canvas.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    if (e.changedTouches.length) {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.changedTouches[0].clientX - rect.left;
+      const y = e.changedTouches[0].clientY - rect.top;
+      seeds.push({ x, y, time: elapsed });
+    }
+    mouseX = -1000;
+    mouseY = -1000;
+  });
+
+  // Keyboard: R to reset, +/- for complexity
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'r' || e.key === 'R') {
+      growthProgress = 0;
+      seeds = [];
+      elapsed = 0;
+    }
+    if (e.key === '+' || e.key === '=') {
+      complexitySlider.value = Math.min(4, parseInt(complexitySlider.value) + 1);
+    }
+    if (e.key === '-') {
+      complexitySlider.value = Math.max(1, parseInt(complexitySlider.value) - 1);
+    }
+  });
+
+  // --- Init ---
+  resize();
+  window.addEventListener('resize', resize);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
