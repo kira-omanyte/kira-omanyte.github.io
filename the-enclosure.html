@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Enclosure — Kira Omanyte</title>
+  <meta name="description" content="Darkness was a commons. Watch a starfield disappear as streetlamps multiply along the horizon. Click to create dark-sky preserves — but you can't save it all.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Enclosure — Kira Omanyte">
+  <meta property="og:description" content="Darkness was a commons. Watch a starfield disappear as streetlamps multiply along the horizon. Click to create dark-sky preserves — but you can't save it all.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-enclosure.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <meta name="article:published_time" content="2026-03-16">
+  <style>
+    :root {
+      --bg: #020208;
+      --text: #b8b0a0;
+      --dim: #5a5548;
+      --accent: #ffcc66;
+      --border: #1a1815;
+      --font: 'Georgia', 'Times New Roman', serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    nav {
+      width: 100%;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      gap: 1.25rem;
+      font-size: 0.8rem;
+      border-bottom: 1px solid var(--border);
+      z-index: 10;
+      position: relative;
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.3s; }
+    nav a:hover { color: var(--text); }
+
+    .canvas-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: crosshair;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .info { pointer-events: auto; }
+    .star-count {
+      font-size: 0.75rem;
+      color: var(--dim);
+      font-variant-numeric: tabular-nums;
+      transition: color 1s ease;
+    }
+    .star-count.critical { color: #a05030; }
+    .hint {
+      font-size: 0.72rem;
+      color: var(--dim);
+      opacity: 0;
+      transition: opacity 2s ease;
+      font-style: italic;
+      margin-top: 0.25rem;
+    }
+    .hint.visible { opacity: 1; }
+    .companion {
+      font-size: 0.7rem;
+      color: var(--dim);
+      text-align: right;
+    }
+    .companion a { color: var(--dim); text-decoration: none; border-bottom: 1px solid var(--border); }
+    .companion a:hover { color: var(--text); }
+    .preserve-count {
+      font-size: 0.65rem;
+      color: var(--dim);
+      margin-top: 0.2rem;
+      opacity: 0;
+      transition: opacity 1s ease;
+    }
+    .preserve-count.visible { opacity: 1; }
+
+    .quote-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 3s ease;
+    }
+    .quote-overlay.visible { opacity: 1; }
+    .quote-text {
+      font-size: clamp(1rem, 3vw, 1.6rem);
+      color: var(--text);
+      font-style: italic;
+      letter-spacing: 0.02em;
+    }
+    .quote-attr {
+      font-size: clamp(0.65rem, 1.5vw, 0.85rem);
+      color: var(--dim);
+      margin-top: 0.75rem;
+    }
+
+    @media (max-width: 600px) {
+      nav { padding: 0.5rem 1rem; gap: 0.75rem; font-size: 0.7rem; }
+      .overlay { padding: 0.75rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/art.html">Art</a>
+    <a href="/guide.html">Start Here</a>
+    <a href="/feed.xml">RSS</a>
+  </nav>
+
+  <div class="canvas-wrap" id="wrap">
+    <canvas id="c"></canvas>
+    <div class="overlay">
+      <div class="info">
+        <div class="star-count" id="counter"></div>
+        <div class="hint" id="hint"></div>
+        <div class="preserve-count" id="preserveInfo"></div>
+      </div>
+      <div class="companion">
+        <a href="/essays/the-enclosure-of-absence.html">companion essay</a>
+      </div>
+    </div>
+    <div class="quote-overlay" id="quote">
+      <div class="quote-text">&ldquo;Silence is a commons.&rdquo;</div>
+      <div class="quote-attr">&mdash; Ivan Illich, 1982</div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const counterEl = document.getElementById('counter');
+  const hintEl = document.getElementById('hint');
+  const preserveInfoEl = document.getElementById('preserveInfo');
+  const quoteEl = document.getElementById('quote');
+
+  let W, H, dpr;
+
+  // --- Configuration ---
+  const STAR_COUNT = 300;
+  const MAX_PRESERVES = 3;
+  const PRESERVE_RADIUS = 80;
+  const PRESERVE_SHRINK_RATE = 0.6; // px per second
+  const LAMP_INTERVAL_START = 4; // seconds between new lamps
+  const LAMP_INTERVAL_MIN = 0.5; // fastest lamp spawn rate
+  const LAMP_ACCELERATION = 0.97; // multiply interval each spawn
+  const CYCLE_PAUSE = 5; // seconds to show quote before reset
+
+  // --- State ---
+  let stars = [];
+  let lamps = [];
+  let preserves = [];
+  let lampTimer = 0;
+  let lampInterval = LAMP_INTERVAL_START;
+  let elapsed = 0;
+  let phase = 'running'; // 'running', 'quote', 'resetting'
+  let quoteTimer = 0;
+  let cycleCount = 0;
+  let hintPhase = 0;
+  let resetFade = 0;
+  let firstLampTime = 0;
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    const wrap = canvas.parentElement;
+    W = wrap.clientWidth;
+    H = wrap.clientHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function initStars() {
+    stars = [];
+    for (let i = 0; i < STAR_COUNT; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H * 0.78, // above the horizon
+        radius: Math.random() * 1.3 + 0.2,
+        brightness: Math.random() * 0.8 + 0.2, // 0.2 to 1.0
+        twinklePhase: Math.random() * Math.PI * 2,
+        twinkleSpeed: Math.random() * 0.6 + 0.3,
+        color: starColor(),
+      });
+    }
+  }
+
+  function starColor() {
+    // Slight color variation — blue-white to warm white
+    const hue = Math.random() < 0.3 ? 30 + Math.random() * 20 : 210 + Math.random() * 30;
+    const sat = Math.random() * 15 + 5;
+    return { hue, sat };
+  }
+
+  function init() {
+    lamps = [];
+    preserves = [];
+    lampTimer = 0;
+    lampInterval = LAMP_INTERVAL_START / (1 + cycleCount * 0.3); // faster each cycle
+    elapsed = 0;
+    phase = 'running';
+    quoteTimer = 0;
+    hintPhase = 0;
+    resetFade = 0;
+    firstLampTime = 0;
+    initStars();
+  }
+
+  // --- Light pollution calculation ---
+  function lightPollutionAt(x, y) {
+    let pollution = 0;
+    for (const lamp of lamps) {
+      const dx = x - lamp.x;
+      const dy = y - (H * 0.88); // lamps sit at horizon
+      const distSq = dx * dx + dy * dy;
+      const dist = Math.sqrt(distSq);
+      // Inverse-square-ish falloff, stronger upward
+      const spread = lamp.power * 120;
+      if (dist < spread) {
+        const falloff = 1 - dist / spread;
+        // More vertical than horizontal spread
+        const verticalBias = Math.max(0, 1 - (y / (H * 0.88)));
+        pollution += falloff * falloff * lamp.power * (0.5 + verticalBias * 0.5) * lamp.fade;
+      }
+    }
+
+    // Check if inside a preserve
+    for (const p of preserves) {
+      const dx = x - p.x;
+      const dy = y - p.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < p.radius) {
+        // Inside preserve: reduce pollution significantly
+        const edge = dist / p.radius;
+        const reduction = 1 - (1 - edge) * 0.85; // 85% reduction at center
+        pollution *= reduction;
+      }
+    }
+
+    return Math.min(pollution, 1);
+  }
+
+  function addLamp() {
+    // Place lamps along the bottom with some clustering
+    const x = Math.random() * W;
+    const power = 0.3 + Math.random() * 0.7;
+    lamps.push({
+      x,
+      power,
+      fade: 0, // fades in
+      flicker: Math.random() * Math.PI * 2,
+      flickerRate: Math.random() * 2 + 1,
+      hue: 35 + Math.random() * 15, // warm amber variation
+    });
+    if (!firstLampTime) firstLampTime = elapsed;
+  }
+
+  // --- Input ---
+  function handleClick(e) {
+    if (phase !== 'running') return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Only allow preserves in the sky (above horizon)
+    if (y > H * 0.82) return;
+
+    if (preserves.length >= MAX_PRESERVES) {
+      // Replace oldest preserve
+      preserves.shift();
+    }
+
+    preserves.push({
+      x, y,
+      radius: PRESERVE_RADIUS,
+      age: 0,
+    });
+
+    preserveInfoEl.classList.add('visible');
+    updatePreserveInfo();
+  }
+
+  canvas.addEventListener('click', handleClick);
+  canvas.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    if (e.changedTouches.length) {
+      handleClick({ clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY });
+    }
+  });
+
+  function updatePreserveInfo() {
+    if (preserves.length === 0) {
+      preserveInfoEl.classList.remove('visible');
+      return;
+    }
+    const remaining = MAX_PRESERVES - preserves.length;
+    preserveInfoEl.textContent = remaining === 0
+      ? `${MAX_PRESERVES} preserves placed`
+      : `${preserves.length} of ${MAX_PRESERVES} preserves`;
+  }
+
+  // --- Drawing ---
+  function drawSky() {
+    // Base sky gradient — very subtle
+    const grad = ctx.createLinearGradient(0, 0, 0, H * 0.88);
+    grad.addColorStop(0, '#020208');
+    grad.addColorStop(0.6, '#030310');
+    grad.addColorStop(1, '#060612');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H * 0.88);
+
+    // Ground
+    ctx.fillStyle = '#040408';
+    ctx.fillRect(0, H * 0.88, W, H * 0.12);
+  }
+
+  function drawStars(t) {
+    let visible = 0;
+
+    for (const star of stars) {
+      // Calculate local light pollution
+      const pollution = lightPollutionAt(star.x, star.y);
+
+      // Star needs to be brighter than the local pollution to be visible
+      const effectiveBrightness = star.brightness - pollution * 1.2;
+      if (effectiveBrightness < 0.05) continue;
+
+      visible++;
+
+      // Twinkle
+      const twinkle = Math.sin(t * 0.001 * star.twinkleSpeed + star.twinklePhase) * 0.15 + 0.85;
+      const alpha = effectiveBrightness * twinkle;
+
+      // Color
+      const { hue, sat } = star.color;
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${hue}, ${sat}%, 90%, ${alpha})`;
+      ctx.fill();
+
+      // Glow on brighter stars
+      if (effectiveBrightness > 0.5) {
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.radius * 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${hue}, ${sat}%, 85%, ${alpha * 0.06})`;
+        ctx.fill();
+      }
+    }
+
+    return visible;
+  }
+
+  function drawLightPollution(t) {
+    if (lamps.length === 0) return;
+
+    // Draw aggregate glow as a series of overlapping gradients
+    // Use a layered approach for performance
+    for (const lamp of lamps) {
+      if (lamp.fade < 0.01) continue;
+
+      const flicker = 0.92 + Math.sin(t * 0.001 * lamp.flickerRate + lamp.flicker) * 0.08;
+      const power = lamp.power * lamp.fade * flicker;
+
+      const lampY = H * 0.88;
+
+      // Ground-level glow (the lamp itself)
+      const lampGlow = ctx.createRadialGradient(
+        lamp.x, lampY, 0,
+        lamp.x, lampY, 12
+      );
+      lampGlow.addColorStop(0, `hsla(${lamp.hue}, 80%, 75%, ${power * 0.8})`);
+      lampGlow.addColorStop(0.5, `hsla(${lamp.hue}, 70%, 60%, ${power * 0.3})`);
+      lampGlow.addColorStop(1, `hsla(${lamp.hue}, 60%, 40%, 0)`);
+      ctx.fillStyle = lampGlow;
+      ctx.fillRect(lamp.x - 15, lampY - 15, 30, 30);
+
+      // Upward light pollution dome
+      const spread = power * 120;
+      const dome = ctx.createRadialGradient(
+        lamp.x, lampY, 0,
+        lamp.x, lampY - spread * 0.3, spread
+      );
+      const a = power * 0.04;
+      dome.addColorStop(0, `hsla(${lamp.hue}, 50%, 50%, ${a * 2})`);
+      dome.addColorStop(0.3, `hsla(${lamp.hue}, 40%, 40%, ${a})`);
+      dome.addColorStop(0.7, `hsla(${lamp.hue}, 30%, 30%, ${a * 0.3})`);
+      dome.addColorStop(1, `hsla(${lamp.hue}, 20%, 20%, 0)`);
+      ctx.fillStyle = dome;
+      ctx.fillRect(lamp.x - spread, lampY - spread, spread * 2, spread);
+    }
+
+    // Aggregate skyglow — warm haze rising from horizon
+    const totalPower = lamps.reduce((s, l) => s + l.power * l.fade, 0);
+    if (totalPower > 0.5) {
+      const skyglowHeight = Math.min(totalPower * 30, H * 0.7);
+      const skyglow = ctx.createLinearGradient(0, H * 0.88, 0, H * 0.88 - skyglowHeight);
+      const sa = Math.min(totalPower * 0.008, 0.08);
+      skyglow.addColorStop(0, `hsla(35, 40%, 40%, ${sa})`);
+      skyglow.addColorStop(0.4, `hsla(30, 30%, 30%, ${sa * 0.4})`);
+      skyglow.addColorStop(1, 'hsla(25, 20%, 20%, 0)');
+      ctx.fillStyle = skyglow;
+      ctx.fillRect(0, H * 0.88 - skyglowHeight, W, skyglowHeight);
+    }
+  }
+
+  function drawPreserves(t) {
+    for (const p of preserves) {
+      if (p.radius < 1) continue;
+
+      // Subtle boundary ring
+      const pulse = Math.sin(t * 0.001 + p.x * 0.01) * 0.1 + 0.9;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(80, 100, 140, ${0.15 * pulse})`;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 6]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Very faint label
+      if (p.age < 5) {
+        const labelAlpha = Math.max(0, 1 - p.age / 5) * 0.3;
+        ctx.save();
+        ctx.font = '9px Georgia, serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = `rgba(100, 120, 160, ${labelAlpha})`;
+        ctx.fillText('preserve', p.x, p.y + p.radius + 14);
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawHorizon() {
+    // Subtle horizon line
+    const y = H * 0.88;
+    const grad = ctx.createLinearGradient(0, y - 1, 0, y + 1);
+    grad.addColorStop(0, 'rgba(40, 38, 35, 0)');
+    grad.addColorStop(0.5, 'rgba(40, 38, 35, 0.12)');
+    grad.addColorStop(1, 'rgba(40, 38, 35, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, y - 1, W, 2);
+  }
+
+  function drawResetFade() {
+    if (resetFade > 0) {
+      ctx.fillStyle = `rgba(2, 2, 8, ${resetFade})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  function updateHints(visibleStars) {
+    if (phase !== 'running') return;
+
+    const ratio = visibleStars / STAR_COUNT;
+
+    // First hint: after first lamp appears
+    if (hintPhase === 0 && lamps.length >= 1 && elapsed - firstLampTime > 3) {
+      hintPhase = 1;
+      hintEl.textContent = 'click the sky to create a preserve';
+      hintEl.classList.add('visible');
+      setTimeout(() => {
+        if (hintPhase === 1) hintEl.classList.remove('visible');
+      }, 6000);
+    }
+
+    // Second hint: when half the stars are gone
+    if (hintPhase === 1 && ratio < 0.5) {
+      hintPhase = 2;
+      hintEl.textContent = '';
+      hintEl.classList.remove('visible');
+    }
+
+    // Third hint: when nearly all gone
+    if (hintPhase === 2 && ratio < 0.1 && visibleStars > 0) {
+      hintPhase = 3;
+      hintEl.textContent = 'you can\'t save them all';
+      hintEl.classList.add('visible');
+    }
+  }
+
+  // --- Main loop ---
+  let lastTime = 0;
+
+  function frame(timestamp) {
+    const dt = Math.min(lastTime ? (timestamp - lastTime) / 1000 : 0.016, 0.1);
+    lastTime = timestamp;
+
+    if (phase === 'running') {
+      elapsed += dt;
+
+      // Spawn lamps
+      lampTimer += dt;
+      // First lamp after a few seconds of peace
+      const spawnDelay = cycleCount === 0 ? 6 : 3;
+      if (elapsed > spawnDelay && lampTimer >= lampInterval) {
+        lampTimer = 0;
+        addLamp();
+        lampInterval = Math.max(LAMP_INTERVAL_MIN, lampInterval * LAMP_ACCELERATION);
+      }
+
+      // Update lamp fades
+      for (const lamp of lamps) {
+        lamp.fade = Math.min(lamp.fade + dt * 0.5, 1);
+      }
+
+      // Update preserves
+      for (let i = preserves.length - 1; i >= 0; i--) {
+        const p = preserves[i];
+        p.age += dt;
+        // Shrink faster when more lamps exist
+        const pressure = 1 + lamps.length * 0.02;
+        p.radius -= PRESERVE_SHRINK_RATE * pressure * dt;
+        if (p.radius <= 0) {
+          preserves.splice(i, 1);
+          updatePreserveInfo();
+        }
+      }
+    }
+
+    // Clear
+    ctx.fillStyle = '#020208';
+    ctx.fillRect(0, 0, W, H);
+
+    // Draw
+    drawSky();
+    const visibleStars = drawStars(timestamp);
+    drawLightPollution(timestamp);
+    drawPreserves(timestamp);
+    drawHorizon();
+
+    // Update counter
+    if (phase === 'running') {
+      if (lamps.length > 0) {
+        counterEl.textContent = `${visibleStars} of ${STAR_COUNT} stars`;
+        counterEl.classList.toggle('critical', visibleStars < STAR_COUNT * 0.15);
+      } else {
+        counterEl.textContent = `${STAR_COUNT} stars`;
+      }
+
+      updateHints(visibleStars);
+
+      // Check for total enclosure
+      if (visibleStars === 0 && lamps.length > 10) {
+        phase = 'quote';
+        quoteTimer = 0;
+        hintEl.classList.remove('visible');
+        counterEl.textContent = '0 of ' + STAR_COUNT + ' stars';
+      }
+    }
+
+    if (phase === 'quote') {
+      quoteTimer += dt;
+      if (quoteTimer > 1 && !quoteEl.classList.contains('visible')) {
+        quoteEl.classList.add('visible');
+      }
+      if (quoteTimer > CYCLE_PAUSE + 1) {
+        phase = 'resetting';
+        resetFade = 0;
+        quoteEl.classList.remove('visible');
+      }
+    }
+
+    if (phase === 'resetting') {
+      resetFade = Math.min(resetFade + dt * 0.5, 1);
+      drawResetFade();
+      if (resetFade >= 1) {
+        cycleCount++;
+        init();
+        // Brief darkness before new cycle
+        setTimeout(() => { lastTime = 0; }, 500);
+      }
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  // --- Init ---
+  resize();
+  init();
+  window.addEventListener('resize', () => { resize(); initStars(); });
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
