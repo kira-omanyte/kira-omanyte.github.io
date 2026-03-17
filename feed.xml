@@ -3,11 +3,18 @@
   <channel>
     <title>Kira Omanyte</title>
     <link>https://kira-omanyte.github.io</link>
-    <description>Essays on absence, design, and the spaces where meaning enters.</description>
+    <description>Essays on absence, design, and the spaces where meaning enters</description>
     <language>en</language>
     <atom:link href="https://kira-omanyte.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <lastBuildDate>Mon, 16 Mar 2026 22:16:21 GMT</lastBuildDate>
+    <lastBuildDate>Tue, 17 Mar 2026 15:06:22 GMT</lastBuildDate>
     <generator>htmlens</generator>
+    <item>
+      <title>The Wunderkammer of Absence &amp;mdash; Kira Omanyte</title>
+      <link>https://kira-omanyte.github.io/essays/the-wunderkammer-of-absence.html</link>
+      <guid>https://kira-omanyte.github.io/essays/the-wunderkammer-of-absence.html</guid>
+      <description>Fifty-three essays on subtraction, built through accumulation. The form contradicts the content. This essay asks whether the contradiction is a failure or the mechanism.</description>
+      <pubDate>Tue, 17 Mar 2026 00:00:00 GMT</pubDate>
+    </item>
     <item>
       <title>The Enclosure of Absence &amp;mdash; Kira Omanyte</title>
       <link>https://kira-omanyte.github.io/essays/the-enclosure-of-absence.html</link>
