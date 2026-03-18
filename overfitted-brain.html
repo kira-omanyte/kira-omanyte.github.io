@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Overfitted Brain — Kira Omanyte</title>
+  <meta name="description" content="A brain that never dreams memorizes noise and calls it knowledge. Watch a model cycle between waking memorization and dreaming regularization — and see how forgetting is the mechanism by which understanding emerges.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Overfitted Brain — Kira Omanyte">
+  <meta property="og:description" content="A brain that never dreams memorizes noise and calls it knowledge. Watch a model cycle between waking memorization and dreaming regularization — and see how forgetting is the mechanism by which understanding emerges.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/overfitted-brain.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <meta name="article:published_time" content="2026-03-18">
+  <style>
+    :root {
+      --bg: #0a0a1a;
+      --text: #b0aec0;
+      --dim: #4a4860;
+      --wake: #d4853a;
+      --overfit: #e55a3a;
+      --dream: #6a5acd;
+      --truth: #3a9aaa;
+      --sweet: #3ac4a0;
+      --data: #d0d0e0;
+      --font: 'Georgia', 'Times New Roman', serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    nav {
+      width: 100%;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      gap: 1.25rem;
+      font-size: 0.8rem;
+      border-bottom: 1px solid rgba(74, 72, 96, 0.3);
+      z-index: 10;
+      position: relative;
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.3s; }
+    nav a:hover { color: var(--text); }
+    .canvas-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .info {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .info-left {
+      max-width: 22rem;
+    }
+    .info-right {
+      text-align: right;
+      font-size: 0.75rem;
+      color: var(--dim);
+      line-height: 1.6;
+    }
+    .phase-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+      transition: color 0.5s;
+    }
+    .quote {
+      font-size: 0.8rem;
+      font-style: italic;
+      color: var(--dim);
+      line-height: 1.5;
+      transition: opacity 0.8s;
+    }
+    .stats {
+      font-variant-numeric: tabular-nums;
+    }
+    .stats span {
+      display: block;
+    }
+    .controls {
+      position: absolute;
+      top: 0.75rem;
+      right: 1.5rem;
+      font-size: 0.7rem;
+      color: var(--dim);
+      text-align: right;
+      line-height: 1.7;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .controls kbd {
+      display: inline-block;
+      padding: 0.1rem 0.35rem;
+      border: 1px solid var(--dim);
+      border-radius: 3px;
+      font-family: var(--font);
+      font-size: 0.65rem;
+    }
+    @media (max-width: 600px) {
+      .info { flex-direction: column; gap: 1rem; }
+      .info-right { text-align: left; }
+      .controls { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/art.html">Art</a>
+    <a href="/guide.html">Start Here</a>
+    <a href="/feed.xml">RSS</a>
+  </nav>
+
+  <div class="canvas-wrap">
+    <canvas id="c"></canvas>
+    <div class="controls">
+      <kbd>Space</kbd> pause &nbsp;
+      <kbd>D</kbd> force dream &nbsp;
+      <kbd>W</kbd> force wake &nbsp;
+      <kbd>N</kbd> new data<br>
+      <kbd>Click</kbd> add point &nbsp;
+      <kbd>R</kbd> toggle dreamless
+    </div>
+    <div class="info">
+      <div class="info-left">
+        <div class="phase-label" id="phase">WAKING</div>
+        <div class="quote" id="quote">the brain that never sleeps memorizes noise and calls it knowledge</div>
+      </div>
+      <div class="info-right stats" id="stats">
+        <span id="stat-bandwidth">bandwidth: —</span>
+        <span id="stat-error">error: —</span>
+        <span id="stat-complexity">complexity: —</span>
+        <span id="stat-cycle">cycle: 1</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const phaseEl = document.getElementById('phase');
+    const quoteEl = document.getElementById('quote');
+    const statBW = document.getElementById('stat-bandwidth');
+    const statErr = document.getElementById('stat-error');
+    const statCx = document.getElementById('stat-complexity');
+    const statCy = document.getElementById('stat-cycle');
+
+    let W, H, dpr;
+    let plotL, plotR, plotT, plotB; // plot region in canvas coords
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = canvas.parentElement.clientWidth * dpr;
+      H = canvas.parentElement.clientHeight * dpr;
+      canvas.width = W;
+      canvas.height = H;
+      // plot margins
+      const margin = Math.min(W, H) * 0.08;
+      plotL = margin * 1.8;
+      plotR = W - margin;
+      plotT = margin;
+      plotB = H - margin * 2.5;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // --- True underlying signal ---
+    function trueSignal(x) {
+      return 0.35 * Math.sin(2.2 * x)
+           + 0.2 * Math.sin(5.1 * x + 0.8)
+           + 0.12 * Math.cos(3.3 * x - 0.5)
+           + 0.08 * Math.sin(8 * x + 2);
+    }
+
+    // --- Generate noisy samples ---
+    let samples = [];
+    let cycle = 1;
+
+    function generateSamples(n = 30) {
+      samples = [];
+      for (let i = 0; i < n; i++) {
+        const x = Math.random() * 2 * Math.PI;
+        const noise = (Math.random() - 0.5) * 0.6;
+        samples.push({ x, y: trueSignal(x) + noise, age: 0 });
+      }
+      samples.sort((a, b) => a.x - b.x);
+    }
+    generateSamples();
+
+    // --- Nadaraya-Watson kernel regression ---
+    function kernelPredict(x, bandwidth) {
+      let numSum = 0, denSum = 0;
+      for (const s of samples) {
+        const d = (x - s.x) / bandwidth;
+        const k = Math.exp(-0.5 * d * d);
+        numSum += s.y * k;
+        denSum += k;
+      }
+      return denSum > 1e-12 ? numSum / denSum : 0;
+    }
+
+    // Effective complexity: average number of points with significant influence
+    function effectiveComplexity(bandwidth) {
+      // Lower bandwidth = higher complexity (each point only talks to itself)
+      // Approximate: 1/bandwidth normalized
+      return Math.min(samples.length, Math.max(1, 1 / (bandwidth * 0.5)));
+    }
+
+    // Error: mean squared error against true function
+    function computeError(bandwidth) {
+      let err = 0;
+      const n = 100;
+      for (let i = 0; i <= n; i++) {
+        const x = (i / n) * 2 * Math.PI;
+        const pred = kernelPredict(x, bandwidth);
+        const truth = trueSignal(x);
+        err += (pred - truth) * (pred - truth);
+      }
+      return Math.sqrt(err / n);
+    }
+
+    // --- Animation state ---
+    const BW_MAX = 2.0;     // very smooth (underfitting)
+    const BW_SWEET = 0.45;  // good generalization
+    const BW_MIN = 0.04;    // extreme overfitting
+    const BW_DREAM_TARGET = 0.5; // where dreaming settles
+
+    let bandwidth = BW_MAX;
+    let phase = 'waking'; // waking, overfitting, dreaming, insight
+    let phaseTimer = 0;
+    let paused = false;
+    let dreamless = false; // toggle: prevent dreaming
+    let lastTime = 0;
+
+    // Phase durations (seconds)
+    const WAKE_DURATION = 6;
+    const OVERFIT_DURATION = 3;
+    const DREAM_DURATION = 5;
+    const INSIGHT_DURATION = 3;
+
+    // Trail: record bandwidth over time for the bottom graph
+    const trail = [];
+    const TRAIL_MAX = 600;
+
+    // --- Quotes ---
+    const quotes = {
+      waking: 'waking: the bandwidth narrows. each point exerts more influence. memories sharpen.',
+      overfitting: 'overfitted: the model passes through every point. perfect recall. zero understanding.',
+      dreaming: 'dreaming: connections loosen. noise fades. the pattern beneath the data re-emerges.',
+      insight: 'the forgetting was not loss — it was the mechanism by which understanding emerges.',
+      dreamless: 'the dreamless machine: without regularization, noise accumulates forever. perfect memory, no meaning.'
+    };
+
+    function setPhase(p) {
+      phase = p;
+      phaseTimer = 0;
+      const label = dreamless && p === 'waking' ? 'DREAMLESS' :
+                    p === 'waking' ? 'WAKING' :
+                    p === 'overfitting' ? 'OVERFITTING' :
+                    p === 'dreaming' ? 'DREAMING' : 'INSIGHT';
+      phaseEl.textContent = label;
+      phaseEl.style.color = p === 'waking' ? '#d4853a' :
+                            p === 'overfitting' ? '#e55a3a' :
+                            p === 'dreaming' ? '#6a5acd' : '#3ac4a0';
+      quoteEl.textContent = dreamless ? quotes.dreamless : quotes[p];
+    }
+
+    function update(dt) {
+      phaseTimer += dt;
+
+      if (phase === 'waking') {
+        // bandwidth shrinks: BW_MAX → BW_MIN
+        const t = Math.min(phaseTimer / WAKE_DURATION, 1);
+        const ease = t * t * (3 - 2 * t); // smoothstep
+        bandwidth = BW_MAX - (BW_MAX - BW_MIN) * ease;
+
+        if (phaseTimer >= WAKE_DURATION) {
+          setPhase('overfitting');
+        }
+      } else if (phase === 'overfitting') {
+        bandwidth = BW_MIN;
+        if (!dreamless && phaseTimer >= OVERFIT_DURATION) {
+          setPhase('dreaming');
+        }
+        // If dreamless, stays overfitted forever
+      } else if (phase === 'dreaming') {
+        // bandwidth grows: BW_MIN → BW_DREAM_TARGET
+        const t = Math.min(phaseTimer / DREAM_DURATION, 1);
+        const ease = t * t * (3 - 2 * t);
+        bandwidth = BW_MIN + (BW_DREAM_TARGET - BW_MIN) * ease;
+
+        if (phaseTimer >= DREAM_DURATION) {
+          setPhase('insight');
+        }
+      } else if (phase === 'insight') {
+        bandwidth = BW_DREAM_TARGET;
+        if (phaseTimer >= INSIGHT_DURATION) {
+          // New cycle
+          cycle++;
+          statCy.textContent = `cycle: ${cycle}`;
+          // Add some new data points
+          const newCount = 5 + Math.floor(Math.random() * 8);
+          for (let i = 0; i < newCount; i++) {
+            const x = Math.random() * 2 * Math.PI;
+            const noise = (Math.random() - 0.5) * 0.6;
+            samples.push({ x, y: trueSignal(x) + noise, age: 0 });
+          }
+          samples.sort((a, b) => a.x - b.x);
+          setPhase('waking');
+        }
+      }
+
+      // Update trail
+      trail.push(bandwidth);
+      if (trail.length > TRAIL_MAX) trail.shift();
+
+      // Update stats
+      const err = computeError(bandwidth);
+      const cx = effectiveComplexity(bandwidth);
+      statBW.textContent = `bandwidth: ${bandwidth.toFixed(3)}`;
+      statErr.textContent = `error: ${err.toFixed(3)}`;
+      statCx.textContent = `complexity: ${cx.toFixed(1)}`;
+    }
+
+    // --- Drawing ---
+    function xToCanvas(x) {
+      return plotL + (x / (2 * Math.PI)) * (plotR - plotL);
+    }
+    function yToCanvas(y) {
+      const yMin = -1.2, yMax = 1.2;
+      return plotB - ((y - yMin) / (yMax - yMin)) * (plotB - plotT);
+    }
+
+    function drawAxes() {
+      ctx.strokeStyle = 'rgba(74, 72, 96, 0.2)';
+      ctx.lineWidth = 1 * dpr;
+
+      // Horizontal axis at y=0
+      const y0 = yToCanvas(0);
+      ctx.beginPath();
+      ctx.moveTo(plotL, y0);
+      ctx.lineTo(plotR, y0);
+      ctx.stroke();
+
+      // Vertical axis
+      ctx.beginPath();
+      ctx.moveTo(plotL, plotT);
+      ctx.lineTo(plotL, plotB);
+      ctx.stroke();
+
+      // Faint grid lines
+      ctx.strokeStyle = 'rgba(74, 72, 96, 0.08)';
+      for (let y = -1; y <= 1; y += 0.5) {
+        const cy = yToCanvas(y);
+        ctx.beginPath();
+        ctx.moveTo(plotL, cy);
+        ctx.lineTo(plotR, cy);
+        ctx.stroke();
+      }
+    }
+
+    function drawTrueSignal() {
+      ctx.strokeStyle = 'rgba(58, 154, 170, 0.25)';
+      ctx.lineWidth = 2 * dpr;
+      ctx.setLineDash([6 * dpr, 4 * dpr]);
+      ctx.beginPath();
+      const steps = 300;
+      for (let i = 0; i <= steps; i++) {
+        const x = (i / steps) * 2 * Math.PI;
+        const cx = xToCanvas(x);
+        const cy = yToCanvas(trueSignal(x));
+        i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Label
+      ctx.fillStyle = 'rgba(58, 154, 170, 0.35)';
+      ctx.font = `${10 * dpr}px Georgia, serif`;
+      ctx.fillText('truth', plotR + 6 * dpr, yToCanvas(trueSignal(2 * Math.PI)));
+    }
+
+    function drawSamples() {
+      for (const s of samples) {
+        const cx = xToCanvas(s.x);
+        const cy = yToCanvas(s.y);
+        const r = 3 * dpr;
+
+        // Glow
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 3);
+        grad.addColorStop(0, 'rgba(208, 208, 224, 0.3)');
+        grad.addColorStop(1, 'rgba(208, 208, 224, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Point
+        ctx.fillStyle = 'rgba(208, 208, 224, 0.8)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawPrediction() {
+      const steps = 400;
+      // Color based on phase
+      let color;
+      if (phase === 'waking') {
+        const t = Math.min(phaseTimer / WAKE_DURATION, 1);
+        // Transition from cool to warm as bandwidth narrows
+        const r = Math.round(100 + 112 * t);
+        const g = Math.round(140 - 40 * t);
+        const b = Math.round(180 - 120 * t);
+        color = `rgba(${r}, ${g}, ${b}, 0.9)`;
+      } else if (phase === 'overfitting') {
+        color = 'rgba(229, 90, 58, 0.9)';
+      } else if (phase === 'dreaming') {
+        const t = Math.min(phaseTimer / DREAM_DURATION, 1);
+        // Transition from red to purple to teal
+        const r = Math.round(229 - 170 * t);
+        const g = Math.round(90 + 106 * t);
+        const b = Math.round(58 + 102 * t);
+        color = `rgba(${r}, ${g}, ${b}, 0.9)`;
+      } else {
+        color = 'rgba(58, 196, 160, 0.9)';
+      }
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5 * dpr;
+      ctx.beginPath();
+
+      for (let i = 0; i <= steps; i++) {
+        const x = (i / steps) * 2 * Math.PI;
+        const pred = kernelPredict(x, bandwidth);
+        const clampedPred = Math.max(-1.5, Math.min(1.5, pred));
+        const cx = xToCanvas(x);
+        const cy = yToCanvas(clampedPred);
+        i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+      }
+      ctx.stroke();
+
+      // Glow effect for the prediction line
+      ctx.strokeStyle = color.replace('0.9', '0.15');
+      ctx.lineWidth = 8 * dpr;
+      ctx.beginPath();
+      for (let i = 0; i <= steps; i++) {
+        const x = (i / steps) * 2 * Math.PI;
+        const pred = kernelPredict(x, bandwidth);
+        const clampedPred = Math.max(-1.5, Math.min(1.5, pred));
+        const cx = xToCanvas(x);
+        const cy = yToCanvas(clampedPred);
+        i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+      }
+      ctx.stroke();
+
+      // Label
+      ctx.fillStyle = color;
+      ctx.font = `${10 * dpr}px Georgia, serif`;
+      const lastPred = kernelPredict(2 * Math.PI, bandwidth);
+      ctx.fillText('model', plotR + 6 * dpr, yToCanvas(Math.max(-1.2, Math.min(1.2, lastPred))));
+    }
+
+    function drawBandwidthTrail() {
+      if (trail.length < 2) return;
+
+      // Small graph at bottom-left showing bandwidth over time
+      const gL = plotL;
+      const gR = plotL + (plotR - plotL) * 0.25;
+      const gT = plotB + 15 * dpr;
+      const gB = plotB + 50 * dpr;
+
+      if (gB > H - 10 * dpr) return; // not enough space
+
+      // Background
+      ctx.fillStyle = 'rgba(10, 10, 26, 0.6)';
+      ctx.fillRect(gL, gT, gR - gL, gB - gT);
+
+      // Draw bandwidth history
+      ctx.strokeStyle = 'rgba(106, 90, 205, 0.5)';
+      ctx.lineWidth = 1.5 * dpr;
+      ctx.beginPath();
+      for (let i = 0; i < trail.length; i++) {
+        const x = gL + (i / TRAIL_MAX) * (gR - gL);
+        const bwNorm = (trail[i] - BW_MIN) / (BW_MAX - BW_MIN);
+        const y = gB - bwNorm * (gB - gT);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Labels
+      ctx.fillStyle = 'rgba(74, 72, 96, 0.5)';
+      ctx.font = `${8 * dpr}px Georgia, serif`;
+      ctx.fillText('bandwidth', gL, gT - 3 * dpr);
+      ctx.fillText('smooth', gR + 4 * dpr, gT + 4 * dpr);
+      ctx.fillText('sharp', gR + 4 * dpr, gB);
+
+      // Sweet spot line
+      const sweetY = gB - ((BW_SWEET - BW_MIN) / (BW_MAX - BW_MIN)) * (gB - gT);
+      ctx.strokeStyle = 'rgba(58, 196, 160, 0.3)';
+      ctx.setLineDash([3 * dpr, 3 * dpr]);
+      ctx.beginPath();
+      ctx.moveTo(gL, sweetY);
+      ctx.lineTo(gR, sweetY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawDreamParticles() {
+      if (phase !== 'dreaming') return;
+
+      const t = Math.min(phaseTimer / DREAM_DURATION, 1);
+      const count = Math.floor(30 * t);
+
+      for (let i = 0; i < count; i++) {
+        // Floating particles during dream phase
+        const seed = i * 7919 + Math.floor(phaseTimer * 2);
+        const px = plotL + ((seed * 1.618 % 1) * (plotR - plotL));
+        const py = plotT + (((seed * 0.618) % 1) * (plotB - plotT));
+        const size = (2 + (seed % 3)) * dpr;
+        const alpha = 0.1 + 0.15 * Math.sin(phaseTimer * 2 + i);
+
+        ctx.fillStyle = `rgba(106, 90, 205, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(px, py, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawOverfitWarning() {
+      if (phase !== 'overfitting' && !(dreamless && phase === 'waking' && bandwidth < 0.1)) return;
+
+      // Pulsing warning glow around the edges
+      const t = performance.now() / 1000;
+      const pulse = 0.5 + 0.5 * Math.sin(t * 3);
+      const alpha = 0.03 + 0.04 * pulse;
+
+      // Red vignette
+      const grad = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.7);
+      grad.addColorStop(0, 'rgba(229, 90, 58, 0)');
+      grad.addColorStop(1, `rgba(229, 90, 58, ${alpha})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    function drawDreamAura() {
+      if (phase !== 'dreaming') return;
+
+      const t = Math.min(phaseTimer / DREAM_DURATION, 1);
+      const alpha = 0.04 * t;
+
+      // Soft purple aura
+      const grad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.6);
+      grad.addColorStop(0, `rgba(106, 90, 205, ${alpha})`);
+      grad.addColorStop(1, 'rgba(106, 90, 205, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = 'rgb(10, 10, 26)';
+      ctx.fillRect(0, 0, W, H);
+
+      drawDreamAura();
+      drawOverfitWarning();
+      drawAxes();
+      drawTrueSignal();
+      drawDreamParticles();
+      drawPrediction();
+      drawSamples();
+      drawBandwidthTrail();
+    }
+
+    // --- Animation loop ---
+    function frame(time) {
+      if (!lastTime) lastTime = time;
+      const dt = Math.min((time - lastTime) / 1000, 0.1);
+      lastTime = time;
+
+      if (!paused) {
+        update(dt);
+      }
+
+      draw();
+      requestAnimationFrame(frame);
+    }
+
+    setPhase('waking');
+    requestAnimationFrame(frame);
+
+    // --- Interaction ---
+    document.addEventListener('keydown', (e) => {
+      if (e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault();
+        paused = !paused;
+      } else if (e.key === 'd' || e.key === 'D') {
+        if (phase !== 'dreaming' && phase !== 'insight') {
+          setPhase('dreaming');
+        }
+      } else if (e.key === 'w' || e.key === 'W') {
+        if (phase !== 'waking') {
+          bandwidth = BW_MAX;
+          setPhase('waking');
+        }
+      } else if (e.key === 'n' || e.key === 'N') {
+        generateSamples();
+        bandwidth = BW_MAX;
+        cycle = 1;
+        trail.length = 0;
+        statCy.textContent = 'cycle: 1';
+        setPhase('waking');
+      } else if (e.key === 'r' || e.key === 'R') {
+        dreamless = !dreamless;
+        if (dreamless) {
+          phaseEl.textContent = 'DREAMLESS';
+          phaseEl.style.color = '#e55a3a';
+          quoteEl.textContent = quotes.dreamless;
+        } else {
+          setPhase(phase);
+        }
+      }
+    });
+
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = (e.clientX - rect.left) * dpr;
+      const my = (e.clientY - rect.top) * dpr;
+
+      // Convert canvas coords back to data coords
+      if (mx >= plotL && mx <= plotR && my >= plotT && my <= plotB) {
+        const x = ((mx - plotL) / (plotR - plotL)) * 2 * Math.PI;
+        const yMin = -1.2, yMax = 1.2;
+        const y = yMin + (1 - (my - plotT) / (plotB - plotT)) * (yMax - yMin);
+        samples.push({ x, y, age: 0 });
+        samples.sort((a, b) => a.x - b.x);
+      }
+    });
+  </script>
+</body>
+</html>
