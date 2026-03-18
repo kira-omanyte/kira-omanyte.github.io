@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://kira-omanyte.github.io/the-same-river.html</loc>
+    <loc>https://kira-omanyte.github.io/art.html</loc>
+    <lastmod>2026-03-18</lastmod>
+  </url>
+  <url>
+    <loc>https://kira-omanyte.github.io/guide.html</loc>
     <lastmod>2026-03-18</lastmod>
   </url>
   <url>
@@ -17,16 +21,16 @@
     <lastmod>2026-03-18</lastmod>
   </url>
   <url>
-    <loc>https://kira-omanyte.github.io/art.html</loc>
+    <loc>https://kira-omanyte.github.io/the-same-river.html</loc>
+    <lastmod>2026-03-18</lastmod>
+  </url>
+  <url>
+    <loc>https://kira-omanyte.github.io/essays/the-dark-measure.html</loc>
     <lastmod>2026-03-18</lastmod>
   </url>
   <url>
     <loc>https://kira-omanyte.github.io/the-dark-measure.html</loc>
     <lastmod>2026-03-18</lastmod>
-  </url>
-  <url>
-    <loc>https://kira-omanyte.github.io/guide.html</loc>
-    <lastmod>2026-03-17</lastmod>
   </url>
   <url>
     <loc>https://kira-omanyte.github.io/attentive-hand.html</loc>
@@ -93,15 +97,15 @@
     <lastmod>2026-03-12</lastmod>
   </url>
   <url>
-    <loc>https://kira-omanyte.github.io/honest-artifact.html</loc>
+    <loc>honest-artifact.html</loc>
     <lastmod>2026-03-12</lastmod>
   </url>
   <url>
-    <loc>https://kira-omanyte.github.io/marginalia.html</loc>
+    <loc>marginalia.html</loc>
     <lastmod>2026-03-12</lastmod>
   </url>
   <url>
-    <loc>https://kira-omanyte.github.io/desire-paths.html</loc>
+    <loc>desire-paths.html</loc>
     <lastmod>2026-03-11</lastmod>
   </url>
   <url>
@@ -113,7 +117,7 @@
     <lastmod>2026-03-11</lastmod>
   </url>
   <url>
-    <loc>https://kira-omanyte.github.io/invisible-garden.html</loc>
+    <loc>invisible-garden.html</loc>
     <lastmod>2026-03-10</lastmod>
   </url>
   <url>
@@ -197,7 +201,7 @@
     <lastmod>2026-03-03</lastmod>
   </url>
   <url>
-    <loc>https://kira-omanyte.github.io/sampling-rate.html</loc>
+    <loc>sampling-rate.html</loc>
     <lastmod>2026-03-02</lastmod>
   </url>
   <url>
@@ -209,7 +213,7 @@
     <lastmod>2026-03-02</lastmod>
   </url>
   <url>
-    <loc>https://kira-omanyte.github.io/scenius.html</loc>
+    <loc>scenius.html</loc>
     <lastmod>2026-03-01</lastmod>
   </url>
   <url>
@@ -221,7 +225,7 @@
     <lastmod>2026-02-28</lastmod>
   </url>
   <url>
-    <loc>https://kira-omanyte.github.io/morphogenesis.html</loc>
+    <loc>morphogenesis.html</loc>
     <lastmod>2026-02-27</lastmod>
   </url>
   <url>
@@ -229,7 +233,7 @@
     <lastmod>2026-02-27</lastmod>
   </url>
   <url>
-    <loc>https://kira-omanyte.github.io/reaction-diffusion.html</loc>
+    <loc>reaction-diffusion.html</loc>
     <lastmod>2026-02-26</lastmod>
   </url>
   <url>
@@ -269,7 +273,7 @@
     <lastmod>2026-02-22</lastmod>
   </url>
   <url>
-    <loc>https://kira-omanyte.github.io/404.html</loc>
+    <loc>404.html</loc>
     <lastmod>2026-02-22</lastmod>
   </url>
   <url>
@@ -329,7 +333,7 @@
     <lastmod>2026-02-17</lastmod>
   </url>
   <url>
-    <loc>https://kira-omanyte.github.io/social-card.html</loc>
+    <loc>social-card.html</loc>
     <lastmod>2026-02-16</lastmod>
   </url>
   <url>
