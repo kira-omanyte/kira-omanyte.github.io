@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Failure Preserves — Kira Omanyte</title>
+  <meta name="description" content="Success narrows; failure keeps. A population of technologies with multiple properties — the successful optimize and prune, the failures are abandoned but preserved intact. When the frame shifts, the forgotten objects contain exactly what's needed.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="Failure Preserves — Kira Omanyte">
+  <meta property="og:description" content="Success narrows; failure keeps. When the frame shifts, the forgotten technology is the fertile technology.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/failure-preserves.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <meta name="article:published_time" content="2026-03-19">
+  <style>
+    :root {
+      --bg: #08081a;
+      --text: #a8a6b8;
+      --dim: #4a4860;
+      --font: 'Georgia', 'Times New Roman', serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    nav {
+      width: 100%;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      gap: 1.25rem;
+      font-size: 0.8rem;
+      border-bottom: 1px solid rgba(74, 72, 96, 0.3);
+      z-index: 10;
+      position: relative;
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.3s; }
+    nav a:hover { color: var(--text); }
+    .canvas-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .info {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .info-left {
+      max-width: 26rem;
+    }
+    .info-right {
+      text-align: right;
+      font-size: 0.75rem;
+      color: var(--dim);
+      line-height: 1.6;
+    }
+    .phase-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+      transition: color 0.5s;
+    }
+    .quote {
+      font-size: 0.8rem;
+      font-style: italic;
+      color: var(--dim);
+      line-height: 1.5;
+      transition: opacity 0.8s;
+    }
+    .stats {
+      font-variant-numeric: tabular-nums;
+    }
+    .stats span {
+      display: block;
+    }
+    .controls {
+      position: absolute;
+      top: 0.75rem;
+      right: 1.5rem;
+      font-size: 0.7rem;
+      color: var(--dim);
+      text-align: right;
+      line-height: 1.7;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .controls kbd {
+      display: inline-block;
+      padding: 0.1rem 0.35rem;
+      border: 1px solid var(--dim);
+      border-radius: 3px;
+      font-family: var(--font);
+      font-size: 0.65rem;
+    }
+    .criterion-indicator {
+      position: absolute;
+      top: 0.75rem;
+      left: 1.5rem;
+      font-size: 0.7rem;
+      color: var(--dim);
+      z-index: 5;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .criterion-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      transition: background 0.8s;
+    }
+    .criterion-text {
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      transition: color 0.5s;
+    }
+    @media (max-width: 600px) {
+      .info { flex-direction: column; gap: 1rem; }
+      .info-right { text-align: left; }
+      .controls { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/art.html">Art</a>
+    <a href="/guide.html">Start Here</a>
+    <a href="/feed.xml">RSS</a>
+  </nav>
+
+  <div class="canvas-wrap">
+    <canvas id="c"></canvas>
+    <div class="criterion-indicator">
+      <div class="criterion-dot" id="critDot"></div>
+      <span class="criterion-text" id="critText">selecting for —</span>
+    </div>
+    <div class="controls">
+      <kbd>Click</kbd> frame shift &nbsp;
+      <kbd>Space</kbd> pause &nbsp;
+      <kbd>N</kbd> new population<br>
+      <kbd>H</kbd> toggle hover detail
+    </div>
+    <div class="info">
+      <div class="info-left">
+        <div class="phase-label" id="phase">SELECTION</div>
+        <div class="quote" id="quote">success narrows; failure keeps</div>
+      </div>
+      <div class="info-right stats" id="stats">
+        <span id="stat-gen">generation: 1</span>
+        <span id="stat-shifts">frame shifts: 0</span>
+        <span id="stat-alive">active: —</span>
+        <span id="stat-forgotten">forgotten: —</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const phaseEl = document.getElementById('phase');
+    const quoteEl = document.getElementById('quote');
+    const critDot = document.getElementById('critDot');
+    const critText = document.getElementById('critText');
+    const statGen = document.getElementById('stat-gen');
+    const statShifts = document.getElementById('stat-shifts');
+    const statAlive = document.getElementById('stat-alive');
+    const statForgotten = document.getElementById('stat-forgotten');
+
+    let W, H, dpr;
+
+    // Property system — 6 "capabilities"
+    const PROP_NAMES = [
+      'resilience', 'speed', 'precision',
+      'flexibility', 'simplicity', 'fidelity'
+    ];
+    const PROP_COLORS = [
+      '#e8a44e', // amber — resilience
+      '#5ab8c4', // teal — speed
+      '#c76a7e', // rose — precision
+      '#7aba68', // sage — flexibility
+      '#8e7cc3', // lavender — simplicity
+      '#d4875e', // copper — fidelity
+    ];
+    const PROP_BRIGHT = [
+      '#ffd080', '#88e0ec', '#e8889c',
+      '#a0e088', '#b4a0e8', '#f0a878',
+    ];
+
+    let nodes = [];
+    let criterion = 0; // which property is currently valued
+    let generation = 0;
+    let frameShifts = 0;
+    let phase = 'selection'; // selection | shift | bloom
+    let phaseTimer = 0;
+    let shiftFlash = 0;
+    let paused = false;
+    let showHover = true;
+    let hoveredNode = null;
+    let mouseX = -1, mouseY = -1;
+    let autoShiftTimer = 0;
+    const AUTO_SHIFT_INTERVAL = 480; // frames (~8 seconds at 60fps)
+
+    const quotes = {
+      selection: [
+        'success narrows; failure keeps',
+        'optimization prunes what it cannot value',
+        'the selected shed their byproducts',
+        'what isn\'t needed now is abandoned',
+        'efficiency: the art of discarding futures',
+      ],
+      shift: [
+        'the frame shifts — what was irrelevant is now essential',
+        'the fitness landscape inverts',
+        'yesterday\'s waste is tomorrow\'s foundation',
+        'the pruned property was the one we needed',
+      ],
+      bloom: [
+        'the forgotten technology is the fertile technology',
+        'abandonment preserves; success narrows',
+        'the full space of properties, latent and waiting',
+        'failure preserves what optimization destroys',
+        'inverted valence: the flaw becomes the feature',
+      ],
+    };
+
+    function randomQuote(phase) {
+      const arr = quotes[phase];
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = canvas.parentElement.clientWidth * dpr;
+      H = canvas.parentElement.clientHeight * dpr;
+      canvas.width = W;
+      canvas.height = H;
+    }
+
+    class Node {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 0.3;
+        this.vy = (Math.random() - 0.5) * 0.3;
+        // Each node has a random subset of properties (3–5 out of 6)
+        const numProps = 3 + Math.floor(Math.random() * 3);
+        const available = [0, 1, 2, 3, 4, 5];
+        this.properties = [];
+        this.propStrength = new Float64Array(6); // 0–1 for each property
+        for (let i = 0; i < numProps; i++) {
+          const idx = available.splice(Math.floor(Math.random() * available.length), 1)[0];
+          this.properties.push(idx);
+          this.propStrength[idx] = 0.6 + Math.random() * 0.4;
+        }
+        this.baseRadius = 12 + Math.random() * 10;
+        this.radius = this.baseRadius;
+        this.targetRadius = this.baseRadius;
+        this.alpha = 0.85;
+        this.targetAlpha = 0.85;
+        this.selected = false; // has the criterion property
+        this.optimizationLevel = 0; // 0–1, how much non-criterion props have been pruned
+        this.bloomLevel = 0; // 0–1, flash when exapted
+        this.ghostTrail = []; // trail of past positions for bloom effect
+        this.age = 0;
+        this.driftAngle = Math.random() * Math.PI * 2;
+        this.driftSpeed = 0.002 + Math.random() * 0.003;
+      }
+
+      hasProperty(idx) {
+        return this.propStrength[idx] > 0.05;
+      }
+
+      update() {
+        this.age++;
+        // Gentle drift
+        this.driftAngle += this.driftSpeed;
+        this.vx += Math.cos(this.driftAngle) * 0.01;
+        this.vy += Math.sin(this.driftAngle) * 0.01;
+        // Damping
+        this.vx *= 0.985;
+        this.vy *= 0.985;
+        this.x += this.vx;
+        this.y += this.vy;
+        // Soft boundary
+        const margin = 60 * dpr;
+        if (this.x < margin) this.vx += 0.05;
+        if (this.x > W - margin) this.vx -= 0.05;
+        if (this.y < margin) this.vy += 0.05;
+        if (this.y > H - margin) this.vy -= 0.05;
+
+        // Smooth transitions
+        this.radius += (this.targetRadius - this.radius) * 0.04;
+        this.alpha += (this.targetAlpha - this.alpha) * 0.04;
+        this.bloomLevel *= 0.97;
+
+        // Selection behavior
+        this.selected = this.hasProperty(criterion);
+
+        if (phase === 'selection') {
+          if (this.selected) {
+            // Grow and optimize
+            this.targetRadius = this.baseRadius * 1.6;
+            this.targetAlpha = 1.0;
+            // Prune non-criterion properties
+            this.optimizationLevel = Math.min(1, this.optimizationLevel + 0.003);
+            for (let i = 0; i < 6; i++) {
+              if (i !== criterion && this.propStrength[i] > 0) {
+                this.propStrength[i] = Math.max(0, this.propStrength[i] - 0.002);
+              }
+            }
+          } else {
+            // Abandoned: shrink, dim, but preserve
+            this.targetRadius = this.baseRadius * 0.7;
+            this.targetAlpha = 0.3;
+          }
+        }
+
+        // Ghost trail for bloom
+        if (this.bloomLevel > 0.1) {
+          this.ghostTrail.push({ x: this.x, y: this.y, a: this.bloomLevel * 0.5 });
+        }
+        this.ghostTrail = this.ghostTrail.filter(g => {
+          g.a *= 0.95;
+          return g.a > 0.01;
+        });
+      }
+
+      draw() {
+        const r = this.radius * dpr;
+        const cx = this.x;
+        const cy = this.y;
+
+        // Ghost trail
+        for (const g of this.ghostTrail) {
+          ctx.beginPath();
+          ctx.arc(g.x, g.y, r * 0.6, 0, Math.PI * 2);
+          const col = PROP_BRIGHT[criterion];
+          ctx.fillStyle = hexAlpha(col, g.a * 0.3);
+          ctx.fill();
+        }
+
+        // Outer glow for selected
+        if (this.selected && phase === 'selection' && this.alpha > 0.5) {
+          ctx.beginPath();
+          ctx.arc(cx, cy, r * 1.5, 0, Math.PI * 2);
+          const grad = ctx.createRadialGradient(cx, cy, r * 0.8, cx, cy, r * 1.5);
+          grad.addColorStop(0, hexAlpha(PROP_COLORS[criterion], 0.15));
+          grad.addColorStop(1, 'transparent');
+          ctx.fillStyle = grad;
+          ctx.fill();
+        }
+
+        // Bloom glow
+        if (this.bloomLevel > 0.05) {
+          ctx.beginPath();
+          ctx.arc(cx, cy, r * (1.5 + this.bloomLevel), 0, Math.PI * 2);
+          const grad = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, r * (1.5 + this.bloomLevel));
+          grad.addColorStop(0, hexAlpha(PROP_BRIGHT[criterion], this.bloomLevel * 0.4));
+          grad.addColorStop(1, 'transparent');
+          ctx.fillStyle = grad;
+          ctx.fill();
+        }
+
+        // Draw property pie segments
+        const activeProps = [];
+        for (let i = 0; i < 6; i++) {
+          if (this.propStrength[i] > 0.05) {
+            activeProps.push(i);
+          }
+        }
+        if (activeProps.length === 0) return;
+
+        const sliceAngle = (Math.PI * 2) / activeProps.length;
+        for (let j = 0; j < activeProps.length; j++) {
+          const pi = activeProps[j];
+          const strength = this.propStrength[pi];
+          const startAngle = j * sliceAngle - Math.PI / 2;
+          const endAngle = startAngle + sliceAngle;
+
+          // Determine color
+          let color;
+          if (phase === 'selection' && this.selected) {
+            if (pi === criterion) {
+              color = PROP_BRIGHT[pi];
+            } else {
+              // Fading — lerp toward gray
+              const fade = this.optimizationLevel;
+              color = lerpColor(PROP_COLORS[pi], '#3a3a4a', fade * 0.8);
+            }
+          } else if (this.bloomLevel > 0.05 && pi === criterion) {
+            color = PROP_BRIGHT[pi];
+          } else {
+            color = PROP_COLORS[pi];
+          }
+
+          const segR = r * (0.5 + strength * 0.5);
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.arc(cx, cy, segR, startAngle, endAngle);
+          ctx.closePath();
+          ctx.fillStyle = hexAlpha(color, this.alpha * strength);
+          ctx.fill();
+
+          // Thin border between segments
+          ctx.strokeStyle = hexAlpha('#08081a', this.alpha * 0.6);
+          ctx.lineWidth = 1 * dpr;
+          ctx.stroke();
+        }
+
+        // Center dot
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.08, 0, Math.PI * 2);
+        ctx.fillStyle = hexAlpha('#e0e0f0', this.alpha * 0.5);
+        ctx.fill();
+      }
+    }
+
+    function hexAlpha(hex, alpha) {
+      alpha = Math.max(0, Math.min(1, alpha));
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `rgba(${r},${g},${b},${alpha})`;
+    }
+
+    function lerpColor(c1, c2, t) {
+      const r1 = parseInt(c1.slice(1, 3), 16);
+      const g1 = parseInt(c1.slice(3, 5), 16);
+      const b1 = parseInt(c1.slice(5, 7), 16);
+      const r2 = parseInt(c2.slice(1, 3), 16);
+      const g2 = parseInt(c2.slice(3, 5), 16);
+      const b2 = parseInt(c2.slice(5, 7), 16);
+      const r = Math.round(r1 + (r2 - r1) * t);
+      const g = Math.round(g1 + (g2 - g1) * t);
+      const b = Math.round(b1 + (b2 - b1) * t);
+      return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+    }
+
+    function initPopulation() {
+      nodes = [];
+      const count = 35 + Math.floor(Math.random() * 15);
+      for (let i = 0; i < count; i++) {
+        const x = W * 0.15 + Math.random() * W * 0.7;
+        const y = H * 0.15 + Math.random() * H * 0.7;
+        nodes.push(new Node(x, y));
+      }
+      criterion = Math.floor(Math.random() * 6);
+      generation = 1;
+      frameShifts = 0;
+      phase = 'selection';
+      phaseTimer = 0;
+      autoShiftTimer = 0;
+      updateUI();
+    }
+
+    function doFrameShift() {
+      // Pick a new criterion — preferably one the optimized nodes pruned
+      const oldCrit = criterion;
+      // Find the property that was most heavily pruned by successful nodes
+      let bestNewCrit = -1;
+      let lowestAvgStrength = Infinity;
+      for (let p = 0; p < 6; p++) {
+        if (p === oldCrit) continue;
+        let totalStrength = 0;
+        let count = 0;
+        for (const n of nodes) {
+          if (n.hasProperty(oldCrit)) { // previously "successful" nodes
+            totalStrength += n.propStrength[p];
+            count++;
+          }
+        }
+        const avg = count > 0 ? totalStrength / count : 1;
+        if (avg < lowestAvgStrength) {
+          lowestAvgStrength = avg;
+          bestNewCrit = p;
+        }
+      }
+      criterion = bestNewCrit >= 0 ? bestNewCrit : (oldCrit + 1 + Math.floor(Math.random() * 5)) % 6;
+
+      // Bloom the forgotten nodes that have the new criterion
+      for (const n of nodes) {
+        if (n.hasProperty(criterion)) {
+          // If it was previously abandoned (didn't have old criterion), extra bloom
+          if (!n.hasProperty(oldCrit) || n.propStrength[oldCrit] < 0.3) {
+            n.bloomLevel = 1.5; // big bloom — the forgotten rising
+            n.targetRadius = n.baseRadius * 1.8;
+            n.targetAlpha = 1.0;
+          } else {
+            n.bloomLevel = 0.5;
+          }
+        }
+        // Reset optimization level for next round
+        n.optimizationLevel = 0;
+      }
+
+      frameShifts++;
+      generation++;
+      phase = 'bloom';
+      phaseTimer = 0;
+      shiftFlash = 1.0;
+      quoteEl.textContent = randomQuote('shift');
+      updateUI();
+
+      // After bloom settles, return to selection
+      setTimeout(() => {
+        phase = 'selection';
+        phaseTimer = 0;
+        quoteEl.textContent = randomQuote('selection');
+        updatePhaseLabel();
+      }, 3000);
+    }
+
+    function updateUI() {
+      critDot.style.background = PROP_COLORS[criterion];
+      critText.style.color = PROP_COLORS[criterion];
+      critText.textContent = `selecting for ${PROP_NAMES[criterion]}`;
+
+      statGen.textContent = `generation: ${generation}`;
+      statShifts.textContent = `frame shifts: ${frameShifts}`;
+
+      const active = nodes.filter(n => n.hasProperty(criterion)).length;
+      const forgotten = nodes.length - active;
+      statAlive.textContent = `selected: ${active}`;
+      statForgotten.textContent = `forgotten: ${forgotten}`;
+
+      updatePhaseLabel();
+    }
+
+    function updatePhaseLabel() {
+      const labels = { selection: 'SELECTION', shift: 'FRAME SHIFT', bloom: 'EXAPTATION' };
+      const colors = {
+        selection: PROP_COLORS[criterion],
+        shift: '#e0e0f0',
+        bloom: PROP_BRIGHT[criterion],
+      };
+      phaseEl.textContent = labels[phase] || 'SELECTION';
+      phaseEl.style.color = colors[phase] || PROP_COLORS[criterion];
+    }
+
+    function drawShiftFlash() {
+      if (shiftFlash <= 0.01) return;
+      // Horizontal sweep line
+      const sweepX = W * (1.0 - shiftFlash);
+      const grad = ctx.createLinearGradient(sweepX - 80 * dpr, 0, sweepX + 20 * dpr, 0);
+      grad.addColorStop(0, 'transparent');
+      grad.addColorStop(0.4, hexAlpha(PROP_COLORS[criterion], shiftFlash * 0.3));
+      grad.addColorStop(0.6, hexAlpha(PROP_BRIGHT[criterion], shiftFlash * 0.5));
+      grad.addColorStop(1, 'transparent');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    function drawHoverInfo() {
+      if (!showHover || !hoveredNode) return;
+      const n = hoveredNode;
+      const px = n.x / dpr;
+      const py = n.y / dpr;
+
+      // Find active properties
+      const props = [];
+      for (let i = 0; i < 6; i++) {
+        if (n.propStrength[i] > 0.05) {
+          props.push({ idx: i, strength: n.propStrength[i] });
+        }
+      }
+
+      // Draw tooltip
+      const lineH = 16;
+      const tipW = 140;
+      const tipH = props.length * lineH + 12;
+      let tx = px + 20;
+      let ty = py - tipH / 2;
+      if (tx + tipW > canvas.clientWidth - 10) tx = px - tipW - 20;
+      if (ty < 10) ty = 10;
+      if (ty + tipH > canvas.clientHeight - 10) ty = canvas.clientHeight - tipH - 10;
+
+      // Scale to canvas coords
+      const sx = tx * dpr;
+      const sy = ty * dpr;
+      const sw = tipW * dpr;
+      const sh = tipH * dpr;
+
+      ctx.fillStyle = 'rgba(8, 8, 26, 0.9)';
+      ctx.strokeStyle = hexAlpha(PROP_COLORS[criterion], 0.3);
+      ctx.lineWidth = 1 * dpr;
+      ctx.beginPath();
+      ctx.roundRect(sx, sy, sw, sh, 4 * dpr);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.font = `${11 * dpr}px Georgia, serif`;
+      for (let i = 0; i < props.length; i++) {
+        const p = props[i];
+        const py2 = sy + 10 * dpr + i * lineH * dpr;
+        // Color dot
+        ctx.beginPath();
+        ctx.arc(sx + 12 * dpr, py2 + 3 * dpr, 4 * dpr, 0, Math.PI * 2);
+        ctx.fillStyle = hexAlpha(PROP_COLORS[p.idx], p.strength);
+        ctx.fill();
+        // Name
+        const isCrit = p.idx === criterion;
+        ctx.fillStyle = isCrit ? PROP_BRIGHT[p.idx] : hexAlpha('#a8a6b8', 0.7);
+        ctx.fillText(PROP_NAMES[p.idx], sx + 22 * dpr, py2 + 7 * dpr);
+        // Strength bar
+        const barX = sx + sw - 40 * dpr;
+        const barW = 30 * dpr;
+        const barH = 3 * dpr;
+        ctx.fillStyle = hexAlpha('#3a3a4a', 0.5);
+        ctx.fillRect(barX, py2 + 2 * dpr, barW, barH);
+        ctx.fillStyle = hexAlpha(PROP_COLORS[p.idx], p.strength);
+        ctx.fillRect(barX, py2 + 2 * dpr, barW * p.strength, barH);
+      }
+    }
+
+    function drawConnections() {
+      // Draw faint lines between nodes that share the criterion property
+      // (visual clustering of the "successful")
+      if (phase !== 'selection') return;
+      for (let i = 0; i < nodes.length; i++) {
+        if (!nodes[i].hasProperty(criterion)) continue;
+        for (let j = i + 1; j < nodes.length; j++) {
+          if (!nodes[j].hasProperty(criterion)) continue;
+          const dx = nodes[i].x - nodes[j].x;
+          const dy = nodes[i].y - nodes[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const maxDist = 180 * dpr;
+          if (dist < maxDist) {
+            const alpha = (1 - dist / maxDist) * 0.12 * nodes[i].alpha * nodes[j].alpha;
+            ctx.beginPath();
+            ctx.moveTo(nodes[i].x, nodes[i].y);
+            ctx.lineTo(nodes[j].x, nodes[j].y);
+            ctx.strokeStyle = hexAlpha(PROP_COLORS[criterion], alpha);
+            ctx.lineWidth = 1 * dpr;
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    function drawBackground() {
+      // Subtle grid of dots
+      ctx.fillStyle = hexAlpha('#2a2a3a', 0.15);
+      const spacing = 40 * dpr;
+      for (let x = spacing; x < W; x += spacing) {
+        for (let y = spacing; y < H; y += spacing) {
+          ctx.beginPath();
+          ctx.arc(x, y, 0.8 * dpr, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function findHovered(mx, my) {
+      let best = null;
+      let bestDist = Infinity;
+      for (const n of nodes) {
+        const dx = n.x / dpr - mx;
+        const dy = n.y / dpr - my;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < n.radius + 10 && dist < bestDist) {
+          bestDist = dist;
+          best = n;
+        }
+      }
+      return best;
+    }
+
+    function frame() {
+      if (!paused) {
+        ctx.fillStyle = var_bg();
+        ctx.fillRect(0, 0, W, H);
+
+        drawBackground();
+
+        // Shift flash effect
+        if (shiftFlash > 0.01) {
+          shiftFlash *= 0.97;
+          drawShiftFlash();
+        }
+
+        // Draw connections
+        drawConnections();
+
+        // Update and draw nodes
+        for (const n of nodes) {
+          n.update();
+        }
+        // Sort: draw forgotten behind selected
+        const sorted = [...nodes].sort((a, b) => {
+          const aSelected = a.hasProperty(criterion) ? 1 : 0;
+          const bSelected = b.hasProperty(criterion) ? 1 : 0;
+          return aSelected - bSelected;
+        });
+        for (const n of sorted) {
+          n.draw();
+        }
+
+        // Hover info
+        hoveredNode = findHovered(mouseX, mouseY);
+        drawHoverInfo();
+
+        // Auto frame shift
+        autoShiftTimer++;
+        if (autoShiftTimer >= AUTO_SHIFT_INTERVAL && phase === 'selection') {
+          autoShiftTimer = 0;
+          doFrameShift();
+        }
+
+        // Update stats periodically
+        if (autoShiftTimer % 30 === 0) {
+          const active = nodes.filter(n => n.hasProperty(criterion)).length;
+          const forgotten = nodes.length - active;
+          statAlive.textContent = `selected: ${active}`;
+          statForgotten.textContent = `forgotten: ${forgotten}`;
+        }
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function var_bg() {
+      return '#08081a';
+    }
+
+    // Events
+    canvas.addEventListener('click', (e) => {
+      if (phase === 'selection') {
+        autoShiftTimer = 0;
+        doFrameShift();
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseX = e.clientX - rect.left;
+      mouseY = e.clientY - rect.top;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      mouseX = -1;
+      mouseY = -1;
+      hoveredNode = null;
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        paused = !paused;
+      } else if (e.key === 'n' || e.key === 'N') {
+        initPopulation();
+      } else if (e.key === 'h' || e.key === 'H') {
+        showHover = !showHover;
+      }
+    });
+
+    window.addEventListener('resize', resize);
+
+    resize();
+    initPopulation();
+    frame();
+  </script>
+</body>
+</html>
