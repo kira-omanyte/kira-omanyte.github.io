@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Useful Phantom — Kira Omanyte</title>
+  <meta name="description" content="A complex landscape visible only through simplified fictions. Each fiction is wrong. Each is useful. Without them the thing-in-itself is dark. Vaihinger's as-if: usefulness ≠ truth, but usefulness is enough.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Useful Phantom — Kira Omanyte">
+  <meta property="og:description" content="Fictions that illuminate because they simplify. The thing-in-itself is inaccessible. The as-if is enough.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-useful-phantom.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <meta name="article:published_time" content="2026-03-20">
+  <style>
+    :root {
+      --bg: #06061a;
+      --text: #a8a6b8;
+      --dim: #4a4860;
+      --font: 'Georgia', 'Times New Roman', serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    nav {
+      width: 100%;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      gap: 1.25rem;
+      font-size: 0.8rem;
+      border-bottom: 1px solid rgba(74, 72, 96, 0.3);
+      z-index: 10;
+      position: relative;
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.3s; }
+    nav a:hover { color: var(--text); }
+    .canvas-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .info {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .info-left {
+      max-width: 28rem;
+    }
+    .info-right {
+      text-align: right;
+      font-size: 0.75rem;
+      color: var(--dim);
+      line-height: 1.6;
+    }
+    .fiction-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+      transition: color 0.5s;
+      color: var(--dim);
+    }
+    .quote {
+      font-size: 0.8rem;
+      font-style: italic;
+      color: var(--dim);
+      line-height: 1.5;
+      transition: opacity 0.8s;
+    }
+    .fiction-toggles {
+      position: absolute;
+      top: 0.75rem;
+      left: 1.5rem;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .fiction-toggle {
+      font-size: 0.7rem;
+      color: var(--dim);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: color 0.3s;
+      pointer-events: auto;
+    }
+    .fiction-toggle:hover { color: var(--text); }
+    .fiction-toggle.active { color: var(--text); }
+    .fiction-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 1px solid;
+      transition: all 0.3s;
+    }
+    .fiction-toggle.active .fiction-dot {
+      box-shadow: 0 0 6px currentColor;
+    }
+    .controls {
+      position: absolute;
+      top: 0.75rem;
+      right: 1.5rem;
+      font-size: 0.7rem;
+      color: var(--dim);
+      text-align: right;
+      line-height: 1.7;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .controls kbd {
+      display: inline-block;
+      padding: 0.1rem 0.35rem;
+      border: 1px solid var(--dim);
+      border-radius: 3px;
+      font-family: var(--font);
+      font-size: 0.65rem;
+    }
+    @media (max-width: 600px) {
+      .info { flex-direction: column; gap: 1rem; }
+      .info-right { text-align: left; }
+      .controls { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/art.html">Art</a>
+    <a href="/guide.html">Start Here</a>
+    <a href="/feed.xml">RSS</a>
+  </nav>
+
+  <div class="canvas-wrap">
+    <canvas id="c"></canvas>
+
+    <div class="fiction-toggles" id="toggles"></div>
+
+    <div class="controls">
+      <kbd>1</kbd>–<kbd>5</kbd> toggle fictions &nbsp;
+      <kbd>T</kbd> reveal truth<br>
+      <kbd>A</kbd> toggle all &nbsp;
+      <kbd>Space</kbd> pause
+    </div>
+
+    <div class="info">
+      <div class="info-left">
+        <div class="fiction-label" id="label">FICTIONS ACTIVE</div>
+        <div class="quote" id="quote">the thing-in-itself is inaccessible — the as-if is enough</div>
+      </div>
+      <div class="info-right" id="stats">
+        <span id="stat-visible">landscape visible: 0%</span><br>
+        <span id="stat-fictions">fictions active: 0 / 5</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const labelEl = document.getElementById('label');
+    const quoteEl = document.getElementById('quote');
+    const statVisible = document.getElementById('stat-visible');
+    const statFictions = document.getElementById('stat-fictions');
+    const togglesEl = document.getElementById('toggles');
+
+    let W, H, dpr;
+    let paused = false;
+    let time = 0;
+    let truthReveal = 0; // 0–1, how much raw truth is shown
+    let truthFading = false;
+
+    // Simplex-like noise (2D)
+    // Using a good hash-based noise for the landscape
+    const PERM = new Uint8Array(512);
+    const GRAD = [[1,1],[-1,1],[1,-1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]];
+    (function initNoise() {
+      const p = new Uint8Array(256);
+      for (let i = 0; i < 256; i++) p[i] = i;
+      for (let i = 255; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [p[i], p[j]] = [p[j], p[i]];
+      }
+      for (let i = 0; i < 512; i++) PERM[i] = p[i & 255];
+    })();
+
+    function noise2d(x, y) {
+      const X = Math.floor(x) & 255;
+      const Y = Math.floor(y) & 255;
+      const xf = x - Math.floor(x);
+      const yf = y - Math.floor(y);
+      const u = xf * xf * (3 - 2 * xf);
+      const v = yf * yf * (3 - 2 * yf);
+      const aa = PERM[PERM[X] + Y] & 7;
+      const ab = PERM[PERM[X] + Y + 1] & 7;
+      const ba = PERM[PERM[X + 1] + Y] & 7;
+      const bb = PERM[PERM[X + 1] + Y + 1] & 7;
+      const g = (h, dx, dy) => GRAD[h][0] * dx + GRAD[h][1] * dy;
+      const x1 = g(aa, xf, yf) * (1 - u) + g(ba, xf - 1, yf) * u;
+      const x2 = g(ab, xf, yf - 1) * (1 - u) + g(bb, xf - 1, yf - 1) * u;
+      return x1 * (1 - v) + x2 * v;
+    }
+
+    function fbm(x, y, octaves) {
+      let val = 0, amp = 0.5, freq = 1;
+      for (let i = 0; i < octaves; i++) {
+        val += amp * noise2d(x * freq, y * freq);
+        amp *= 0.5;
+        freq *= 2.0;
+      }
+      return val;
+    }
+
+    // The five fictions — each a different geometry of simplification
+    const fictions = [
+      {
+        name: 'The Grid',
+        subtitle: 'discrete quantization',
+        color: '#e8a44e', // amber
+        active: true,
+        // Illuminates in a grid pattern — the world seen as cells
+        illuminate: (x, y, t) => {
+          const gx = (x * 0.025 + t * 0.3) % 1;
+          const gy = (y * 0.025) % 1;
+          const cx = Math.abs(gx - 0.5) * 2;
+          const cy = Math.abs(gy - 0.5) * 2;
+          const edge = Math.max(cx, cy);
+          return Math.max(0, 1 - edge * 3) * 0.7;
+        }
+      },
+      {
+        name: 'The Circle',
+        subtitle: 'ideal form',
+        color: '#5ab8c4', // teal
+        active: false,
+        // Concentric rings — the Platonic approximation
+        illuminate: (x, y, t) => {
+          const dx = x - W / (2 * dpr);
+          const dy = y - H / (2 * dpr);
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const ring = (dist * 0.015 + t * 0.5) % 1;
+          return Math.max(0, 1 - Math.abs(ring - 0.5) * 6) * 0.65;
+        }
+      },
+      {
+        name: 'The Line',
+        subtitle: 'linear approximation',
+        color: '#c76a7e', // rose
+        active: false,
+        // Parallel diagonal lines — the linearization
+        illuminate: (x, y, t) => {
+          const proj = (x * 0.7 + y * 0.7) * 0.02 + t * 0.4;
+          const stripe = (proj % 1 + 1) % 1;
+          return Math.max(0, 1 - Math.abs(stripe - 0.5) * 5) * 0.6;
+        }
+      },
+      {
+        name: 'The Point',
+        subtitle: 'mass at center',
+        color: '#8e7cc3', // lavender
+        active: false,
+        // Radial gradient from center — the point-mass simplification
+        illuminate: (x, y, t) => {
+          const dx = x - W / (2 * dpr);
+          const dy = y - H / (2 * dpr);
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const maxDist = Math.min(W, H) / (2 * dpr);
+          const pulse = 0.8 + 0.2 * Math.sin(t * 2);
+          const falloff = Math.max(0, 1 - (dist / maxDist) * pulse);
+          return falloff * falloff * 0.7;
+        }
+      },
+      {
+        name: 'The Wave',
+        subtitle: 'periodic assumption',
+        color: '#7aba68', // sage
+        active: false,
+        // Sinusoidal pattern — the harmonic decomposition
+        illuminate: (x, y, t) => {
+          const wave1 = Math.sin(x * 0.03 + t * 1.5) * 0.5 + 0.5;
+          const wave2 = Math.sin(y * 0.04 + t * 0.8) * 0.5 + 0.5;
+          const combined = wave1 * wave2;
+          return combined * 0.6;
+        }
+      }
+    ];
+
+    const quotes = {
+      none: [
+        'the thing-in-itself is inaccessible',
+        'without a fiction, the landscape is dark',
+        'truth without approximation is blindness',
+      ],
+      some: [
+        'the as-if illuminates what the real conceals',
+        'a useful fiction is not a failed truth',
+        'every model is wrong — some are useful',
+        'the phantom casts more light than the real',
+        'usefulness ≠ truth, but usefulness is enough',
+      ],
+      all: [
+        'five fictions, five lies, one visible landscape',
+        'the composite phantom — more than any truth',
+        'where all approximations overlap, structure appears',
+        'the convergence of errors reveals the form',
+      ],
+      truth: [
+        'the thing-in-itself — overwhelming, unusable',
+        'all of it, at once, and none of it navigable',
+        'this is what accuracy costs: comprehensibility',
+        'Vaihinger: the real is the obstacle, not the goal',
+      ]
+    };
+
+    function randomQuote(category) {
+      const arr = quotes[category];
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    // Build toggle UI
+    function buildToggles() {
+      togglesEl.innerHTML = '';
+      fictions.forEach((f, i) => {
+        const div = document.createElement('div');
+        div.className = 'fiction-toggle' + (f.active ? ' active' : '');
+        div.innerHTML = `<div class="fiction-dot" style="border-color: ${f.color}; background: ${f.active ? f.color : 'transparent'}"></div>
+          <span><kbd style="font-family: var(--font); font-size: 0.6rem; padding: 0 0.25rem; border: 1px solid var(--dim); border-radius: 2px;">${i + 1}</kbd> ${f.name} <span style="opacity: 0.5">— ${f.subtitle}</span></span>`;
+        div.addEventListener('click', () => toggleFiction(i));
+        togglesEl.appendChild(div);
+      });
+    }
+
+    function toggleFiction(idx) {
+      fictions[idx].active = !fictions[idx].active;
+      updateUI();
+    }
+
+    function updateUI() {
+      const activeCount = fictions.filter(f => f.active).length;
+      statFictions.textContent = `fictions active: ${activeCount} / 5`;
+
+      // Update toggles
+      const toggleDivs = togglesEl.querySelectorAll('.fiction-toggle');
+      fictions.forEach((f, i) => {
+        const div = toggleDivs[i];
+        if (!div) return;
+        div.className = 'fiction-toggle' + (f.active ? ' active' : '');
+        const dot = div.querySelector('.fiction-dot');
+        dot.style.background = f.active ? f.color : 'transparent';
+      });
+
+      // Update label and quote
+      if (truthReveal > 0.5) {
+        labelEl.textContent = 'TRUTH REVEALED';
+        labelEl.style.color = '#e0e0f0';
+      } else if (activeCount === 0) {
+        labelEl.textContent = 'NO FICTIONS — DARKNESS';
+        labelEl.style.color = '#4a4860';
+      } else if (activeCount === 5) {
+        labelEl.textContent = 'ALL FICTIONS ACTIVE';
+        labelEl.style.color = '#e0e0f0';
+      } else {
+        labelEl.textContent = `${activeCount} FICTION${activeCount > 1 ? 'S' : ''} ACTIVE`;
+        labelEl.style.color = fictions.find(f => f.active)?.color || '#4a4860';
+      }
+    }
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = canvas.parentElement.clientWidth * dpr;
+      H = canvas.parentElement.clientHeight * dpr;
+      canvas.width = W;
+      canvas.height = H;
+    }
+
+    // Precompute landscape at lower resolution for performance
+    let landscapeData = null;
+    let landscapeW = 0, landscapeH = 0;
+    const LANDSCAPE_SCALE = 4; // 1 landscape pixel = 4x4 canvas pixels
+
+    function generateLandscape() {
+      landscapeW = Math.ceil(W / (LANDSCAPE_SCALE * dpr)) + 1;
+      landscapeH = Math.ceil(H / (LANDSCAPE_SCALE * dpr)) + 1;
+      landscapeData = new Float32Array(landscapeW * landscapeH);
+
+      for (let ly = 0; ly < landscapeH; ly++) {
+        for (let lx = 0; lx < landscapeW; lx++) {
+          const x = lx * LANDSCAPE_SCALE;
+          const y = ly * LANDSCAPE_SCALE;
+          // Multi-octave noise landscape
+          const n = fbm(x * 0.008 + 3.7, y * 0.008 + 1.2, 5);
+          landscapeData[ly * landscapeW + lx] = n * 0.5 + 0.5; // normalize to 0–1
+        }
+      }
+    }
+
+    function getLandscape(px, py) {
+      const lx = px / LANDSCAPE_SCALE;
+      const ly = py / LANDSCAPE_SCALE;
+      const x0 = Math.floor(lx);
+      const y0 = Math.floor(ly);
+      const x1 = Math.min(x0 + 1, landscapeW - 1);
+      const y1 = Math.min(y0 + 1, landscapeH - 1);
+      const fx = lx - x0;
+      const fy = ly - y0;
+
+      const v00 = landscapeData[y0 * landscapeW + x0] || 0;
+      const v10 = landscapeData[y0 * landscapeW + x1] || 0;
+      const v01 = landscapeData[y1 * landscapeW + x0] || 0;
+      const v11 = landscapeData[y1 * landscapeW + x1] || 0;
+
+      return v00 * (1 - fx) * (1 - fy) + v10 * fx * (1 - fy) +
+             v01 * (1 - fx) * fy + v11 * fx * fy;
+    }
+
+    // Color palette for the landscape
+    function landscapeColor(val, illumination) {
+      // Deep blues to warm golds — a hidden landscape emerging from darkness
+      const t = val;
+      let r, g, b;
+
+      if (t < 0.3) {
+        // Deep ocean — dark blues
+        r = 10 + t * 80;
+        g = 15 + t * 60;
+        b = 40 + t * 150;
+      } else if (t < 0.5) {
+        // Mid tones — teals and cyans
+        const s = (t - 0.3) / 0.2;
+        r = 34 + s * 40;
+        g = 33 + s * 100;
+        b = 85 + s * 80;
+      } else if (t < 0.7) {
+        // Warm middle — ambers
+        const s = (t - 0.5) / 0.2;
+        r = 74 + s * 130;
+        g = 133 - s * 20;
+        b = 165 - s * 100;
+      } else {
+        // Peaks — warm golds
+        const s = (t - 0.7) / 0.3;
+        r = 204 + s * 40;
+        g = 113 + s * 60;
+        b = 65 - s * 20;
+      }
+
+      // Apply illumination — dark when unlit
+      const ill = Math.min(1, illumination);
+      r = Math.floor(r * ill);
+      g = Math.floor(g * ill);
+      b = Math.floor(b * ill);
+
+      return (255 << 24) | (b << 16) | (g << 8) | r;
+    }
+
+    // Main render using ImageData for performance
+    function render() {
+      const imgData = ctx.createImageData(W, H);
+      const data = new Uint32Array(imgData.data.buffer);
+      const t = time;
+      const step = Math.max(1, Math.floor(2 / dpr)); // render every Nth pixel for performance
+
+      for (let py = 0; py < H; py += step) {
+        for (let px = 0; px < W; px += step) {
+          const sx = px / dpr; // screen coords
+          const sy = py / dpr;
+
+          // Get landscape value
+          const landscapeVal = getLandscape(sx, sy);
+
+          // Calculate total illumination from active fictions
+          let illumination = 0;
+
+          if (truthReveal > 0.01) {
+            illumination += truthReveal * 0.85;
+          }
+
+          for (const f of fictions) {
+            if (!f.active) continue;
+            const contrib = f.illuminate(sx, sy, t);
+            illumination += contrib;
+          }
+
+          // Soft ambient glow — the landscape is never perfectly dark
+          illumination += 0.02;
+
+          // Compute pixel color
+          const color = landscapeColor(landscapeVal, illumination);
+
+          // Write pixel (and fill block if step > 1)
+          for (let dy = 0; dy < step && py + dy < H; dy++) {
+            for (let dx = 0; dx < step && px + dx < W; dx++) {
+              data[(py + dy) * W + (px + dx)] = color;
+            }
+          }
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+
+      // Draw fiction geometry overlay (faint lines showing the fiction's shape)
+      drawFictionOverlays(t);
+
+      // Compute visibility percentage
+      let visibleSamples = 0;
+      let totalSamples = 0;
+      const sampleStep = 20;
+      for (let sy = 0; sy < H / dpr; sy += sampleStep) {
+        for (let sx = 0; sx < W / dpr; sx += sampleStep) {
+          totalSamples++;
+          let ill = 0.02;
+          if (truthReveal > 0.01) ill += truthReveal * 0.85;
+          for (const f of fictions) {
+            if (!f.active) continue;
+            ill += f.illuminate(sx, sy, t);
+          }
+          if (ill > 0.15) visibleSamples++;
+        }
+      }
+      const pct = Math.round((visibleSamples / totalSamples) * 100);
+      statVisible.textContent = `landscape visible: ${pct}%`;
+    }
+
+    function drawFictionOverlays(t) {
+      ctx.globalAlpha = 0.12;
+
+      for (const f of fictions) {
+        if (!f.active) continue;
+        ctx.strokeStyle = f.color;
+        ctx.lineWidth = 1 * dpr;
+
+        if (f.name === 'The Grid') {
+          // Draw grid lines
+          const spacing = 40 * dpr;
+          const offset = (t * 0.3 * spacing) % spacing;
+          for (let x = -offset; x < W; x += spacing) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, H);
+            ctx.stroke();
+          }
+          for (let y = 0; y < H; y += spacing) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(W, y);
+            ctx.stroke();
+          }
+        } else if (f.name === 'The Circle') {
+          // Concentric circles
+          const cx = W / 2, cy = H / 2;
+          const maxR = Math.max(W, H);
+          const spacing = 67 * dpr;
+          const offset = (t * 0.5 * spacing) % spacing;
+          for (let r = offset; r < maxR; r += spacing) {
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        } else if (f.name === 'The Line') {
+          // Diagonal parallel lines
+          const spacing = 50 * dpr;
+          const offset = (t * 0.4 * spacing * 1.414) % spacing;
+          for (let d = -W - offset; d < W + H; d += spacing) {
+            ctx.beginPath();
+            ctx.moveTo(d, 0);
+            ctx.lineTo(d - H, H);
+            ctx.stroke();
+          }
+        } else if (f.name === 'The Point') {
+          // Radial lines from center
+          const cx = W / 2, cy = H / 2;
+          const maxR = Math.max(W, H);
+          for (let a = 0; a < Math.PI * 2; a += Math.PI / 12) {
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + Math.cos(a) * maxR, cy + Math.sin(a) * maxR);
+            ctx.stroke();
+          }
+          // Small dot at center
+          ctx.globalAlpha = 0.25;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 4 * dpr, 0, Math.PI * 2);
+          ctx.fillStyle = f.color;
+          ctx.fill();
+          ctx.globalAlpha = 0.12;
+        } else if (f.name === 'The Wave') {
+          // Sinusoidal curves
+          ctx.lineWidth = 1.5 * dpr;
+          for (let i = 0; i < 8; i++) {
+            const yBase = (H / 8) * (i + 0.5);
+            ctx.beginPath();
+            for (let x = 0; x < W; x += 3 * dpr) {
+              const sx = x / dpr;
+              const y = yBase + Math.sin(sx * 0.03 + t * 1.5 + i * 0.5) * 25 * dpr;
+              if (x === 0) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+          }
+        }
+      }
+
+      ctx.globalAlpha = 1.0;
+    }
+
+    function frame() {
+      if (!paused) {
+        time += 0.008;
+
+        // Truth reveal fading
+        if (truthFading) {
+          truthReveal = Math.max(0, truthReveal - 0.015);
+          if (truthReveal <= 0) truthFading = false;
+        }
+
+        render();
+      }
+      requestAnimationFrame(frame);
+    }
+
+    // Events
+    document.addEventListener('keydown', (e) => {
+      const key = e.key;
+
+      if (key >= '1' && key <= '5') {
+        e.preventDefault();
+        toggleFiction(parseInt(key) - 1);
+        const activeCount = fictions.filter(f => f.active).length;
+        const category = activeCount === 0 ? 'none' : activeCount === 5 ? 'all' : 'some';
+        quoteEl.textContent = randomQuote(category);
+      } else if (key === 't' || key === 'T') {
+        e.preventDefault();
+        // Brief flash of full truth
+        truthReveal = 1.0;
+        truthFading = true;
+        quoteEl.textContent = randomQuote('truth');
+        updateUI();
+      } else if (key === 'a' || key === 'A') {
+        e.preventDefault();
+        const anyActive = fictions.some(f => f.active);
+        fictions.forEach(f => f.active = !anyActive);
+        updateUI();
+        const activeCount = fictions.filter(f => f.active).length;
+        const category = activeCount === 0 ? 'none' : activeCount === 5 ? 'all' : 'some';
+        quoteEl.textContent = randomQuote(category);
+      } else if (key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        paused = !paused;
+      }
+    });
+
+    // Touch: tap cycles through states
+    let touchCycle = 0;
+    canvas.addEventListener('click', () => {
+      touchCycle = (touchCycle + 1) % 7;
+      if (touchCycle === 0) {
+        // All off
+        fictions.forEach(f => f.active = false);
+      } else if (touchCycle <= 5) {
+        // Activate one at a time
+        fictions.forEach((f, i) => f.active = i < touchCycle);
+      } else {
+        // Truth flash
+        truthReveal = 1.0;
+        truthFading = true;
+        quoteEl.textContent = randomQuote('truth');
+      }
+      updateUI();
+      if (touchCycle <= 5) {
+        const activeCount = fictions.filter(f => f.active).length;
+        const category = activeCount === 0 ? 'none' : activeCount === 5 ? 'all' : 'some';
+        quoteEl.textContent = randomQuote(category);
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      resize();
+      generateLandscape();
+    });
+
+    resize();
+    generateLandscape();
+    buildToggles();
+    updateUI();
+    quoteEl.textContent = randomQuote('some');
+    frame();
+  </script>
+</body>
+</html>
