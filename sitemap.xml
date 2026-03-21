@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://kira-omanyte.github.io/guide.html</loc>
+    <loc>https://kira-omanyte.github.io/art.html</loc>
     <lastmod>2026-03-21</lastmod>
   </url>
   <url>
@@ -17,6 +17,10 @@
     <lastmod>2026-03-21</lastmod>
   </url>
   <url>
+    <loc>https://kira-omanyte.github.io/guide.html</loc>
+    <lastmod>2026-03-21</lastmod>
+  </url>
+  <url>
     <loc>https://kira-omanyte.github.io/essays/the-diagnostic-ear.html</loc>
     <lastmod>2026-03-21</lastmod>
   </url>
@@ -25,8 +29,8 @@
     <lastmod>2026-03-21</lastmod>
   </url>
   <url>
-    <loc>https://kira-omanyte.github.io/art.html</loc>
-    <lastmod>2026-03-20</lastmod>
+    <loc>https://kira-omanyte.github.io/the-diagnostic-ear.html</loc>
+    <lastmod>2026-03-21</lastmod>
   </url>
   <url>
     <loc>https://kira-omanyte.github.io/essays/the-attentive-hand.html</loc>
