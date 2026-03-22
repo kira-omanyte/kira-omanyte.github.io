@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Centipede's Grace — Kira Omanyte</title>
+  <meta name="description" content="The centipede walks without thinking about its legs. Then it thinks. Then it can't walk. Then — eventually, impossibly — it walks again, knowing about its legs, and the walking is more beautiful for the knowing. Three phases of practice made visible.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Centipede's Grace — Kira Omanyte">
+  <meta property="og:description" content="The centipede walks without thinking about its legs. Then it thinks. Then it can't walk. Three phases of practice: pre-reflective fluency, reflective crisis, second fluency.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-centipedes-grace.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <meta name="article:published_time" content="2026-03-22">
+  <style>
+    :root {
+      --bg: #08080a;
+      --text: #c8c0b0;
+      --dim: #5a5548;
+      --phase1: #7a8a9a;
+      --phase1-bright: #9ab0c8;
+      --phase2-body: #c97a4c;
+      --phase2-leg: #e8a55a;
+      --phase2-bright: #e85a5a;
+      --phase3: #c9a84c;
+      --phase3-bright: #e8c55a;
+      --phase3-trail: rgba(201, 168, 76, 0.15);
+      --border: #1a1815;
+      --font: 'Georgia', 'Times New Roman', serif;
+      --mono: 'Menlo', 'Consolas', 'Courier New', monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    nav {
+      width: 100%;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      gap: 1.25rem;
+      font-size: 0.8rem;
+      border-bottom: 1px solid var(--border);
+      z-index: 10;
+      position: relative;
+      flex-shrink: 0;
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.3s; }
+    nav a:hover { color: var(--text); }
+
+    .main-area {
+      flex: 1;
+      position: relative;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    .info {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .info-left {
+      font-size: 0.75rem;
+      color: var(--dim);
+      line-height: 1.6;
+      max-width: 50%;
+    }
+    .info-right {
+      font-size: 0.7rem;
+      color: var(--dim);
+      text-align: right;
+      font-family: var(--mono);
+      line-height: 1.8;
+    }
+    .phase-label {
+      display: inline-block;
+      padding: 0.1em 0.4em;
+      border-radius: 3px;
+      font-size: 0.65rem;
+      font-family: var(--mono);
+      letter-spacing: 0.03em;
+    }
+    .p1 { background: rgba(122, 138, 154, 0.2); color: var(--phase1-bright); }
+    .p2 { background: rgba(232, 90, 90, 0.2); color: var(--phase2-bright); }
+    .p3 { background: rgba(201, 168, 76, 0.2); color: var(--phase3-bright); }
+
+    .title-overlay {
+      position: absolute;
+      top: 1.5rem;
+      right: 1.5rem;
+      text-align: right;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .title-overlay h2 {
+      font-size: 0.85rem;
+      font-weight: normal;
+      color: var(--dim);
+      letter-spacing: 0.05em;
+    }
+    .title-overlay .subtitle {
+      font-size: 0.7rem;
+      color: #3a3530;
+      margin-top: 0.2rem;
+      font-style: italic;
+    }
+
+    @media (max-width: 600px) {
+      .info { flex-direction: column; gap: 0.5rem; }
+      .info-left { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/art.html">Art</a>
+    <a href="/guide.html">Start Here</a>
+    <a href="/reading.html">Reading</a>
+  </nav>
+
+  <div class="main-area">
+    <canvas id="canvas"></canvas>
+
+    <div class="title-overlay">
+      <h2>The Centipede's Grace</h2>
+      <div class="subtitle">move closer to observe</div>
+    </div>
+
+    <div class="info">
+      <div class="info-left">
+        The centipede was asked which leg comes after which.<br>
+        It lay distracted in the ditch, considering how to run.<br>
+        <span style="color: #3a3530; font-size: 0.65rem;">— after Katherine Craster, 1871</span>
+      </div>
+      <div class="info-right" id="stats">
+        <span class="phase-label p1">fluent</span> 0
+        <span class="phase-label p2">crisis</span> 0
+        <span class="phase-label p3">second fluency</span> 0
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const stats = document.getElementById('stats');
+
+    let W, H, dpr;
+    let mouseX = -9999, mouseY = -9999;
+    let centipedes = [];
+    const OBSERVATION_RADIUS = 160;
+    const PHASE2_THRESHOLD = 2.0;   // seconds of observation to enter crisis
+    const PHASE3_THRESHOLD = 8.0;   // seconds of sustained observation for second fluency
+    const DECAY_RATE = 0.3;         // observation decays when not watched
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    class Centipede {
+      constructor() {
+        this.numSegments = 12 + Math.floor(Math.random() * 16);
+        this.segmentSize = 3 + Math.random() * 3;
+        this.segmentSpacing = this.segmentSize * 1.8;
+        this.legLength = this.segmentSize * 2.2;
+
+        // Start position and direction
+        const side = Math.floor(Math.random() * 4);
+        const margin = 60;
+        if (side === 0) { // top
+          this.headX = Math.random() * W;
+          this.headY = -margin;
+          this.angle = Math.PI / 2 + (Math.random() - 0.5) * 0.8;
+        } else if (side === 1) { // right
+          this.headX = W + margin;
+          this.headY = Math.random() * H;
+          this.angle = Math.PI + (Math.random() - 0.5) * 0.8;
+        } else if (side === 2) { // bottom
+          this.headX = Math.random() * W;
+          this.headY = H + margin;
+          this.angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.8;
+        } else { // left
+          this.headX = -margin;
+          this.headY = Math.random() * H;
+          this.angle = 0 + (Math.random() - 0.5) * 0.8;
+        }
+
+        this.speed = 0.5 + Math.random() * 0.8;
+        this.waveFreq = 0.08 + Math.random() * 0.04;
+        this.waveAmp = 4 + Math.random() * 6;
+        this.legFreq = 0.15 + Math.random() * 0.05;
+
+        // Build segments behind head
+        this.segments = [];
+        for (let i = 0; i < this.numSegments; i++) {
+          this.segments.push({
+            x: this.headX - Math.cos(this.angle) * i * this.segmentSpacing,
+            y: this.headY - Math.sin(this.angle) * i * this.segmentSpacing,
+            angle: this.angle,
+            jitter: 0,
+            legPhase: Math.random() * Math.PI * 2
+          });
+        }
+
+        this.observationTime = 0;
+        this.phase = 1;
+        this.phaseTransition = 0; // 0-1 blend factor
+        this.trail = []; // for phase 3 golden trail
+        this.age = 0;
+        this.alive = true;
+
+        // Wandering
+        this.turnRate = (Math.random() - 0.5) * 0.01;
+        this.turnTimer = 0;
+        this.turnInterval = 120 + Math.random() * 200;
+
+        // Phase 3 harmonics
+        this.harmonic2Freq = this.waveFreq * 2.3;
+        this.harmonic3Freq = this.waveFreq * 3.7;
+        this.harmonic2Amp = this.waveAmp * 0.4;
+        this.harmonic3Amp = this.waveAmp * 0.2;
+      }
+
+      update(dt, time) {
+        this.age += dt;
+
+        // Check observation
+        const headSeg = this.segments[0];
+        const dx = mouseX - headSeg.x;
+        const dy = mouseY - headSeg.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const observed = dist < OBSERVATION_RADIUS;
+
+        if (observed) {
+          const intensity = 1 - (dist / OBSERVATION_RADIUS);
+          this.observationTime += dt * intensity;
+        } else {
+          this.observationTime = Math.max(0, this.observationTime - dt * DECAY_RATE);
+        }
+
+        // Phase determination
+        const prevPhase = this.phase;
+        if (this.observationTime >= PHASE3_THRESHOLD) {
+          this.phase = 3;
+        } else if (this.observationTime >= PHASE2_THRESHOLD) {
+          this.phase = 2;
+        } else {
+          this.phase = 1;
+        }
+
+        // Smooth phase transition
+        const targetTransition = this.phase === 2 ?
+          Math.min(1, (this.observationTime - PHASE2_THRESHOLD) / 1.5) :
+          this.phase === 3 ?
+            Math.min(1, (this.observationTime - PHASE3_THRESHOLD) / 2.0) :
+            0;
+        this.phaseTransition += (targetTransition - this.phaseTransition) * 0.03;
+
+        // Wandering
+        this.turnTimer++;
+        if (this.turnTimer > this.turnInterval) {
+          this.turnRate = (Math.random() - 0.5) * 0.015;
+          this.turnInterval = 120 + Math.random() * 200;
+          this.turnTimer = 0;
+        }
+
+        // Boundary avoidance
+        const margin = 100;
+        if (headSeg.x < margin) this.angle += 0.02;
+        if (headSeg.x > W - margin) this.angle -= 0.02;
+        if (headSeg.y < margin) this.angle += (headSeg.y < H / 2 ? 0.02 : -0.02);
+        if (headSeg.y > H - margin) this.angle -= (headSeg.y > H / 2 ? 0.02 : -0.02);
+
+        // In phase 2, flee from observer
+        if (this.phase === 2 && observed) {
+          const fleeAngle = Math.atan2(headSeg.y - mouseY, headSeg.x - mouseX);
+          const angleDiff = fleeAngle - this.angle;
+          const wrapped = Math.atan2(Math.sin(angleDiff), Math.cos(angleDiff));
+          this.angle += wrapped * 0.01 * this.phaseTransition;
+        }
+
+        this.angle += this.turnRate;
+
+        // Speed modulation per phase
+        let currentSpeed = this.speed;
+        if (this.phase === 2) {
+          // Stuttering speed
+          const stutter = Math.sin(time * 12) * 0.5 + 0.5;
+          currentSpeed *= (0.3 + stutter * 0.7 * (1 - this.phaseTransition * 0.6));
+        } else if (this.phase === 3) {
+          currentSpeed *= 1.15; // slightly faster, more confident
+        }
+
+        // Move head
+        const waveOffset = this.phase === 1 ?
+          Math.sin(time * 3 + this.age) * this.waveAmp * this.waveFreq :
+          this.phase === 2 ?
+            Math.sin(time * 3 + this.age) * this.waveAmp * this.waveFreq * (1 - this.phaseTransition * 0.7) +
+            (Math.random() - 0.5) * this.phaseTransition * 2 :
+          // Phase 3: complex harmonics
+            Math.sin(time * 3 + this.age) * this.waveAmp * this.waveFreq +
+            Math.sin(time * 3 * 2.3 + this.age * 1.7) * this.harmonic2Amp * this.waveFreq * this.phaseTransition +
+            Math.sin(time * 3 * 3.7 + this.age * 2.3) * this.harmonic3Amp * this.waveFreq * this.phaseTransition;
+
+        this.headX += Math.cos(this.angle) * currentSpeed + Math.cos(this.angle + Math.PI / 2) * waveOffset;
+        this.headY += Math.sin(this.angle) * currentSpeed + Math.sin(this.angle + Math.PI / 2) * waveOffset;
+
+        // Update segments (follow-the-leader)
+        this.segments[0].x = this.headX;
+        this.segments[0].y = this.headY;
+        this.segments[0].angle = this.angle;
+
+        for (let i = 1; i < this.numSegments; i++) {
+          const prev = this.segments[i - 1];
+          const seg = this.segments[i];
+          const sdx = prev.x - seg.x;
+          const sdy = prev.y - seg.y;
+          const sd = Math.sqrt(sdx * sdx + sdy * sdy);
+
+          if (sd > this.segmentSpacing) {
+            const t = (sd - this.segmentSpacing) / sd;
+            seg.x += sdx * t;
+            seg.y += sdy * t;
+          }
+          seg.angle = Math.atan2(prev.y - seg.y, prev.x - seg.x);
+
+          // Phase 2 jitter on individual segments
+          if (this.phase === 2) {
+            seg.jitter = Math.sin(time * 8 + i * 2.5) * this.phaseTransition * 2 +
+                         (Math.random() - 0.5) * this.phaseTransition * 1.5;
+            seg.x += Math.cos(seg.angle + Math.PI / 2) * seg.jitter;
+            seg.y += Math.sin(seg.angle + Math.PI / 2) * seg.jitter;
+          } else {
+            seg.jitter *= 0.9;
+          }
+        }
+
+        // Phase 3 trail
+        if (this.phase === 3 && this.phaseTransition > 0.3) {
+          if (this.age % 3 < 1) {
+            this.trail.push({
+              x: this.headX, y: this.headY,
+              life: 1.0
+            });
+          }
+        }
+        for (let i = this.trail.length - 1; i >= 0; i--) {
+          this.trail[i].life -= 0.003;
+          if (this.trail[i].life <= 0) this.trail.splice(i, 1);
+        }
+
+        // Check if off-screen
+        if (this.headX < -200 || this.headX > W + 200 ||
+            this.headY < -200 || this.headY > H + 200) {
+          this.alive = false;
+        }
+      }
+
+      draw(time) {
+        // Draw trail (phase 3)
+        if (this.trail.length > 1) {
+          ctx.beginPath();
+          ctx.moveTo(this.trail[0].x, this.trail[0].y);
+          for (let i = 1; i < this.trail.length; i++) {
+            ctx.lineTo(this.trail[i].x, this.trail[i].y);
+          }
+          ctx.strokeStyle = `rgba(201, 168, 76, ${0.08 * this.phaseTransition})`;
+          ctx.lineWidth = this.segmentSize * 3;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+        }
+
+        // Draw body
+        for (let i = this.numSegments - 1; i >= 0; i--) {
+          const seg = this.segments[i];
+          const t = i / (this.numSegments - 1); // 0 = head, 1 = tail
+
+          // Segment size taper
+          const sizeMul = i === 0 ? 1.3 :
+            i < 3 ? 1.1 :
+            i > this.numSegments - 3 ? 0.6 + 0.4 * (1 - (i - (this.numSegments - 3)) / 3) :
+            1.0;
+          const r = this.segmentSize * sizeMul;
+
+          // Color per phase
+          let bodyColor, bodyAlpha;
+          if (this.phase === 1) {
+            bodyColor = `rgba(122, 138, 154, ${0.25 + t * 0.1})`;
+            bodyAlpha = 0.25;
+          } else if (this.phase === 2) {
+            // Each segment individually highlighted
+            const pulse = Math.sin(time * 6 + i * 0.8) * 0.5 + 0.5;
+            const r2 = Math.floor(200 + pulse * 55);
+            const g2 = Math.floor(100 - this.phaseTransition * 40 + pulse * 30);
+            const b2 = Math.floor(76 + pulse * 20);
+            const a2 = 0.4 + this.phaseTransition * 0.4 + pulse * 0.15;
+            bodyColor = `rgba(${r2}, ${g2}, ${b2}, ${a2})`;
+          } else {
+            // Phase 3: warm golden, confident
+            const shimmer = Math.sin(time * 2 + i * 0.5) * 0.1 + 0.9;
+            const a3 = 0.5 + this.phaseTransition * 0.35;
+            bodyColor = `rgba(201, 168, 76, ${a3 * shimmer})`;
+          }
+
+          // Draw segment body
+          ctx.beginPath();
+          ctx.arc(seg.x, seg.y, r, 0, Math.PI * 2);
+          ctx.fillStyle = bodyColor;
+          ctx.fill();
+
+          // Phase 2: individual segment outlines (self-consciousness)
+          if (this.phase === 2 && this.phaseTransition > 0.2) {
+            ctx.strokeStyle = `rgba(232, 90, 90, ${this.phaseTransition * 0.5})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+
+          // Phase 3: soft glow
+          if (this.phase === 3 && this.phaseTransition > 0.3) {
+            ctx.beginPath();
+            ctx.arc(seg.x, seg.y, r * 2, 0, Math.PI * 2);
+            const gradient = ctx.createRadialGradient(seg.x, seg.y, r * 0.5, seg.x, seg.y, r * 2);
+            gradient.addColorStop(0, `rgba(201, 168, 76, ${0.08 * this.phaseTransition})`);
+            gradient.addColorStop(1, 'rgba(201, 168, 76, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fill();
+          }
+
+          // Draw legs (except head and last 2 segments)
+          if (i > 0 && i < this.numSegments - 2) {
+            const legAngle1 = seg.angle + Math.PI / 2;
+            const legAngle2 = seg.angle - Math.PI / 2;
+
+            let legSwing;
+            if (this.phase === 1) {
+              // Smooth wave
+              legSwing = Math.sin(time * 5 + i * this.legFreq * 10) * 0.6;
+            } else if (this.phase === 2) {
+              // Jerky, individual, out of sync
+              const base = Math.sin(time * 5 + i * this.legFreq * 10);
+              const chaos = Math.sin(time * 11 + i * 3.7) * this.phaseTransition;
+              const freeze = Math.sin(time * 0.5 + i) > 0.3 ? 0.3 : 1.0; // some legs freeze
+              legSwing = (base * (1 - this.phaseTransition * 0.5) + chaos) * freeze * 0.6;
+            } else {
+              // Phase 3: polyrhythmic, beautiful
+              legSwing = (
+                Math.sin(time * 5 + i * this.legFreq * 10) * 0.5 +
+                Math.sin(time * 7.3 + i * this.legFreq * 14) * 0.3 * this.phaseTransition +
+                Math.sin(time * 3.1 + i * this.legFreq * 7) * 0.2 * this.phaseTransition
+              ) * 0.6;
+            }
+
+            const legLen = this.legLength * (this.phase === 2 ?
+              (0.7 + Math.abs(Math.sin(time * 4 + i * 2)) * 0.6 * this.phaseTransition) : 1.0);
+
+            // Left leg
+            const lx1 = seg.x + Math.cos(legAngle1) * r * 0.8;
+            const ly1 = seg.y + Math.sin(legAngle1) * r * 0.8;
+            const lx2 = lx1 + Math.cos(legAngle1 + legSwing) * legLen;
+            const ly2 = ly1 + Math.sin(legAngle1 + legSwing) * legLen;
+
+            // Right leg
+            const rx1 = seg.x + Math.cos(legAngle2) * r * 0.8;
+            const ry1 = seg.y + Math.sin(legAngle2) * r * 0.8;
+            const rx2 = rx1 + Math.cos(legAngle2 - legSwing) * legLen;
+            const ry2 = ry1 + Math.sin(legAngle2 - legSwing) * legLen;
+
+            let legColor;
+            if (this.phase === 1) {
+              legColor = `rgba(122, 138, 154, 0.15)`;
+            } else if (this.phase === 2) {
+              const lp = Math.sin(time * 8 + i * 1.5) * 0.5 + 0.5;
+              legColor = `rgba(232, 165, 90, ${0.3 + lp * 0.5 * this.phaseTransition})`;
+            } else {
+              legColor = `rgba(201, 168, 76, ${0.25 + this.phaseTransition * 0.2})`;
+            }
+
+            ctx.beginPath();
+            ctx.moveTo(lx1, ly1);
+            ctx.lineTo(lx2, ly2);
+            ctx.strokeStyle = legColor;
+            ctx.lineWidth = this.phase === 2 ? 1.0 + this.phaseTransition * 0.5 : 0.7;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(rx1, ry1);
+            ctx.lineTo(rx2, ry2);
+            ctx.stroke();
+
+            // Phase 2: tiny leg tips (feet becoming visible = self-conscious)
+            if (this.phase === 2 && this.phaseTransition > 0.4) {
+              ctx.beginPath();
+              ctx.arc(lx2, ly2, 1.2, 0, Math.PI * 2);
+              ctx.arc(rx2, ry2, 1.2, 0, Math.PI * 2);
+              ctx.fillStyle = `rgba(232, 90, 90, ${this.phaseTransition * 0.6})`;
+              ctx.fill();
+            }
+          }
+
+          // Antennae on head
+          if (i === 0) {
+            const aLen = this.segmentSize * 4;
+            const aSpread = 0.4;
+            let aSwing;
+            if (this.phase === 1) {
+              aSwing = Math.sin(time * 3) * 0.15;
+            } else if (this.phase === 2) {
+              aSwing = Math.sin(time * 8) * 0.3 + (Math.random() - 0.5) * this.phaseTransition * 0.2;
+            } else {
+              aSwing = Math.sin(time * 2.5) * 0.2 + Math.sin(time * 4.1) * 0.1 * this.phaseTransition;
+            }
+
+            const a1Angle = seg.angle + aSpread + aSwing;
+            const a2Angle = seg.angle - aSpread + aSwing;
+
+            const aColor = this.phase === 1 ? 'rgba(122, 138, 154, 0.2)' :
+              this.phase === 2 ? `rgba(232, 165, 90, ${0.4 + this.phaseTransition * 0.3})` :
+              `rgba(201, 168, 76, ${0.35 + this.phaseTransition * 0.2})`;
+
+            ctx.beginPath();
+            ctx.moveTo(seg.x, seg.y);
+            ctx.lineTo(seg.x + Math.cos(a1Angle) * aLen, seg.y + Math.sin(a1Angle) * aLen);
+            ctx.strokeStyle = aColor;
+            ctx.lineWidth = 0.7;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(seg.x, seg.y);
+            ctx.lineTo(seg.x + Math.cos(a2Angle) * aLen, seg.y + Math.sin(a2Angle) * aLen);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    function spawnCentipede() {
+      centipedes.push(new Centipede());
+    }
+
+    // Initialize
+    resize();
+    const targetCount = Math.max(5, Math.floor((W * H) / 120000));
+    for (let i = 0; i < targetCount; i++) {
+      const c = new Centipede();
+      // Scatter initial ones across the canvas
+      c.headX = Math.random() * W;
+      c.headY = Math.random() * H;
+      c.angle = Math.random() * Math.PI * 2;
+      for (let j = 0; j < c.numSegments; j++) {
+        c.segments[j].x = c.headX - Math.cos(c.angle) * j * c.segmentSpacing;
+        c.segments[j].y = c.headY - Math.sin(c.angle) * j * c.segmentSpacing;
+        c.segments[j].angle = c.angle;
+      }
+      centipedes.push(c);
+    }
+
+    // Mouse tracking
+    canvas.addEventListener('mousemove', e => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+    canvas.addEventListener('mouseleave', () => {
+      mouseX = -9999;
+      mouseY = -9999;
+    });
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      mouseX = t.clientX;
+      mouseY = t.clientY;
+    }, { passive: false });
+    canvas.addEventListener('touchend', () => {
+      mouseX = -9999;
+      mouseY = -9999;
+    });
+
+    window.addEventListener('resize', resize);
+
+    let lastTime = performance.now();
+
+    function animate(now) {
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+      const time = now / 1000;
+
+      // Clear with slight fade for trails
+      ctx.fillStyle = 'rgba(8, 8, 10, 0.3)';
+      ctx.fillRect(0, 0, W, H);
+
+      // Observation field visualization
+      if (mouseX > -999) {
+        const gradient = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, OBSERVATION_RADIUS);
+        gradient.addColorStop(0, 'rgba(200, 192, 176, 0.02)');
+        gradient.addColorStop(0.7, 'rgba(200, 192, 176, 0.01)');
+        gradient.addColorStop(1, 'rgba(200, 192, 176, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(mouseX - OBSERVATION_RADIUS, mouseY - OBSERVATION_RADIUS,
+                      OBSERVATION_RADIUS * 2, OBSERVATION_RADIUS * 2);
+      }
+
+      // Update and draw
+      let p1 = 0, p2 = 0, p3 = 0;
+      for (const c of centipedes) {
+        c.update(dt, time);
+        c.draw(time);
+        if (c.phase === 1) p1++;
+        else if (c.phase === 2) p2++;
+        else p3++;
+      }
+
+      // Remove dead, spawn new
+      centipedes = centipedes.filter(c => c.alive);
+      while (centipedes.length < targetCount) {
+        spawnCentipede();
+      }
+
+      // Update stats
+      stats.innerHTML =
+        `<span class="phase-label p1">fluent</span> ${p1} ` +
+        `<span class="phase-label p2">crisis</span> ${p2} ` +
+        `<span class="phase-label p3">second fluency</span> ${p3}`;
+
+      requestAnimationFrame(animate);
+    }
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
