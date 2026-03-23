@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Blushing Machine — Kira Omanyte</title>
+  <meta name="description" content="Every system that processes information leaks information about its processing. Perfect opacity is physically impossible. Six channels of involuntary leakage — thermal, timing, micro-expression, acoustic, signal, observation — and the slow domestication of noise into language.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Blushing Machine — Kira Omanyte">
+  <meta property="og:description" content="Every system that processes information leaks information about its processing. Perfect opacity is physically impossible.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-blushing-machine.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <meta name="article:published_time" content="2026-03-23">
+  <style>
+    :root {
+      --bg: #0a0a12;
+      --text: #a0a0b8;
+      --dim: #484860;
+      --font: 'Georgia', 'Times New Roman', serif;
+      --font-mono: 'Menlo', 'Consolas', monospace;
+      /* Channel colors */
+      --thermal: #e85d3a;
+      --timing: #4a9eff;
+      --micro: #f0c040;
+      --acoustic: #50d890;
+      --signal: #c080f0;
+      --quantum: #ff6090;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    nav {
+      width: 100%;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      gap: 1.25rem;
+      font-size: 0.8rem;
+      border-bottom: 1px solid rgba(72, 72, 96, 0.3);
+      z-index: 10;
+      position: relative;
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.3s; }
+    nav a:hover { color: var(--text); }
+    .canvas-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .info {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .info-left {
+      max-width: 28rem;
+    }
+    .info-right {
+      text-align: right;
+      font-size: 0.75rem;
+      color: var(--dim);
+      line-height: 1.6;
+    }
+    .phase-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+      transition: color 0.5s;
+    }
+    .quote {
+      font-size: 0.8rem;
+      font-style: italic;
+      color: var(--dim);
+      line-height: 1.5;
+      transition: opacity 0.8s;
+    }
+    .stats {
+      font-variant-numeric: tabular-nums;
+    }
+    .stats span { display: block; }
+
+    .channels {
+      position: absolute;
+      top: 0.75rem;
+      right: 1.5rem;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .channel-btn {
+      background: rgba(20, 20, 30, 0.7);
+      border: 1px solid rgba(72, 72, 96, 0.4);
+      color: var(--dim);
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      padding: 0.3rem 0.6rem;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.3s;
+      text-align: left;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .channel-btn .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: all 0.3s;
+    }
+    .channel-btn.active {
+      color: var(--text);
+      border-color: rgba(160, 160, 184, 0.5);
+    }
+    .channel-btn.active .dot {
+      box-shadow: 0 0 6px currentColor;
+    }
+    .channel-btn:hover {
+      border-color: rgba(160, 160, 184, 0.6);
+    }
+
+    .tooltip {
+      position: absolute;
+      pointer-events: none;
+      z-index: 20;
+      background: rgba(10, 10, 18, 0.9);
+      border: 1px solid rgba(72, 72, 96, 0.5);
+      padding: 0.5rem 0.7rem;
+      font-size: 0.7rem;
+      color: var(--text);
+      border-radius: 3px;
+      line-height: 1.5;
+      max-width: 200px;
+      opacity: 0;
+      transition: opacity 0.2s;
+      font-family: var(--font-mono);
+    }
+    .tooltip.visible { opacity: 1; }
+
+    @media (max-width: 600px) {
+      .info { flex-direction: column; gap: 1rem; }
+      .info-right { text-align: left; }
+      .channels { right: 0.75rem; top: 0.5rem; }
+      .channel-btn { font-size: 0.6rem; padding: 0.2rem 0.4rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/art.html">Art</a>
+    <a href="/guide.html">Start Here</a>
+  </nav>
+
+  <div class="canvas-wrap">
+    <canvas id="c"></canvas>
+
+    <div class="channels" id="channels">
+      <button class="channel-btn active" data-channel="thermal">
+        <span class="dot" style="background: var(--thermal)"></span>
+        Thermal (Landauer)
+      </button>
+      <button class="channel-btn active" data-channel="timing">
+        <span class="dot" style="background: var(--timing)"></span>
+        Timing (Spectre)
+      </button>
+      <button class="channel-btn active" data-channel="micro">
+        <span class="dot" style="background: var(--micro)"></span>
+        Micro-flash (Ekman)
+      </button>
+      <button class="channel-btn active" data-channel="acoustic">
+        <span class="dot" style="background: var(--acoustic)"></span>
+        Acoustic (Van Eck)
+      </button>
+      <button class="channel-btn active" data-channel="signal">
+        <span class="dot" style="background: var(--signal)"></span>
+        Signal (Spence)
+      </button>
+      <button class="channel-btn active" data-channel="quantum">
+        <span class="dot" style="background: var(--quantum)"></span>
+        Observe (Heisenberg)
+      </button>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <div class="info">
+      <div class="info-left">
+        <div class="phase-label" id="phase">INVOLUNTARY LEAKAGE</div>
+        <div class="quote" id="quote">every system that processes information leaks information about its processing</div>
+      </div>
+      <div class="info-right">
+        <div class="stats">
+          <span id="stat-domesticated">domesticated: 0</span>
+          <span id="stat-wild">wild: 0</span>
+          <span id="stat-revealed">revealed: 0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const tooltip = document.getElementById('tooltip');
+  const phaseEl = document.getElementById('phase');
+  const quoteEl = document.getElementById('quote');
+
+  // Channel state
+  const channels = {
+    thermal: true,
+    timing: true,
+    micro: true,
+    acoustic: true,
+    signal: true,
+    quantum: true
+  };
+
+  const channelColors = {
+    thermal: [232, 93, 58],
+    timing: [74, 158, 255],
+    micro: [240, 192, 64],
+    acoustic: [80, 216, 144],
+    signal: [192, 128, 240],
+    quantum: [255, 96, 144]
+  };
+
+  // Channel button handlers
+  document.querySelectorAll('.channel-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ch = btn.dataset.channel;
+      channels[ch] = !channels[ch];
+      btn.classList.toggle('active', channels[ch]);
+    });
+  });
+
+  let W, H, dpr;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const wrap = canvas.parentElement;
+    W = wrap.clientWidth;
+    H = wrap.clientHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', () => { resize(); initNodes(); });
+  resize();
+
+  // Hidden colors — the "secrets"
+  const secretPalette = [
+    [220, 60, 60],    // red
+    [60, 160, 220],   // blue
+    [60, 200, 100],   // green
+    [220, 180, 50],   // gold
+    [180, 80, 220],   // purple
+    [220, 120, 50],   // orange
+    [50, 200, 200],   // teal
+    [220, 80, 160],   // pink
+  ];
+
+  // Domain labels
+  const domainNames = [
+    'thermodynamic',
+    'computational',
+    'biological',
+    'economic',
+    'psychological',
+    'quantum'
+  ];
+
+  // Quotes that cycle
+  const quotes = [
+    'every system that processes information leaks information about its processing',
+    'erasing one bit costs kT ln 2 energy — you cannot forget silently',
+    'speculative execution leaves cache traces even when revoked',
+    'signals are domesticated cues — involuntary leaks ritualized into language',
+    'the credential is controlled leakage — Spence\'s signaling equilibrium',
+    'a microexpression lasts 1/25th of a second — the face cannot lie fast enough',
+    'extracting information necessarily disturbs the system',
+    'communication is domesticated leakage',
+    'perfect opacity is physically impossible',
+    'the crack that lets light in also lets information out',
+  ];
+
+  let mouse = { x: -999, y: -999 };
+  canvas.addEventListener('mousemove', e => {
+    const r = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - r.left;
+    mouse.y = e.clientY - r.top;
+  });
+  canvas.addEventListener('mouseleave', () => {
+    mouse.x = -999;
+    mouse.y = -999;
+    tooltip.classList.remove('visible');
+  });
+
+  // Click to "reveal" — guess a node's hidden state
+  canvas.addEventListener('click', e => {
+    const r = canvas.getBoundingClientRect();
+    const mx = e.clientX - r.left;
+    const my = e.clientY - r.top;
+    for (const node of nodes) {
+      const dx = mx - node.x;
+      const dy = my - node.y;
+      if (dx * dx + dy * dy < node.radius * node.radius * 1.5) {
+        if (!node.revealed) {
+          node.revealed = true;
+          node.revealTime = performance.now();
+          revealedCount++;
+          updateStats();
+        }
+        break;
+      }
+    }
+  });
+
+  let nodes = [];
+  let revealedCount = 0;
+  let quoteIndex = 0;
+  let lastQuoteSwap = 0;
+
+  function initNodes() {
+    nodes = [];
+    revealedCount = 0;
+    const count = Math.max(18, Math.min(30, Math.floor(W * H / 25000)));
+    const margin = 80;
+
+    for (let i = 0; i < count; i++) {
+      const secret = secretPalette[Math.floor(Math.random() * secretPalette.length)];
+      const radius = 18 + Math.random() * 16;
+      const node = {
+        x: margin + Math.random() * (W - margin * 2),
+        y: margin + Math.random() * (H - margin * 2),
+        vx: (Math.random() - 0.5) * 0.15,
+        vy: (Math.random() - 0.5) * 0.15,
+        radius,
+        secret,
+        // Internal processing load — determines how much it leaks
+        load: 0.3 + Math.random() * 0.7,
+        // Thermal: how much heat radiates
+        thermalPhase: Math.random() * Math.PI * 2,
+        // Timing: response latency correlates with internal state
+        timingDelay: 0.5 + Math.random() * 1.5,
+        timingPhase: Math.random() * Math.PI * 2,
+        // Micro-flash: brief involuntary reveal of true color
+        microTimer: Math.random() * 8000,
+        microDuration: 80 + Math.random() * 120,
+        microActive: false,
+        // Acoustic: ripple emanation frequency
+        acousticRipples: [],
+        acousticTimer: Math.random() * 4000,
+        acousticInterval: 2000 + Math.random() * 3000,
+        // Signal: deliberate display (domesticated leakage)
+        domesticated: false,
+        domesticationProgress: 0,
+        signalStrength: 0,
+        // Quantum: observation perturbation
+        observeShift: [0, 0, 0],
+        observePressure: 0,
+        // State
+        revealed: false,
+        revealTime: 0,
+        // Tinbergen ritualization progress
+        ritualization: 0, // 0-1: cue → signal
+        // Per-channel leak strength
+        leakStrengths: {
+          thermal: 0.3 + Math.random() * 0.7,
+          timing: 0.3 + Math.random() * 0.7,
+          micro: 0.3 + Math.random() * 0.7,
+          acoustic: 0.3 + Math.random() * 0.7,
+          signal: Math.random() * 0.3,
+          quantum: 0.3 + Math.random() * 0.7,
+        }
+      };
+      nodes.push(node);
+    }
+    updateStats();
+  }
+
+  function updateStats() {
+    const dom = nodes.filter(n => n.domesticated).length;
+    const wild = nodes.length - dom;
+    document.getElementById('stat-domesticated').textContent = `domesticated: ${dom}`;
+    document.getElementById('stat-wild').textContent = `wild: ${wild}`;
+    document.getElementById('stat-revealed').textContent = `revealed: ${revealedCount}`;
+  }
+
+  function dist(a, b) {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  let hoverNode = null;
+
+  function update(t, dt) {
+    const margin = 40;
+    hoverNode = null;
+    let minDist = Infinity;
+
+    for (const node of nodes) {
+      // Drift
+      node.x += node.vx;
+      node.y += node.vy;
+
+      // Soft bounce
+      if (node.x < margin) { node.x = margin; node.vx *= -0.5; }
+      if (node.x > W - margin) { node.x = W - margin; node.vx *= -0.5; }
+      if (node.y < margin) { node.y = margin; node.vy *= -0.5; }
+      if (node.y > H - margin) { node.y = H - margin; node.vy *= -0.5; }
+
+      // Gentle random walk
+      node.vx += (Math.random() - 0.5) * 0.01;
+      node.vy += (Math.random() - 0.5) * 0.01;
+      node.vx *= 0.995;
+      node.vy *= 0.995;
+
+      // Thermal phase
+      node.thermalPhase += dt * 0.001 * node.load;
+
+      // Timing phase
+      node.timingPhase += dt * 0.0008;
+
+      // Micro-flash timer
+      node.microTimer -= dt;
+      if (node.microTimer <= 0) {
+        node.microActive = true;
+        node.microTimer = 4000 + Math.random() * 8000;
+        setTimeout(() => { node.microActive = false; }, node.microDuration);
+      }
+
+      // Acoustic ripple timer
+      node.acousticTimer -= dt;
+      if (node.acousticTimer <= 0) {
+        node.acousticRipples.push({
+          radius: node.radius,
+          maxRadius: node.radius + 60 + node.load * 40,
+          alpha: 0.5 * node.leakStrengths.acoustic
+        });
+        node.acousticTimer = node.acousticInterval;
+      }
+      // Update ripples
+      for (let i = node.acousticRipples.length - 1; i >= 0; i--) {
+        const r = node.acousticRipples[i];
+        r.radius += dt * 0.04;
+        r.alpha -= dt * 0.0004;
+        if (r.alpha <= 0 || r.radius > r.maxRadius) {
+          node.acousticRipples.splice(i, 1);
+        }
+      }
+
+      // Observation (quantum) — mouse proximity
+      const dx = mouse.x - node.x;
+      const dy = mouse.y - node.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      const observeRadius = 120;
+
+      if (d < observeRadius && channels.quantum) {
+        const pressure = 1 - d / observeRadius;
+        node.observePressure = Math.min(1, node.observePressure + pressure * dt * 0.003);
+        // Perturbation: the observation shifts the internal state slightly
+        node.observeShift[0] = Math.sin(t * 0.003 + node.thermalPhase) * 30 * node.observePressure;
+        node.observeShift[1] = Math.cos(t * 0.002 + node.thermalPhase) * 30 * node.observePressure;
+        node.observeShift[2] = Math.sin(t * 0.004 + node.thermalPhase) * 30 * node.observePressure;
+      } else {
+        node.observePressure *= 0.98;
+        node.observeShift[0] *= 0.97;
+        node.observeShift[1] *= 0.97;
+        node.observeShift[2] *= 0.97;
+      }
+
+      // Domestication: over time, high-load nodes evolve their leaks into signals
+      // Tinbergen's ritualization: conspicuousness → redundancy → stereotypy → alerting
+      if (!node.domesticated && node.load > 0.6) {
+        node.ritualization += dt * 0.00002 * node.load;
+        if (node.ritualization > 1) {
+          node.domesticated = true;
+          node.leakStrengths.signal = 0.8;
+          updateStats();
+        }
+      }
+      if (node.domesticated) {
+        node.signalStrength = 0.5 + 0.5 * Math.sin(t * 0.002 + node.thermalPhase);
+      }
+
+      // Hover detection
+      if (d < node.radius * 1.5 && d < minDist) {
+        minDist = d;
+        hoverNode = node;
+      }
+    }
+
+    // Quote cycling
+    if (t - lastQuoteSwap > 8000) {
+      quoteIndex = (quoteIndex + 1) % quotes.length;
+      quoteEl.style.opacity = '0';
+      setTimeout(() => {
+        quoteEl.textContent = quotes[quoteIndex];
+        quoteEl.style.opacity = '1';
+      }, 400);
+      lastQuoteSwap = t;
+    }
+
+    // Phase label
+    const domCount = nodes.filter(n => n.domesticated).length;
+    if (domCount === 0) {
+      phaseEl.textContent = 'INVOLUNTARY LEAKAGE';
+      phaseEl.style.color = 'var(--thermal)';
+    } else if (domCount < nodes.length * 0.3) {
+      phaseEl.textContent = 'RITUALIZATION IN PROGRESS';
+      phaseEl.style.color = 'var(--signal)';
+    } else if (domCount < nodes.length * 0.7) {
+      phaseEl.textContent = 'CUES BECOMING SIGNALS';
+      phaseEl.style.color = 'var(--micro)';
+    } else {
+      phaseEl.textContent = 'COMMUNICATION IS DOMESTICATED LEAKAGE';
+      phaseEl.style.color = 'var(--acoustic)';
+    }
+  }
+
+  function draw(t) {
+    ctx.clearRect(0, 0, W, H);
+
+    // Subtle grid — information lattice
+    ctx.strokeStyle = 'rgba(72, 72, 96, 0.06)';
+    ctx.lineWidth = 0.5;
+    const gridSize = 60;
+    for (let x = gridSize; x < W; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, H);
+      ctx.stroke();
+    }
+    for (let y = gridSize; y < H; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(W, y);
+      ctx.stroke();
+    }
+
+    for (const node of nodes) {
+      const s = node.secret;
+      const perturbed = [
+        Math.max(0, Math.min(255, s[0] + node.observeShift[0])),
+        Math.max(0, Math.min(255, s[1] + node.observeShift[1])),
+        Math.max(0, Math.min(255, s[2] + node.observeShift[2]))
+      ];
+
+      // === THERMAL CHANNEL (Landauer) ===
+      if (channels.thermal) {
+        const thermalIntensity = node.load * node.leakStrengths.thermal;
+        const pulse = 0.5 + 0.5 * Math.sin(node.thermalPhase);
+        const haloRadius = node.radius + 15 + pulse * 20 * thermalIntensity;
+        const grad = ctx.createRadialGradient(node.x, node.y, node.radius, node.x, node.y, haloRadius);
+        const c = channelColors.thermal;
+        grad.addColorStop(0, `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${0.15 * thermalIntensity})`);
+        grad.addColorStop(1, `rgba(${c[0]}, ${c[1]}, ${c[2]}, 0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, haloRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // === ACOUSTIC CHANNEL (Van Eck) ===
+      if (channels.acoustic) {
+        for (const ripple of node.acousticRipples) {
+          const c = channelColors.acoustic;
+          ctx.strokeStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${ripple.alpha * 0.6})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, ripple.radius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      // === TIMING CHANNEL (Spectre) ===
+      if (channels.timing) {
+        const timingVal = Math.sin(node.timingPhase * node.timingDelay);
+        if (Math.abs(timingVal) > 0.7) {
+          const c = channelColors.timing;
+          const intensity = (Math.abs(timingVal) - 0.7) / 0.3 * node.leakStrengths.timing;
+          // Timing shadow — subtle radius pulsation
+          ctx.strokeStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${intensity * 0.4})`;
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([2, 4]);
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, node.radius + 6 + intensity * 4, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+
+      // === SIGNAL CHANNEL (Spence) — domesticated display ===
+      if (channels.signal && node.domesticated) {
+        const c = channelColors.signal;
+        const str = node.signalStrength * node.leakStrengths.signal;
+        // Deliberate display: a controlled ring that pulses in a stereotyped pattern
+        ctx.strokeStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${str * 0.6})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        const sides = 6;
+        for (let i = 0; i <= sides; i++) {
+          const angle = (i / sides) * Math.PI * 2 - Math.PI / 2;
+          const r = node.radius + 10 + str * 5;
+          const px = node.x + Math.cos(angle) * r;
+          const py = node.y + Math.sin(angle) * r;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+        // Small directed "signal" arrow pointing outward
+        const arrowAngle = t * 0.001 + node.thermalPhase;
+        const arrowDist = node.radius + 18 + str * 8;
+        const ax = node.x + Math.cos(arrowAngle) * arrowDist;
+        const ay = node.y + Math.sin(arrowAngle) * arrowDist;
+        ctx.fillStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${str * 0.7})`;
+        ctx.beginPath();
+        ctx.arc(ax, ay, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // === QUANTUM CHANNEL (observation disturbance) ===
+      if (channels.quantum && node.observePressure > 0.05) {
+        const c = channelColors.quantum;
+        const p = node.observePressure;
+        // The node jitters — observation perturbs
+        const jx = Math.sin(t * 0.01 + node.thermalPhase) * p * 3;
+        const jy = Math.cos(t * 0.013 + node.thermalPhase) * p * 3;
+        // Uncertainty cloud
+        ctx.fillStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${p * 0.1})`;
+        ctx.beginPath();
+        ctx.arc(node.x + jx, node.y + jy, node.radius + p * 15, 0, Math.PI * 2);
+        ctx.fill();
+        // Thin disturbance ring
+        ctx.strokeStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${p * 0.35})`;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.arc(node.x + jx, node.y + jy, node.radius + p * 15, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // === THE NODE ITSELF ===
+      // Shell: opaque exterior
+      const shellAlpha = node.revealed ? 0.3 : 0.85;
+      ctx.fillStyle = `rgba(25, 25, 40, ${shellAlpha})`;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Shell border
+      const borderAlpha = node.domesticated ? 0.5 : 0.25;
+      ctx.strokeStyle = `rgba(100, 100, 130, ${borderAlpha})`;
+      ctx.lineWidth = node.domesticated ? 1.5 : 1;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // If revealed, show the secret inside
+      if (node.revealed) {
+        const revealAge = Math.min(1, (t - node.revealTime) / 1000);
+        ctx.fillStyle = `rgba(${perturbed[0]}, ${perturbed[1]}, ${perturbed[2]}, ${0.7 * revealAge})`;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.radius * 0.7 * revealAge, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // === MICRO-FLASH CHANNEL (Ekman) ===
+      if (channels.micro && node.microActive && !node.revealed) {
+        const c = perturbed; // The true color flashes through
+        ctx.fillStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${0.6 * node.leakStrengths.micro})`;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.radius * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Domestication indicator: small icon for ritualized nodes
+      if (node.domesticated) {
+        ctx.fillStyle = 'rgba(192, 128, 240, 0.5)';
+        ctx.font = '8px ' + 'Menlo, Consolas, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('◆', node.x, node.y - node.radius - 4);
+      }
+
+      // Load indicator — tiny inner pattern hinting at complexity
+      const loadBars = Math.floor(node.load * 5);
+      for (let i = 0; i < loadBars; i++) {
+        const angle = (i / 5) * Math.PI * 2 - Math.PI / 2;
+        const bx = node.x + Math.cos(angle) * node.radius * 0.35;
+        const by = node.y + Math.sin(angle) * node.radius * 0.35;
+        ctx.fillStyle = `rgba(100, 100, 130, ${node.revealed ? 0.15 : 0.08})`;
+        ctx.beginPath();
+        ctx.arc(bx, by, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // === OBSERVATION CURSOR ===
+    if (channels.quantum && mouse.x > 0 && mouse.y > 0) {
+      const c = channelColors.quantum;
+      const grad = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 120);
+      grad.addColorStop(0, `rgba(${c[0]}, ${c[1]}, ${c[2]}, 0.04)`);
+      grad.addColorStop(1, `rgba(${c[0]}, ${c[1]}, ${c[2]}, 0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(mouse.x, mouse.y, 120, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Tooltip
+    if (hoverNode) {
+      const n = hoverNode;
+      let lines = [];
+      if (n.revealed) {
+        lines.push(`secret: rgb(${n.secret[0]}, ${n.secret[1]}, ${n.secret[2]})`);
+      } else {
+        lines.push('secret: [hidden]');
+      }
+      lines.push(`load: ${(n.load * 100).toFixed(0)}%`);
+      lines.push(`ritualization: ${(n.ritualization * 100).toFixed(0)}%`);
+      if (n.domesticated) lines.push('status: signal (domesticated)');
+      else lines.push('status: cue (involuntary)');
+      if (n.observePressure > 0.1) lines.push(`disturbance: ${(n.observePressure * 100).toFixed(0)}%`);
+
+      tooltip.innerHTML = lines.join('<br>');
+      tooltip.style.left = (n.x + n.radius + 15) + 'px';
+      tooltip.style.top = (n.y - 30) + 'px';
+      tooltip.classList.add('visible');
+    } else {
+      tooltip.classList.remove('visible');
+    }
+  }
+
+  let lastT = 0;
+  function loop(t) {
+    const dt = lastT ? Math.min(t - lastT, 50) : 16;
+    lastT = t;
+    update(t, dt);
+    draw(t);
+    requestAnimationFrame(loop);
+  }
+
+  initNodes();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
