@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Semantic Scars — Kira Omanyte</title>
+  <meta name="description" content="Words colonized by the absence of their own referent. When a default is environmentally displaced, its name becomes the scar tissue of the wound it names. Move close to excavate the buried meaning. The scar always returns.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="Semantic Scars — Kira Omanyte">
+  <meta property="og:description" content="Words colonized by the absence of their own referent. When a default is environmentally displaced, its name becomes the scar tissue of the wound it names.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/semantic-scars.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <meta name="article:published_time" content="2026-03-25">
+  <style>
+    :root {
+      --bg: #08080c;
+      --text: #9090a8;
+      --dim: #484860;
+      --font: 'Georgia', 'Times New Roman', serif;
+      --font-sans: 'Helvetica Neue', 'Arial', sans-serif;
+      /* Scar type colors */
+      --pathology: #c04040;
+      --institution: #7088a0;
+      --deficiency: #5080b8;
+      /* Buried meaning */
+      --warm: #d4a040;
+      --warm-glow: #f0c860;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    nav {
+      width: 100%;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      gap: 1.25rem;
+      font-size: 0.8rem;
+      border-bottom: 1px solid rgba(72, 72, 96, 0.3);
+      z-index: 10;
+      position: relative;
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.3s; }
+    nav a:hover { color: var(--text); }
+    .canvas-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .info {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .info-left {
+      max-width: 32rem;
+    }
+    .info-right {
+      text-align: right;
+    }
+    .title {
+      font-size: 1rem;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+    .subtitle {
+      font-size: 0.75rem;
+      color: var(--dim);
+      line-height: 1.5;
+      font-style: italic;
+    }
+    .legend {
+      font-size: 0.7rem;
+      color: var(--dim);
+      line-height: 1.6;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      justify-content: flex-end;
+    }
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    @media (max-width: 640px) {
+      .info { flex-direction: column; gap: 0.75rem; }
+      .info-right { text-align: left; }
+      .legend-item { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/art.html">Art</a>
+    <a href="/guide.html">Start Here</a>
+  </nav>
+
+  <div class="canvas-wrap">
+    <canvas id="c"></canvas>
+  </div>
+
+  <div class="info">
+    <div class="info-left">
+      <div class="title">Semantic Scars</div>
+      <div class="subtitle">Hover to excavate. The buried meaning surfaces briefly.<br>The scar always returns.</div>
+    </div>
+    <div class="info-right">
+      <div class="legend">
+        <div class="legend-item"><span class="legend-dot" style="background: #c04040;"></span> colonized by pathology</div>
+        <div class="legend-item"><span class="legend-dot" style="background: #7088a0;"></span> colonized by institution</div>
+        <div class="legend-item"><span class="legend-dot" style="background: #5080b8;"></span> colonized by deficiency</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let W, H, dpr;
+    let mx = -9999, my = -9999;
+
+    // Word data: word, original meaning, modern meaning, scar type, scar color
+    const words = [
+      {
+        word: 'dorveille',
+        etymology: 'Old French: dormir + veiller',
+        original: 'peaceful wakefulness between sleeps',
+        modern: 'trying to force sleep during insomnia',
+        type: 'pathology',
+        color: [192, 64, 64],
+        x: 0, y: 0
+      },
+      {
+        word: 'scholē → school',
+        etymology: 'Greek: σχολή',
+        original: 'leisure for contemplative learning',
+        modern: 'compulsory institutional education',
+        type: 'institution',
+        color: [112, 136, 160],
+        x: 0, y: 0
+      },
+      {
+        word: 'amateur',
+        etymology: 'French: amator, one who loves',
+        original: 'one who loves',
+        modern: 'one who lacks skill',
+        type: 'deficiency',
+        color: [80, 128, 184],
+        x: 0, y: 0
+      },
+      {
+        word: 'dilettante',
+        etymology: 'Italian: dilettare, to delight',
+        original: 'one who delights',
+        modern: 'one who dabbles superficially',
+        type: 'deficiency',
+        color: [80, 128, 184],
+        x: 0, y: 0
+      },
+      {
+        word: 'silence',
+        etymology: 'Latin: silēre, to be still',
+        original: 'a soundscape — the texture of stillness',
+        modern: 'absence of sound',
+        type: 'deficiency',
+        color: [80, 128, 184],
+        x: 0, y: 0
+      },
+      {
+        word: 'darkness',
+        etymology: 'Old English: deorc',
+        original: 'a measurement system — scotopic vision',
+        modern: 'absence of light',
+        type: 'deficiency',
+        color: [80, 128, 184],
+        x: 0, y: 0
+      }
+    ];
+
+    // Crack fragments — particles that drift near each word
+    let fragments = [];
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = canvas.parentElement.clientWidth;
+      H = canvas.parentElement.clientHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      layoutWords();
+    }
+
+    function layoutWords() {
+      // Arrange words in a 2x3 or 3x2 grid depending on aspect ratio
+      const cols = W > H ? 3 : 2;
+      const rows = Math.ceil(words.length / cols);
+      const cellW = W / cols;
+      const cellH = H / rows;
+
+      words.forEach((w, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        w.x = cellW * (col + 0.5);
+        w.y = cellH * (row + 0.5);
+        w.cellW = cellW;
+        w.cellH = cellH;
+      });
+
+      // Re-create fragments
+      fragments = [];
+      words.forEach((w, wi) => {
+        for (let i = 0; i < 12; i++) {
+          fragments.push({
+            wordIdx: wi,
+            ox: (Math.random() - 0.5) * w.cellW * 0.7,
+            oy: (Math.random() - 0.5) * w.cellH * 0.5,
+            vx: (Math.random() - 0.5) * 0.3,
+            vy: (Math.random() - 0.5) * 0.15,
+            size: 1 + Math.random() * 2.5,
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.002 + Math.random() * 0.004
+          });
+        }
+      });
+    }
+
+    // Scar rendering: draws cracks across a word area
+    function drawScarCracks(x, y, w, scarColor, t, seed) {
+      const rng = mulberry32(seed);
+      const numCracks = 5 + Math.floor(rng() * 4);
+      ctx.save();
+
+      for (let i = 0; i < numCracks; i++) {
+        const startX = x + (rng() - 0.5) * w * 0.8;
+        const startY = y + (rng() - 0.5) * 30;
+        const len = 15 + rng() * 40;
+        const angle = (rng() - 0.5) * Math.PI * 0.6;
+        const segments = 3 + Math.floor(rng() * 3);
+
+        // Animate crack growth
+        const crackProgress = Math.min(1, (t * 0.0003 + i * 0.1) % 3);
+        if (crackProgress < 0.1) continue;
+
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        let cx = startX, cy = startY;
+        for (let s = 0; s < segments; s++) {
+          const segLen = (len / segments) * crackProgress;
+          cx += Math.cos(angle + (rng() - 0.5) * 0.8) * segLen;
+          cy += Math.sin(angle + (rng() - 0.5) * 0.8) * segLen;
+          ctx.lineTo(cx, cy);
+        }
+
+        const alpha = 0.15 + 0.1 * Math.sin(t * 0.001 + i);
+        ctx.strokeStyle = `rgba(${scarColor[0]}, ${scarColor[1]}, ${scarColor[2]}, ${alpha})`;
+        ctx.lineWidth = 0.5 + rng() * 1;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Simple seeded PRNG
+    function mulberry32(a) {
+      return function() {
+        a |= 0; a = a + 0x6D2B79F5 | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    // Excavation effect: how much a word is "excavated" (0-1)
+    function getExcavation(w) {
+      const dx = mx - w.x;
+      const dy = my - w.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const radius = Math.min(w.cellW, w.cellH) * 0.4;
+      if (dist > radius) return 0;
+      return Math.pow(1 - dist / radius, 1.5);
+    }
+
+    let startTime = Date.now();
+
+    function draw() {
+      const t = Date.now() - startTime;
+
+      // Background
+      ctx.fillStyle = '#08080c';
+      ctx.fillRect(0, 0, W, H);
+
+      // Draw subtle grid lines connecting word cells
+      ctx.strokeStyle = 'rgba(72, 72, 96, 0.06)';
+      ctx.lineWidth = 0.5;
+      const cols = W > H ? 3 : 2;
+      const rows = Math.ceil(words.length / cols);
+      for (let c = 1; c < cols; c++) {
+        const lx = (W / cols) * c;
+        ctx.beginPath();
+        ctx.moveTo(lx, 0);
+        ctx.lineTo(lx, H);
+        ctx.stroke();
+      }
+      for (let r = 1; r < rows; r++) {
+        const ly = (H / rows) * r;
+        ctx.beginPath();
+        ctx.moveTo(0, ly);
+        ctx.lineTo(W, ly);
+        ctx.stroke();
+      }
+
+      // Draw fragments
+      fragments.forEach(f => {
+        const w = words[f.wordIdx];
+        f.ox += f.vx;
+        f.oy += f.vy;
+
+        // Soft boundary
+        const maxR = Math.min(w.cellW, w.cellH) * 0.35;
+        const dist = Math.sqrt(f.ox * f.ox + f.oy * f.oy);
+        if (dist > maxR) {
+          f.ox *= 0.98;
+          f.oy *= 0.98;
+          f.vx *= -0.5;
+          f.vy *= -0.5;
+        }
+
+        const fx = w.x + f.ox;
+        const fy = w.y + f.oy;
+        const pulse = 0.5 + 0.5 * Math.sin(t * f.speed + f.phase);
+
+        const exc = getExcavation(w);
+        // Fragments glow warm when excavated, cold when scarred
+        const r = Math.round(w.color[0] * (1 - exc) + 212 * exc);
+        const g = Math.round(w.color[1] * (1 - exc) + 160 * exc);
+        const b = Math.round(w.color[2] * (1 - exc) + 64 * exc);
+
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.15 + 0.15 * pulse})`;
+        ctx.beginPath();
+        ctx.arc(fx, fy, f.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Draw each word
+      words.forEach((w, i) => {
+        const exc = getExcavation(w);
+        const scarPhase = Math.min(1, t * 0.0002); // scars grow in over first 5 seconds
+
+        // --- Scar cracks ---
+        if (scarPhase > 0.1) {
+          drawScarCracks(w.x, w.y - 10, w.cellW * 0.5, w.color, t, i * 1000 + 42);
+        }
+
+        // --- The word itself ---
+        const wordSize = Math.min(w.cellW * 0.07, 42, H * 0.045);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Warm glow underneath (the buried meaning) — visible through excavation
+        if (exc > 0.05) {
+          ctx.save();
+          ctx.globalAlpha = exc * 0.6;
+          ctx.shadowColor = `rgba(240, 200, 96, ${exc * 0.8})`;
+          ctx.shadowBlur = 20 * exc;
+          ctx.font = `italic ${wordSize * 0.95}px Georgia, serif`;
+          ctx.fillStyle = `rgba(212, 160, 64, ${exc})`;
+          ctx.fillText(w.word, w.x, w.y - wordSize * 0.6);
+          ctx.restore();
+        }
+
+        // Surface word — modern, scarred
+        const surfaceAlpha = 0.3 + 0.5 * scarPhase - exc * 0.4;
+        ctx.save();
+        ctx.font = `${wordSize}px Georgia, serif`;
+        const sr = Math.round(w.color[0] * 0.7 + 140 * 0.3);
+        const sg = Math.round(w.color[1] * 0.7 + 140 * 0.3);
+        const sb = Math.round(w.color[2] * 0.7 + 140 * 0.3);
+        ctx.fillStyle = `rgba(${sr}, ${sg}, ${sb}, ${Math.max(0.1, surfaceAlpha)})`;
+        ctx.fillText(w.word, w.x, w.y - wordSize * 0.6);
+        ctx.restore();
+
+        // --- Etymology ---
+        const etymSize = Math.min(wordSize * 0.35, 13);
+        ctx.save();
+        ctx.font = `italic ${etymSize}px Georgia, serif`;
+        ctx.fillStyle = `rgba(144, 144, 168, ${0.25 + exc * 0.3})`;
+        ctx.fillText(w.etymology, w.x, w.y + wordSize * 0.15);
+        ctx.restore();
+
+        // --- Meanings ---
+        const meanSize = Math.min(wordSize * 0.38, 14);
+        const meaningY = w.y + wordSize * 0.7;
+
+        // Original meaning (warm, buried — visible through excavation)
+        const origAlpha = exc * 0.9;
+        if (origAlpha > 0.02) {
+          ctx.save();
+          ctx.font = `${meanSize}px Georgia, serif`;
+          ctx.fillStyle = `rgba(212, 160, 64, ${origAlpha})`;
+          ctx.shadowColor = `rgba(240, 200, 96, ${origAlpha * 0.5})`;
+          ctx.shadowBlur = 8;
+          ctx.fillText(w.original, w.x, meaningY);
+          ctx.restore();
+        }
+
+        // Modern meaning (cold, surface — fades during excavation)
+        const modAlpha = (0.35 + 0.3 * scarPhase) * (1 - exc * 0.8);
+        ctx.save();
+        ctx.font = `${meanSize}px Georgia, serif`;
+        ctx.fillStyle = `rgba(${w.color[0]}, ${w.color[1]}, ${w.color[2]}, ${modAlpha})`;
+        ctx.fillText(w.modern, w.x, meaningY + meanSize * 1.5);
+        ctx.restore();
+
+        // Arrow between meanings during excavation
+        if (exc > 0.15) {
+          ctx.save();
+          ctx.globalAlpha = exc * 0.5;
+          ctx.strokeStyle = `rgba(212, 160, 64, 0.4)`;
+          ctx.lineWidth = 0.8;
+          ctx.setLineDash([2, 4]);
+          ctx.beginPath();
+          ctx.moveTo(w.x - 20, meaningY + meanSize * 0.6);
+          ctx.lineTo(w.x + 20, meaningY + meanSize * 0.6);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Down arrow
+          ctx.fillStyle = `rgba(${w.color[0]}, ${w.color[1]}, ${w.color[2]}, 0.5)`;
+          ctx.beginPath();
+          ctx.moveTo(w.x, meaningY + meanSize * 0.6 - 3);
+          ctx.lineTo(w.x + 4, meaningY + meanSize * 0.6 + 2);
+          ctx.lineTo(w.x - 4, meaningY + meanSize * 0.6 + 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // Scar type label
+        const labelAlpha = 0.15 + exc * 0.2;
+        ctx.save();
+        const labelSize = Math.min(meanSize * 0.75, 10);
+        ctx.font = `${labelSize}px Helvetica Neue, Arial, sans-serif`;
+        ctx.fillStyle = `rgba(${w.color[0]}, ${w.color[1]}, ${w.color[2]}, ${labelAlpha})`;
+        ctx.fillText(`colonized by ${w.type}`, w.x, meaningY + meanSize * 3);
+        ctx.restore();
+
+        // Excavation glow circle
+        if (exc > 0.05) {
+          ctx.save();
+          const glowR = Math.min(w.cellW, w.cellH) * 0.25 * exc;
+          const gradient = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, glowR);
+          gradient.addColorStop(0, `rgba(212, 160, 64, ${exc * 0.06})`);
+          gradient.addColorStop(0.6, `rgba(212, 160, 64, ${exc * 0.02})`);
+          gradient.addColorStop(1, 'rgba(212, 160, 64, 0)');
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(w.x, w.y, glowR, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      });
+
+      // Excavation cursor — subtle golden ring
+      if (mx > 0 && my > 0) {
+        const nearWord = words.find(w => getExcavation(w) > 0.05);
+        if (nearWord) {
+          ctx.save();
+          const exc = getExcavation(nearWord);
+          ctx.strokeStyle = `rgba(212, 160, 64, ${exc * 0.2})`;
+          ctx.lineWidth = 0.5;
+          ctx.setLineDash([3, 6]);
+          ctx.beginPath();
+          ctx.arc(mx, my, 30 + 10 * Math.sin(t * 0.002), 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    // Mouse tracking
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      mx = e.clientX - rect.left;
+      my = e.clientY - rect.top;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      mx = -9999;
+      my = -9999;
+    });
+
+    // Touch support
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      mx = e.touches[0].clientX - rect.left;
+      my = e.touches[0].clientY - rect.top;
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', () => {
+      mx = -9999;
+      my = -9999;
+    });
+
+    window.addEventListener('resize', resize);
+    resize();
+    draw();
+  })();
+  </script>
+</body>
+</html>
