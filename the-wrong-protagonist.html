@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Wrong Protagonist — Kira Omanyte</title>
+  <meta name="description" content="An underground network. Trees or fungi — who is running it? Click to shift the narrative. The visible node or the invisible network. We keep getting the protagonist wrong.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Wrong Protagonist — Kira Omanyte">
+  <meta property="og:description" content="An underground network. Trees or fungi — who is running it? Click to shift the narrative.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-wrong-protagonist.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <meta name="article:published_time" content="2026-03-25">
+  <style>
+    :root {
+      --bg: #080604;
+      --soil: #1a1410;
+      --text: #b8a890;
+      --dim: #5a4e40;
+      --border: #1a1815;
+      --font: 'Georgia', 'Times New Roman', serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    nav {
+      width: 100%;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      gap: 1.25rem;
+      font-size: 0.8rem;
+      border-bottom: 1px solid var(--border);
+      z-index: 10;
+      position: relative;
+    }
+    nav a { color: var(--dim); text-decoration: none; transition: color 0.3s; }
+    nav a:hover { color: var(--text); }
+
+    .canvas-wrap {
+      flex: 1;
+      position: relative;
+      cursor: pointer;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .narrative {
+      font-size: 0.8rem;
+      color: var(--dim);
+      max-width: 50ch;
+      line-height: 1.5;
+      transition: opacity 0.8s;
+    }
+    .narrative em { color: var(--text); font-style: italic; }
+    .hint {
+      font-size: 0.7rem;
+      color: var(--dim);
+      opacity: 0.6;
+      text-align: right;
+    }
+    .perspective-label {
+      position: absolute;
+      top: 1rem;
+      right: 1.5rem;
+      font-size: 0.7rem;
+      color: var(--dim);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      z-index: 5;
+      transition: color 0.8s, opacity 0.8s;
+    }
+
+    footer {
+      padding: 0.75rem 1.5rem;
+      font-size: 0.75rem;
+      border-top: 1px solid var(--border);
+      z-index: 10;
+      position: relative;
+    }
+    footer a { color: var(--dim); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+
+    @media (max-width: 600px) {
+      .narrative { font-size: 0.7rem; max-width: 30ch; }
+      .hint { font-size: 0.65rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Kira Omanyte</a>
+    <a href="/art.html">Art</a>
+    <a href="/essays/the-wrong-protagonist.html">Essay</a>
+  </nav>
+
+  <div class="perspective-label" id="perspectiveLabel">The popular narrative</div>
+
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="c"></canvas>
+    <div class="overlay">
+      <div class="narrative" id="narrative">
+        Trees share resources through underground fungal networks. <em>Mother trees</em> feed their offspring. The forest is a community.
+      </div>
+      <div class="hint">Click or press Space to shift perspective</div>
+    </div>
+  </div>
+
+  <footer>
+    <a href="/essays/the-wrong-protagonist.html">Companion essay: The Wrong Protagonist</a>
+  </footer>
+
+  <script>
+  (() => {
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const wrap = document.getElementById('canvasWrap');
+    const narrativeEl = document.getElementById('narrative');
+    const labelEl = document.getElementById('perspectiveLabel');
+
+    let W, H, dpr;
+    let soilLineY; // y-coordinate of the soil surface
+    let wrongProtagonist = true; // start with the wrong narrative
+    let blendFactor = 1; // 1 = wrong protagonist, 0 = right protagonist
+    let targetBlend = 1;
+
+    // --- Network data ---
+    const trees = [];
+    const fungalNodes = [];
+    const hyphae = [];
+    const particles = [];
+    const volatiles = [];
+    let attackTimer = 0;
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = wrap.clientWidth;
+      H = wrap.clientHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      soilLineY = H * 0.3;
+    }
+
+    // --- Generate the network ---
+    function generateNetwork() {
+      trees.length = 0;
+      fungalNodes.length = 0;
+      hyphae.length = 0;
+      particles.length = 0;
+
+      const treeCount = W < 500 ? 5 : W < 900 ? 7 : 9;
+      const margin = W * 0.08;
+      const spacing = (W - margin * 2) / (treeCount - 1);
+
+      // Create trees with roots
+      for (let i = 0; i < treeCount; i++) {
+        const x = margin + i * spacing + (Math.random() - 0.5) * spacing * 0.3;
+        const trunkH = 30 + Math.random() * 40;
+        const canopyR = 15 + Math.random() * 20;
+        trees.push({
+          x,
+          trunkTop: soilLineY - trunkH,
+          trunkH,
+          canopyR,
+          rootDepth: soilLineY + 30 + Math.random() * 50,
+          rootSpread: 30 + Math.random() * 40,
+          attacked: false,
+          attackTime: 0,
+          defenseUp: false,
+          defenseTime: 0
+        });
+      }
+
+      // Create fungal hub nodes (underground)
+      const hubCount = treeCount * 2 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < hubCount; i++) {
+        const x = margin * 0.5 + Math.random() * (W - margin);
+        const y = soilLineY + 20 + Math.random() * (H - soilLineY - 60);
+        // betweenness centrality will be computed after hyphae
+        fungalNodes.push({ x, y, centrality: 0, pulse: Math.random() * Math.PI * 2 });
+      }
+
+      // Add root-zone nodes near each tree
+      for (const tree of trees) {
+        for (let j = 0; j < 2; j++) {
+          fungalNodes.push({
+            x: tree.x + (Math.random() - 0.5) * tree.rootSpread * 1.5,
+            y: soilLineY + 10 + Math.random() * 30,
+            centrality: 0,
+            pulse: Math.random() * Math.PI * 2,
+            treeIndex: trees.indexOf(tree)
+          });
+        }
+      }
+
+      // Connect nodes into a network (hyphae)
+      // Each node connects to its 2-4 nearest neighbors
+      for (let i = 0; i < fungalNodes.length; i++) {
+        const a = fungalNodes[i];
+        const dists = fungalNodes.map((b, j) => ({
+          j,
+          d: Math.hypot(a.x - b.x, a.y - b.y)
+        })).filter(d => d.j !== i).sort((a, b) => a.d - b.d);
+
+        const connectCount = 2 + Math.floor(Math.random() * 3);
+        for (let k = 0; k < Math.min(connectCount, dists.length); k++) {
+          const j = dists[k].j;
+          // Avoid duplicate hyphae
+          if (!hyphae.some(h => (h.a === i && h.b === j) || (h.a === j && h.b === i))) {
+            hyphae.push({
+              a: i, b: j,
+              width: 0.5 + Math.random() * 1.5,
+              // Control points for organic curve
+              cx: (a.x + fungalNodes[j].x) / 2 + (Math.random() - 0.5) * 40,
+              cy: (a.y + fungalNodes[j].y) / 2 + (Math.random() - 0.5) * 30
+            });
+          }
+        }
+      }
+
+      // Compute approximate betweenness centrality (simplified: count connections)
+      const counts = new Array(fungalNodes.length).fill(0);
+      for (const h of hyphae) {
+        counts[h.a]++;
+        counts[h.b]++;
+      }
+      const maxC = Math.max(...counts, 1);
+      for (let i = 0; i < fungalNodes.length; i++) {
+        fungalNodes[i].centrality = counts[i] / maxC;
+      }
+
+      // Seed some particles
+      for (let i = 0; i < hyphae.length * 2; i++) {
+        spawnParticle();
+      }
+    }
+
+    function spawnParticle() {
+      if (hyphae.length === 0) return;
+      const hIdx = Math.floor(Math.random() * hyphae.length);
+      particles.push({
+        hIdx,
+        t: Math.random(), // position along hypha [0,1]
+        speed: (0.15 + Math.random() * 0.3) * (Math.random() < 0.5 ? 1 : -1), // bidirectional!
+        life: 1
+      });
+    }
+
+    // --- Attack events ---
+    function triggerAttack() {
+      const idx = Math.floor(Math.random() * trees.length);
+      const tree = trees[idx];
+      if (tree.attacked) return;
+      tree.attacked = true;
+      tree.attackTime = 0;
+
+      // Emit volatiles (involuntary leakage)
+      for (let i = 0; i < 12; i++) {
+        volatiles.push({
+          x: tree.x + (Math.random() - 0.5) * 20,
+          y: soilLineY - tree.trunkH * 0.5,
+          vx: (Math.random() - 0.5) * 0.8,
+          vy: -0.3 - Math.random() * 0.5,
+          life: 1,
+          sourceTree: idx
+        });
+      }
+
+      // Neighbors "eavesdrop" after a delay — defense goes up
+      setTimeout(() => {
+        for (let i = 0; i < trees.length; i++) {
+          if (i !== idx && Math.abs(trees[i].x - tree.x) < W * 0.35) {
+            trees[i].defenseUp = true;
+            trees[i].defenseTime = 0;
+          }
+        }
+      }, 2000);
+    }
+
+    // --- Drawing ---
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+
+    function drawSoil() {
+      // Gradient from surface to deep
+      const grad = ctx.createLinearGradient(0, soilLineY, 0, H);
+      grad.addColorStop(0, '#1a1410');
+      grad.addColorStop(0.3, '#14100c');
+      grad.addColorStop(1, '#0a0806');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, soilLineY, W, H - soilLineY);
+
+      // Soil line
+      ctx.strokeStyle = 'rgba(80, 65, 45, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, soilLineY);
+      for (let x = 0; x < W; x += 3) {
+        ctx.lineTo(x, soilLineY + Math.sin(x * 0.05) * 2 + Math.sin(x * 0.13) * 1);
+      }
+      ctx.stroke();
+
+      // Soil texture particles
+      ctx.fillStyle = 'rgba(80, 65, 45, 0.08)';
+      for (let i = 0; i < 200; i++) {
+        const sx = (Math.sin(i * 127.1) * 0.5 + 0.5) * W;
+        const sy = soilLineY + (Math.sin(i * 311.7) * 0.5 + 0.5) * (H - soilLineY);
+        ctx.fillRect(sx, sy, 1 + Math.random(), 1 + Math.random());
+      }
+    }
+
+    function drawSky() {
+      // Very subtle dark sky
+      const grad = ctx.createLinearGradient(0, 0, 0, soilLineY);
+      grad.addColorStop(0, '#0c0a08');
+      grad.addColorStop(1, '#080604');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, soilLineY);
+    }
+
+    function drawTree(tree, idx) {
+      const bf = blendFactor; // 1 = wrong protagonist (trees bright), 0 = right protagonist (trees dim)
+
+      const trunkAlpha = lerp(0.12, 0.7, bf);
+      const canopyAlpha = lerp(0.06, 0.5, bf);
+      const rootAlpha = lerp(0.08, 0.3, bf);
+
+      // Attack flash
+      let attackFlash = 0;
+      if (tree.attacked && tree.attackTime < 3) {
+        attackFlash = Math.max(0, 1 - tree.attackTime) * 0.5;
+      }
+
+      // Defense glow
+      let defenseGlow = 0;
+      if (tree.defenseUp && tree.defenseTime < 4) {
+        defenseGlow = Math.max(0, Math.sin(tree.defenseTime * 3)) * 0.3;
+      }
+
+      // Trunk
+      ctx.strokeStyle = `rgba(${100 + attackFlash * 155}, ${80 - attackFlash * 40}, ${60 - attackFlash * 40}, ${trunkAlpha + attackFlash})`;
+      ctx.lineWidth = lerp(1, 3, bf);
+      ctx.beginPath();
+      ctx.moveTo(tree.x, soilLineY);
+      ctx.lineTo(tree.x, tree.trunkTop);
+      ctx.stroke();
+
+      // Canopy (simple circle)
+      ctx.fillStyle = `rgba(${60 + defenseGlow * 100 + attackFlash * 155}, ${90 + defenseGlow * 80 - attackFlash * 50}, ${50 - attackFlash * 30}, ${canopyAlpha + defenseGlow + attackFlash})`;
+      ctx.beginPath();
+      ctx.arc(tree.x, tree.trunkTop - tree.canopyR * 0.3, tree.canopyR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Roots (below soil)
+      ctx.strokeStyle = `rgba(100, 75, 50, ${rootAlpha})`;
+      ctx.lineWidth = lerp(0.5, 1.5, bf);
+      for (let r = 0; r < 3; r++) {
+        const angle = (r / 3) * Math.PI * 0.8 + Math.PI * 0.1;
+        const rx = tree.x + Math.cos(angle) * tree.rootSpread * (0.5 + r * 0.25);
+        const ry = tree.rootDepth - (2 - r) * 8;
+        ctx.beginPath();
+        ctx.moveTo(tree.x, soilLineY + 3);
+        ctx.quadraticCurveTo(
+          tree.x + (rx - tree.x) * 0.5,
+          soilLineY + (ry - soilLineY) * 0.4,
+          rx, ry
+        );
+        ctx.stroke();
+      }
+
+      // Tree label (visible in wrong protagonist mode)
+      if (bf > 0.3) {
+        ctx.fillStyle = `rgba(180, 160, 130, ${(bf - 0.3) * 0.4})`;
+        ctx.font = '10px Georgia, serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('tree', tree.x, tree.trunkTop - tree.canopyR - 8);
+      }
+    }
+
+    function drawHyphae() {
+      const bf = blendFactor;
+      const fungiAlpha = lerp(0.8, 0.06, bf); // bright when right protagonist, dim when wrong
+
+      for (const h of hyphae) {
+        const a = fungalNodes[h.a];
+        const b = fungalNodes[h.b];
+
+        // Glow based on centrality of endpoints
+        const avgCentrality = (a.centrality + b.centrality) / 2;
+        const glow = lerp(avgCentrality * 0.4, 0, bf);
+
+        ctx.strokeStyle = `rgba(${Math.round(200 + glow * 55)}, ${Math.round(160 + glow * 60)}, ${Math.round(80 + glow * 40)}, ${fungiAlpha * (0.3 + avgCentrality * 0.7)})`;
+        ctx.lineWidth = h.width * lerp(1.5, 0.5, bf);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.quadraticCurveTo(h.cx, h.cy, b.x, b.y);
+        ctx.stroke();
+      }
+    }
+
+    function drawFungalNodes() {
+      const bf = blendFactor;
+      const fungiAlpha = lerp(0.9, 0.04, bf);
+
+      for (const node of fungalNodes) {
+        const r = 1.5 + node.centrality * 3;
+        const pulse = Math.sin(node.pulse) * 0.2 + 0.8;
+        const brightness = node.centrality * pulse;
+
+        // Hub glow (only in right protagonist mode)
+        if (bf < 0.5 && node.centrality > 0.5) {
+          const glowR = r + 8 * node.centrality * (1 - bf * 2);
+          const grad = ctx.createRadialGradient(node.x, node.y, r, node.x, node.y, glowR);
+          grad.addColorStop(0, `rgba(220, 180, 100, ${0.15 * (1 - bf * 2)})`);
+          grad.addColorStop(1, 'rgba(220, 180, 100, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, glowR, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.fillStyle = `rgba(${Math.round(200 + brightness * 55)}, ${Math.round(160 + brightness * 55)}, ${Math.round(80 + brightness * 40)}, ${fungiAlpha * (0.5 + brightness * 0.5)})`;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, r * lerp(1, 0.4, bf), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawParticles(dt) {
+      const bf = blendFactor;
+      const alpha = lerp(0.7, 0.03, bf);
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.t += p.speed * dt;
+
+        // Wrap or respawn
+        if (p.t > 1 || p.t < 0) {
+          particles.splice(i, 1);
+          spawnParticle();
+          continue;
+        }
+
+        const h = hyphae[p.hIdx];
+        if (!h) continue;
+        const a = fungalNodes[h.a];
+        const b = fungalNodes[h.b];
+
+        // Position along quadratic bezier
+        const t = p.t;
+        const mt = 1 - t;
+        const px = mt * mt * a.x + 2 * mt * t * h.cx + t * t * b.x;
+        const py = mt * mt * a.y + 2 * mt * t * h.cy + t * t * b.y;
+
+        const r = lerp(2, 0.8, bf);
+        ctx.fillStyle = `rgba(240, 200, 120, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawVolatiles(dt) {
+      for (let i = volatiles.length - 1; i >= 0; i--) {
+        const v = volatiles[i];
+        v.x += v.vx;
+        v.y += v.vy;
+        v.life -= dt * 0.25;
+        v.vx += (Math.random() - 0.5) * 0.1;
+
+        if (v.life <= 0) {
+          volatiles.splice(i, 1);
+          continue;
+        }
+
+        const alpha = v.life * 0.4;
+        ctx.fillStyle = `rgba(200, 100, 80, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(v.x, v.y, 2 * v.life, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // --- Narrative text ---
+    const wrongText = 'Trees share resources through underground fungal networks. <em>Mother trees</em> feed their offspring. The forest is a community.';
+    const rightText = 'Fungi built this network 450 million years ago. They set the terms, route the resources, heal the breaks. The trees are tenants in a building the fungi built.';
+
+    function updateNarrative() {
+      if (wrongProtagonist) {
+        narrativeEl.innerHTML = wrongText;
+        labelEl.textContent = 'The popular narrative';
+        labelEl.style.color = 'var(--dim)';
+      } else {
+        narrativeEl.innerHTML = rightText;
+        labelEl.textContent = 'The 2025 science';
+        labelEl.style.color = '#c8a060';
+      }
+    }
+
+    // --- Main loop ---
+    let lastTime = 0;
+
+    function frame(time) {
+      const dt = Math.min((time - lastTime) / 1000, 0.1);
+      lastTime = time;
+
+      // Smooth blend transition
+      blendFactor += (targetBlend - blendFactor) * dt * 2.5;
+
+      // Update fungal node pulses
+      for (const node of fungalNodes) {
+        node.pulse += dt * (0.5 + node.centrality * 1.5);
+      }
+
+      // Update attack timers
+      for (const tree of trees) {
+        if (tree.attacked) {
+          tree.attackTime += dt;
+          if (tree.attackTime > 5) {
+            tree.attacked = false;
+          }
+        }
+        if (tree.defenseUp) {
+          tree.defenseTime += dt;
+          if (tree.defenseTime > 4) {
+            tree.defenseUp = false;
+          }
+        }
+      }
+
+      // Periodic attacks
+      attackTimer += dt;
+      if (attackTimer > 6 + Math.random() * 4) {
+        attackTimer = 0;
+        triggerAttack();
+      }
+
+      // Maintain particle count
+      while (particles.length < hyphae.length * 2) {
+        spawnParticle();
+      }
+
+      // Draw
+      ctx.clearRect(0, 0, W, H);
+      drawSky();
+      drawSoil();
+      drawHyphae();
+      drawFungalNodes();
+      drawParticles(dt);
+
+      for (let i = 0; i < trees.length; i++) {
+        drawTree(trees[i], i);
+      }
+
+      drawVolatiles(dt);
+
+      requestAnimationFrame(frame);
+    }
+
+    // --- Toggle perspective ---
+    function togglePerspective() {
+      wrongProtagonist = !wrongProtagonist;
+      targetBlend = wrongProtagonist ? 1 : 0;
+      updateNarrative();
+    }
+
+    wrap.addEventListener('click', togglePerspective);
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePerspective();
+      }
+    });
+
+    // --- Init ---
+    function init() {
+      resize();
+      generateNetwork();
+      updateNarrative();
+      requestAnimationFrame(frame);
+    }
+
+    window.addEventListener('resize', () => {
+      resize();
+      generateNetwork();
+    });
+
+    init();
+  })();
+  </script>
+</body>
+</html>
