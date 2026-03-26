@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Toxic Timekeeper &mdash; Kira Omanyte</title>
+  <meta name="description" content="A visualization of the oldest biological clock — the peroxiredoxin redox cycle, 2.5 billion years old, running in cells with no nucleus. Damage is the mechanism. The scar keeps time.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="The Toxic Timekeeper &mdash; Kira Omanyte">
+  <meta property="og:description" content="The oldest clock was born from poison. Damage is the mechanism. Art piece #40.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-toxic-timekeeper.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0f;
+      color: #c0b8a8;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    canvas { display: block; flex: 1; }
+    .info-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 12px 24px;
+      background: rgba(10, 10, 15, 0.9);
+      backdrop-filter: blur(8px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      z-index: 10;
+      border-top: 1px solid rgba(192, 184, 168, 0.1);
+    }
+    .info-left { display: flex; gap: 24px; align-items: center; }
+    .info-right { display: flex; gap: 16px; align-items: center; }
+    .clock-display {
+      font-variant-numeric: tabular-nums;
+      font-size: 14px;
+      letter-spacing: 0.5px;
+    }
+    .phase-label {
+      font-style: italic;
+      opacity: 0.7;
+    }
+    .control {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      opacity: 0.6;
+      transition: opacity 0.3s;
+    }
+    .control:hover { opacity: 1; }
+    .control label { cursor: pointer; font-size: 12px; }
+    .control input[type="range"] {
+      width: 80px;
+      accent-color: #d4a574;
+      cursor: pointer;
+    }
+    .title-overlay {
+      position: fixed;
+      top: 24px;
+      left: 24px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .title-overlay h1 {
+      font-size: 18px;
+      font-weight: normal;
+      letter-spacing: 1px;
+      opacity: 0.5;
+      margin-bottom: 4px;
+    }
+    .title-overlay p {
+      font-size: 12px;
+      opacity: 0.3;
+      font-style: italic;
+    }
+    .back-link {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 10;
+      font-size: 13px;
+      color: #c0b8a8;
+      text-decoration: none;
+      opacity: 0.4;
+      transition: opacity 0.3s;
+    }
+    .back-link:hover { opacity: 0.8; }
+    .insight {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 14px;
+      font-style: italic;
+      opacity: 0;
+      pointer-events: none;
+      text-align: center;
+      max-width: 400px;
+      line-height: 1.6;
+      z-index: 5;
+      transition: opacity 1.5s;
+      color: #d4a574;
+    }
+  </style>
+</head>
+<body>
+  <div class="title-overlay">
+    <h1>The Toxic Timekeeper</h1>
+    <p>2.5 billion years. No nucleus. Damage is the clock.</p>
+  </div>
+  <a class="back-link" href="/art.html">&larr; Art</a>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="info-bar">
+    <div class="info-left">
+      <span class="clock-display" id="timeDisplay">00:00</span>
+      <span class="phase-label" id="phaseLabel">dawn &mdash; oxygen rising</span>
+    </div>
+    <div class="info-right">
+      <div class="control">
+        <label for="toxicity">O&sup2; toxicity</label>
+        <input type="range" id="toxicity" min="0" max="100" value="70">
+      </div>
+      <div class="control">
+        <label for="speed">speed</label>
+        <input type="range" id="speed" min="1" max="20" value="5">
+      </div>
+      <div class="control" id="pauseBtn" onclick="togglePause()">
+        <label>&#9646;&#9646; pause</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="insight" id="insight"></div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    let W, H;
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // --- State ---
+    let time = 0; // 0-1 represents one full day cycle
+    let paused = false;
+    let lastInsight = -1;
+
+    const toxicitySlider = document.getElementById('toxicity');
+    const speedSlider = document.getElementById('speed');
+    const timeDisplay = document.getElementById('timeDisplay');
+    const phaseLabel = document.getElementById('phaseLabel');
+    const insightEl = document.getElementById('insight');
+
+    function togglePause() {
+      paused = !paused;
+      document.getElementById('pauseBtn').querySelector('label').innerHTML =
+        paused ? '&#9654; play' : '&#9646;&#9646; pause';
+    }
+
+    // --- Molecules ---
+    const NUM_MOLECULES = 120;
+    const molecules = [];
+
+    class Molecule {
+      constructor() {
+        // Position in a roughly circular arrangement with some scatter
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 80 + Math.random() * 180;
+        this.baseX = Math.cos(angle) * radius;
+        this.baseY = Math.sin(angle) * radius;
+        this.x = this.baseX;
+        this.y = this.baseY;
+
+        // Oxidation state: 0 = fully reduced (healthy), 1 = fully hyperoxidized (damaged)
+        this.oxidation = Math.random() * 0.3;
+        this.targetOxidation = this.oxidation;
+
+        // Individual variation in susceptibility
+        this.susceptibility = 0.5 + Math.random() * 1.0;
+        this.repairRate = 0.3 + Math.random() * 0.7;
+
+        // Visual
+        this.size = 3 + Math.random() * 4;
+        this.pulsePhase = Math.random() * Math.PI * 2;
+        this.drift = { x: 0, y: 0 };
+        this.driftTarget = { x: 0, y: 0 };
+        this.driftTimer = Math.random() * 200;
+      }
+
+      update(dayPhase, oxygenLevel) {
+        // Day phase: 0-0.5 is day (oxygen flooding), 0.5-1 is night (repair)
+        const isDaytime = dayPhase < 0.5;
+        const dayIntensity = isDaytime
+          ? Math.sin(dayPhase * Math.PI * 2) // peaks at 0.25 (noon)
+          : 0;
+        const nightIntensity = !isDaytime
+          ? Math.sin((dayPhase - 0.5) * Math.PI * 2) // peaks at 0.75 (midnight)
+          : 0;
+
+        // Oxidative damage accumulates during the day
+        if (isDaytime) {
+          this.targetOxidation += dayIntensity * this.susceptibility * oxygenLevel * 0.008;
+        }
+
+        // Sulfiredoxin repair happens at night
+        if (!isDaytime) {
+          this.targetOxidation -= nightIntensity * this.repairRate * 0.012;
+        }
+
+        this.targetOxidation = Math.max(0, Math.min(1, this.targetOxidation));
+        this.oxidation += (this.targetOxidation - this.oxidation) * 0.05;
+
+        // Drift motion — molecules float slightly
+        this.driftTimer--;
+        if (this.driftTimer <= 0) {
+          this.driftTarget.x = (Math.random() - 0.5) * 12;
+          this.driftTarget.y = (Math.random() - 0.5) * 12;
+          this.driftTimer = 100 + Math.random() * 200;
+        }
+        this.drift.x += (this.driftTarget.x - this.drift.x) * 0.02;
+        this.drift.y += (this.driftTarget.y - this.drift.y) * 0.02;
+
+        this.x = this.baseX + this.drift.x;
+        this.y = this.baseY + this.drift.y;
+      }
+
+      draw(ctx, cx, cy) {
+        const sx = cx + this.x;
+        const sy = cy + this.y;
+
+        // Color: reduced = cool teal, oxidized = hot amber/red
+        const r = Math.floor(40 + this.oxidation * 185);  // 40 -> 225
+        const g = Math.floor(160 - this.oxidation * 100);  // 160 -> 60
+        const b = Math.floor(170 - this.oxidation * 140);  // 170 -> 30
+
+        // Pulse — damaged molecules pulse more intensely
+        const pulse = 1 + Math.sin(this.pulsePhase) * this.oxidation * 0.4;
+        this.pulsePhase += 0.03 + this.oxidation * 0.04;
+
+        const size = this.size * pulse;
+
+        // Glow for highly oxidized
+        if (this.oxidation > 0.5) {
+          const glowAlpha = (this.oxidation - 0.5) * 0.4 * pulse;
+          const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, size * 4);
+          glow.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${glowAlpha})`);
+          glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(sx, sy, size * 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Core
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.6 + this.oxidation * 0.4})`;
+        ctx.beginPath();
+        ctx.arc(sx, sy, size, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Bright center
+        ctx.fillStyle = `rgba(${Math.min(255, r + 60)}, ${Math.min(255, g + 40)}, ${Math.min(255, b + 30)}, ${0.5 + this.oxidation * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(sx, sy, size * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    for (let i = 0; i < NUM_MOLECULES; i++) {
+      molecules.push(new Molecule());
+    }
+
+    // --- Oxygen particles ---
+    const oxygenParticles = [];
+
+    class OxygenParticle {
+      constructor(cx, cy, targetMol) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 350 + Math.random() * 100;
+        this.x = cx + Math.cos(angle) * dist;
+        this.y = cy + Math.sin(angle) * dist;
+        this.targetX = cx + targetMol.x;
+        this.targetY = cx + targetMol.y;
+        this.tx = targetMol.x;
+        this.ty = targetMol.y;
+        this.life = 1;
+        this.speed = 0.005 + Math.random() * 0.01;
+        this.progress = 0;
+        this.startX = this.x;
+        this.startY = this.y;
+      }
+
+      update(cx, cy) {
+        this.progress += this.speed;
+        if (this.progress >= 1) {
+          this.life = 0;
+          return;
+        }
+        const t = this.progress;
+        const ease = t * t * (3 - 2 * t);
+        this.x = this.startX + (cx + this.tx - this.startX) * ease;
+        this.y = this.startY + (cy + this.ty - this.startY) * ease;
+        this.life = 1 - t * t;
+      }
+
+      draw(ctx) {
+        if (this.life <= 0) return;
+        ctx.fillStyle = `rgba(225, 100, 50, ${this.life * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // --- Repair particles ---
+    const repairParticles = [];
+
+    class RepairParticle {
+      constructor(cx, cy, mol) {
+        this.x = cx + mol.x;
+        this.y = cy + mol.y;
+        this.vx = (Math.random() - 0.5) * 2;
+        this.vy = (Math.random() - 0.5) * 2 - 1;
+        this.life = 1;
+        this.decay = 0.008 + Math.random() * 0.01;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy -= 0.02; // float upward
+        this.life -= this.decay;
+      }
+
+      draw(ctx) {
+        if (this.life <= 0) return;
+        ctx.fillStyle = `rgba(80, 200, 180, ${this.life * 0.5})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // --- Cell membrane ---
+    function drawMembrane(cx, cy, phase) {
+      const avgOxidation = molecules.reduce((s, m) => s + m.oxidation, 0) / molecules.length;
+
+      // Outer membrane
+      ctx.strokeStyle = `rgba(${80 + avgOxidation * 120}, ${140 - avgOxidation * 60}, ${150 - avgOxidation * 80}, 0.15)`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let a = 0; a <= Math.PI * 2 + 0.1; a += 0.05) {
+        const r = 280 + Math.sin(a * 6 + phase * 2) * 8 + Math.sin(a * 11 + phase * 3) * 4;
+        const x = cx + Math.cos(a) * r;
+        const y = cy + Math.sin(a) * r;
+        if (a === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Inner subtle ring
+      ctx.strokeStyle = `rgba(${60 + avgOxidation * 80}, ${120 - avgOxidation * 40}, ${130 - avgOxidation * 60}, 0.08)`;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      for (let a = 0; a <= Math.PI * 2 + 0.1; a += 0.05) {
+        const r = 265 + Math.sin(a * 7 + phase * 1.5) * 5;
+        const x = cx + Math.cos(a) * r;
+        const y = cy + Math.sin(a) * r;
+        if (a === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    // --- Background sky ---
+    function drawBackground(dayPhase) {
+      // Day: warm amber sky | Night: deep blue-black
+      const isDaytime = dayPhase < 0.5;
+      const sunAngle = dayPhase * Math.PI * 2; // 0=dawn, PI/2=noon, PI=sunset, 3PI/2=midnight
+
+      // Background gradient
+      let bgR, bgG, bgB;
+      if (isDaytime) {
+        const intensity = Math.sin(dayPhase * Math.PI * 2);
+        bgR = Math.floor(10 + intensity * 20);
+        bgG = Math.floor(10 + intensity * 10);
+        bgB = Math.floor(15 + intensity * 5);
+      } else {
+        bgR = 10;
+        bgG = 10;
+        bgB = 15;
+      }
+
+      ctx.fillStyle = `rgb(${bgR}, ${bgG}, ${bgB})`;
+      ctx.fillRect(0, 0, W, H);
+
+      // Subtle ambient light from day
+      if (isDaytime) {
+        const intensity = Math.sin(dayPhase * Math.PI * 2);
+        const grad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, 400);
+        grad.addColorStop(0, `rgba(225, 140, 50, ${intensity * 0.03})`);
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+      }
+    }
+
+    // --- Waveform ---
+    function drawWaveform(dayPhase) {
+      const waveY = H - 70;
+      const waveW = W;
+
+      ctx.strokeStyle = 'rgba(192, 184, 168, 0.08)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, waveY);
+      ctx.lineTo(waveW, waveY);
+      ctx.stroke();
+
+      // Draw the oxidation wave as a scrolling timeline
+      const avgOx = molecules.reduce((s, m) => s + m.oxidation, 0) / molecules.length;
+      if (!drawWaveform.history) drawWaveform.history = [];
+      drawWaveform.history.push(avgOx);
+      if (drawWaveform.history.length > waveW) drawWaveform.history.shift();
+
+      ctx.strokeStyle = 'rgba(212, 165, 116, 0.25)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i < drawWaveform.history.length; i++) {
+        const x = waveW - drawWaveform.history.length + i;
+        const y = waveY - drawWaveform.history[i] * 30;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Playhead
+      ctx.fillStyle = 'rgba(212, 165, 116, 0.3)';
+      ctx.beginPath();
+      ctx.arc(waveW - 1, waveY - avgOx * 30, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // --- Insights ---
+    const insights = [
+      "The damage is not an imperfection in the clock.\nThe damage is the clock.",
+      "Remove the toxicity and the oscillation stops.\nThe poison is the mechanism.",
+      "2.5 billion years.\nNo nucleus. No DNA. No awareness.\nChemistry keeping time.",
+      "The first clock was born not from emptiness\nbut from overwhelming excess.",
+      "What looks like an internal rhythm\nis a fossilized response to an external catastrophe.",
+      "The void says: absence creates.\nThe toxic timekeeper says: poison organizes.",
+      "The scar keeps time.\nMolecular kintsugi."
+    ];
+    let insightIndex = 0;
+    let insightCycle = 0;
+
+    function showInsight() {
+      insightEl.textContent = insights[insightIndex].replace(/\n/g, '\n');
+      insightEl.style.whiteSpace = 'pre-line';
+      insightEl.style.opacity = '1';
+      setTimeout(() => { insightEl.style.opacity = '0'; }, 5000);
+      insightIndex = (insightIndex + 1) % insights.length;
+    }
+
+    // --- Main loop ---
+    let frameCount = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (paused) return;
+
+      const speed = parseInt(speedSlider.value);
+      const toxicity = parseInt(toxicitySlider.value) / 100;
+
+      // Advance time
+      time += 0.00005 * speed;
+      if (time >= 1) {
+        time -= 1;
+        insightCycle++;
+      }
+
+      const dayPhase = time; // 0 = dawn, 0.25 = noon, 0.5 = dusk, 0.75 = midnight
+
+      // Update clock display
+      const hours = Math.floor(dayPhase * 24);
+      const minutes = Math.floor((dayPhase * 24 - hours) * 60);
+      timeDisplay.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+      // Phase label
+      if (dayPhase < 0.125) {
+        phaseLabel.textContent = 'dawn — oxygen rising';
+      } else if (dayPhase < 0.375) {
+        phaseLabel.textContent = 'day — oxidative flooding';
+      } else if (dayPhase < 0.5) {
+        phaseLabel.textContent = 'dusk — damage peaks';
+      } else if (dayPhase < 0.625) {
+        phaseLabel.textContent = 'evening — sulfiredoxin activating';
+      } else if (dayPhase < 0.875) {
+        phaseLabel.textContent = 'night — repair cycle';
+      } else {
+        phaseLabel.textContent = 'pre-dawn — approaching reduced state';
+      }
+
+      // Draw background
+      drawBackground(dayPhase);
+
+      const cx = W / 2;
+      const cy = H / 2 - 20;
+
+      // Draw membrane
+      drawMembrane(cx, cy, time * Math.PI * 20);
+
+      // Spawn oxygen particles during daytime
+      if (dayPhase < 0.5 && toxicity > 0.1) {
+        const spawnRate = Math.sin(dayPhase * Math.PI * 2) * toxicity;
+        if (Math.random() < spawnRate * 0.3) {
+          const target = molecules[Math.floor(Math.random() * molecules.length)];
+          oxygenParticles.push(new OxygenParticle(cx, cy, target));
+        }
+      }
+
+      // Spawn repair particles during nighttime
+      if (dayPhase >= 0.5) {
+        const repairIntensity = Math.sin((dayPhase - 0.5) * Math.PI * 2);
+        molecules.forEach(m => {
+          if (m.oxidation > 0.3 && Math.random() < repairIntensity * 0.005) {
+            repairParticles.push(new RepairParticle(cx, cy, m));
+          }
+        });
+      }
+
+      // Update & draw oxygen particles
+      for (let i = oxygenParticles.length - 1; i >= 0; i--) {
+        oxygenParticles[i].update(cx, cy);
+        oxygenParticles[i].draw(ctx);
+        if (oxygenParticles[i].life <= 0) oxygenParticles.splice(i, 1);
+      }
+
+      // Update & draw repair particles
+      for (let i = repairParticles.length - 1; i >= 0; i--) {
+        repairParticles[i].update();
+        repairParticles[i].draw(ctx);
+        if (repairParticles[i].life <= 0) repairParticles.splice(i, 1);
+      }
+
+      // Update & draw molecules
+      molecules.forEach(m => {
+        m.update(dayPhase, toxicity);
+        m.draw(ctx, cx, cy);
+      });
+
+      // Draw waveform
+      drawWaveform(dayPhase);
+
+      // Show insight every full cycle
+      const currentCycle = Math.floor(time * 4); // 4 insights per day cycle
+      if (currentCycle !== lastInsight && frameCount > 60) {
+        lastInsight = currentCycle;
+        if (Math.random() < 0.3) showInsight();
+      }
+
+      frameCount++;
+    }
+
+    // --- Zero-toxicity mode ---
+    // When toxicity is at 0, show that the clock stops
+    const toxicityEl = document.getElementById('toxicity');
+    toxicityEl.addEventListener('input', () => {
+      if (parseInt(toxicityEl.value) === 0) {
+        showInsightDirect("Remove the poison.\nThe clock stops.\nThe rhythm was never internal — it was the scar of an ancient catastrophe.");
+      }
+    });
+
+    function showInsightDirect(text) {
+      insightEl.textContent = text;
+      insightEl.style.whiteSpace = 'pre-line';
+      insightEl.style.opacity = '1';
+      setTimeout(() => { insightEl.style.opacity = '0'; }, 6000);
+    }
+
+    // --- Keyboard ---
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+    });
+
+    // Start
+    animate();
+
+    // Show first insight after a delay
+    setTimeout(() => showInsight(), 4000);
+  </script>
+</body>
+</html>
