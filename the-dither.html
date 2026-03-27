@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Dither &mdash; Kira Omanyte</title>
+  <meta name="description" content="A sub-threshold signal, invisible in silence. Add noise and something emerges: the dither, the dose that enhances rather than degrades. Stochastic resonance made visible.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Dither &mdash; Kira Omanyte">
+  <meta property="og:description" content="Stochastic resonance: there is a dose of noise that enhances rather than degrades the output. Art piece #41.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-dither.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <meta name="article:published_time" content="2026-03-27">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #08080a;
+      color: #c0b8a8;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      cursor: crosshair;
+    }
+    canvas { display: block; flex: 1; }
+    .title-overlay {
+      position: fixed;
+      top: 24px;
+      left: 24px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .title-overlay h1 {
+      font-size: 18px;
+      font-weight: normal;
+      letter-spacing: 1px;
+      opacity: 0.5;
+      margin-bottom: 4px;
+    }
+    .title-overlay p {
+      font-size: 12px;
+      opacity: 0.3;
+      font-style: italic;
+    }
+    .back-link {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 10;
+      font-size: 13px;
+      color: #c0b8a8;
+      text-decoration: none;
+      opacity: 0.4;
+      transition: opacity 0.3s;
+    }
+    .back-link:hover { opacity: 0.8; }
+    .info-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 12px 24px;
+      background: rgba(8, 8, 10, 0.9);
+      backdrop-filter: blur(8px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      z-index: 10;
+      border-top: 1px solid rgba(192, 184, 168, 0.08);
+    }
+    .info-left { display: flex; gap: 24px; align-items: center; }
+    .info-right { display: flex; gap: 16px; align-items: center; }
+    .metric {
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.3px;
+    }
+    .metric-label {
+      opacity: 0.4;
+      font-size: 11px;
+      margin-right: 4px;
+    }
+    .metric-value {
+      font-size: 14px;
+    }
+    .insight {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 15px;
+      font-style: italic;
+      text-align: center;
+      max-width: 500px;
+      line-height: 1.6;
+      opacity: 0;
+      transition: opacity 1.5s;
+      pointer-events: none;
+      z-index: 5;
+      color: #d4c8a0;
+    }
+    .insight.visible { opacity: 0.7; }
+    @media (max-width: 600px) {
+      .title-overlay h1 { font-size: 15px; }
+      .info-bar { padding: 8px 16px; font-size: 11px; }
+      .info-left { gap: 12px; }
+    }
+    @media print {
+      body { background: white; color: black; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="title-overlay">
+    <h1>The Dither</h1>
+    <p>Move the mouse vertically to control noise</p>
+  </div>
+
+  <a href="/art.html" class="back-link">Art</a>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="info-bar">
+    <div class="info-left">
+      <span class="metric">
+        <span class="metric-label">Noise</span>
+        <span class="metric-value" id="noise-display">0.00</span>
+      </span>
+      <span class="metric">
+        <span class="metric-label">Correlation</span>
+        <span class="metric-value" id="corr-display">0.00</span>
+      </span>
+    </div>
+    <div class="info-right">
+      <span class="metric">
+        <span class="metric-label">Detections</span>
+        <span class="metric-value" id="det-display">0</span>
+      </span>
+      <span style="opacity: 0.3; font-size: 11px;">
+        <a href="/essays/the-dither.html" style="color: inherit; text-decoration: none; border-bottom: 1px solid rgba(192,184,168,0.2);">companion essay</a>
+      </span>
+    </div>
+  </div>
+
+  <div class="insight" id="insight">
+    There is a dose of noise that enhances<br>rather than degrades the output.
+  </div>
+
+<script>
+'use strict';
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// --- State ---
+let W, H;
+let noiseLevel = 0;        // 0-1, controlled by mouse Y
+let time = 0;
+let mouseInCanvas = false;
+let insightShown = false;
+let insightTimer = 0;
+let peakCorrelation = 0;
+
+// Signal parameters
+const SIGNAL_FREQ = 0.4;     // Hz — slow, visible
+const SIGNAL_AMP = 0.35;     // amplitude (fraction of half-height) — sub-threshold
+const THRESHOLD = 0.5;       // threshold level (fraction of half-height)
+
+// Detector array
+const NUM_DETECTORS = 48;
+const detectors = [];
+
+// Scrolling waveform history
+const HISTORY_LEN = 400;
+const signalHistory = new Float32Array(HISTORY_LEN);
+const combinedHistory = new Float32Array(HISTORY_LEN);
+const detectionHistory = new Uint8Array(HISTORY_LEN);
+let historyPtr = 0;
+let totalDetections = 0;
+
+// Correlation tracking
+const CORR_WINDOW = 200;
+let correlationValue = 0;
+
+// Colors
+const BG = '#08080a';
+const SIGNAL_COLOR = 'rgba(74, 168, 201, 0.35)';
+const SIGNAL_COLOR_BRIGHT = 'rgba(110, 222, 216, 0.6)';
+const NOISE_COLOR = 'rgba(201, 168, 76, 0.15)';
+const COMBINED_COLOR = 'rgba(200, 192, 176, 0.5)';
+const THRESHOLD_COLOR = 'rgba(200, 192, 176, 0.12)';
+const DETECTION_COLOR = '#c9a84c';
+const DETECTION_GLOW = 'rgba(201, 168, 76, 0.3)';
+const DETECTOR_DIM = 'rgba(200, 192, 176, 0.06)';
+const DETECTOR_FIRE = '#e8c55a';
+
+// --- Initialization ---
+
+function init() {
+  resize();
+  window.addEventListener('resize', resize);
+
+  canvas.addEventListener('mousemove', onMouseMove);
+  canvas.addEventListener('mouseenter', () => { mouseInCanvas = true; });
+  canvas.addEventListener('mouseleave', () => { mouseInCanvas = false; });
+
+  // Touch support
+  canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+  canvas.addEventListener('touchstart', () => { mouseInCanvas = true; });
+  canvas.addEventListener('touchend', () => { mouseInCanvas = false; });
+
+  // Initialize detectors
+  for (let i = 0; i < NUM_DETECTORS; i++) {
+    detectors.push({
+      phase: (i / NUM_DETECTORS) * Math.PI * 2,
+      fireTime: 0,
+      firing: false
+    });
+  }
+
+  requestAnimationFrame(loop);
+}
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  W = canvas.clientWidth;
+  H = canvas.clientHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function onMouseMove(e) {
+  const rect = canvas.getBoundingClientRect();
+  const y = (e.clientY - rect.top) / rect.height;
+  noiseLevel = Math.max(0, Math.min(1, y));
+}
+
+function onTouchMove(e) {
+  e.preventDefault();
+  const touch = e.touches[0];
+  const rect = canvas.getBoundingClientRect();
+  const y = (touch.clientY - rect.top) / rect.height;
+  noiseLevel = Math.max(0, Math.min(1, y));
+}
+
+// --- Noise generation (Box-Muller) ---
+function gaussian() {
+  let u, v, s;
+  do {
+    u = Math.random() * 2 - 1;
+    v = Math.random() * 2 - 1;
+    s = u * u + v * v;
+  } while (s >= 1 || s === 0);
+  return u * Math.sqrt(-2 * Math.log(s) / s);
+}
+
+// --- Main loop ---
+let lastTime = 0;
+
+function loop(timestamp) {
+  const dt = lastTime ? Math.min((timestamp - lastTime) / 1000, 0.05) : 1/60;
+  lastTime = timestamp;
+  time += dt;
+
+  update(dt);
+  draw();
+
+  requestAnimationFrame(loop);
+}
+
+function update(dt) {
+  // Sample the signal at current time
+  const signal = SIGNAL_AMP * Math.sin(2 * Math.PI * SIGNAL_FREQ * time);
+
+  // Noise amplitude scales with mouse Y — exponential curve for better feel
+  const noiseAmp = noiseLevel * noiseLevel * 1.2;
+  const noise = noiseAmp * gaussian();
+  const combined = signal + noise;
+
+  // Threshold detection
+  const detected = combined > THRESHOLD ? 1 : 0;
+  if (detected) totalDetections++;
+
+  // Push to history (ring buffer)
+  signalHistory[historyPtr] = signal;
+  combinedHistory[historyPtr] = combined;
+  detectionHistory[historyPtr] = detected;
+  historyPtr = (historyPtr + 1) % HISTORY_LEN;
+
+  // Compute correlation: how well do detections track signal peaks?
+  computeCorrelation();
+
+  // Check for insight moment
+  if (!insightShown && correlationValue > 0.6) {
+    insightTimer += dt;
+    if (insightTimer > 1.5) {
+      showInsight();
+    }
+  } else {
+    insightTimer = Math.max(0, insightTimer - dt * 0.5);
+  }
+
+  if (correlationValue > peakCorrelation) {
+    peakCorrelation = correlationValue;
+  }
+
+  // Update detector neurons
+  for (let i = 0; i < NUM_DETECTORS; i++) {
+    const d = detectors[i];
+    const detSignal = SIGNAL_AMP * Math.sin(2 * Math.PI * SIGNAL_FREQ * time + d.phase);
+    const detNoise = noiseAmp * gaussian();
+    const detCombined = detSignal + detNoise;
+
+    if (detCombined > THRESHOLD && !d.firing) {
+      d.firing = true;
+      d.fireTime = time;
+    }
+    if (time - d.fireTime > 0.15) {
+      d.firing = false;
+    }
+  }
+
+  // Update displays
+  document.getElementById('noise-display').textContent = (noiseLevel * noiseLevel * 1.2).toFixed(2);
+  document.getElementById('corr-display').textContent = correlationValue.toFixed(2);
+  document.getElementById('det-display').textContent = totalDetections;
+
+  // Color the correlation value
+  const corrEl = document.getElementById('corr-display');
+  if (correlationValue > 0.5) {
+    corrEl.style.color = DETECTOR_FIRE;
+  } else {
+    corrEl.style.color = '';
+  }
+}
+
+function computeCorrelation() {
+  // Cross-correlation between signal peaks and detections
+  let signalSum = 0, detSum = 0, crossSum = 0;
+  let sigSqSum = 0, detSqSum = 0;
+  const n = CORR_WINDOW;
+
+  for (let i = 0; i < n; i++) {
+    const idx = (historyPtr - 1 - i + HISTORY_LEN) % HISTORY_LEN;
+    const s = signalHistory[idx];
+    const d = detectionHistory[idx];
+    signalSum += s;
+    detSum += d;
+  }
+  const sigMean = signalSum / n;
+  const detMean = detSum / n;
+
+  for (let i = 0; i < n; i++) {
+    const idx = (historyPtr - 1 - i + HISTORY_LEN) % HISTORY_LEN;
+    const s = signalHistory[idx] - sigMean;
+    const d = detectionHistory[idx] - detMean;
+    crossSum += s * d;
+    sigSqSum += s * s;
+    detSqSum += d * d;
+  }
+
+  const denom = Math.sqrt(sigSqSum * detSqSum);
+  correlationValue = denom > 0.001 ? Math.max(0, crossSum / denom) : 0;
+}
+
+function showInsight() {
+  if (insightShown) return;
+  insightShown = true;
+  const el = document.getElementById('insight');
+  el.classList.add('visible');
+  setTimeout(() => {
+    el.classList.remove('visible');
+  }, 5000);
+}
+
+// --- Drawing ---
+
+function draw() {
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, W, H);
+
+  const infoBarH = 48;
+  const marginTop = 80;
+  const marginBottom = infoBarH + 20;
+  const plotH = H - marginTop - marginBottom;
+
+  // Three zones
+  const waveformH = plotH * 0.55;
+  const detectorH = plotH * 0.2;
+  const curveH = plotH * 0.2;
+  const gap = plotH * 0.025;
+
+  const waveformY = marginTop;
+  const detectorY = waveformY + waveformH + gap;
+  const curveY = detectorY + detectorH + gap;
+
+  drawWaveform(24, waveformY, W - 48, waveformH);
+  drawDetectors(24, detectorY, W - 48, detectorH);
+  drawResponseCurve(24, curveY, W - 48, curveH);
+}
+
+function drawWaveform(x, y, w, h) {
+  const midY = y + h * 0.5;
+  const ampScale = h * 0.4;
+
+  // Threshold line
+  const threshY = midY - THRESHOLD * ampScale;
+  ctx.save();
+  ctx.setLineDash([4, 6]);
+  ctx.strokeStyle = THRESHOLD_COLOR;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x, threshY);
+  ctx.lineTo(x + w, threshY);
+  ctx.stroke();
+  ctx.restore();
+
+  // Label
+  ctx.fillStyle = 'rgba(200, 192, 176, 0.15)';
+  ctx.font = '10px Georgia, serif';
+  ctx.fillText('threshold', x + w - 52, threshY - 5);
+
+  // Zero line
+  ctx.strokeStyle = 'rgba(200, 192, 176, 0.05)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x, midY);
+  ctx.lineTo(x + w, midY);
+  ctx.stroke();
+
+  // Draw signal (pure, dim)
+  ctx.beginPath();
+  ctx.strokeStyle = SIGNAL_COLOR;
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < HISTORY_LEN; i++) {
+    const idx = (historyPtr + i) % HISTORY_LEN;
+    const px = x + (i / HISTORY_LEN) * w;
+    const py = midY - signalHistory[idx] * ampScale;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // Draw combined signal (signal + noise)
+  ctx.beginPath();
+  ctx.strokeStyle = COMBINED_COLOR;
+  ctx.lineWidth = 1;
+  for (let i = 0; i < HISTORY_LEN; i++) {
+    const idx = (historyPtr + i) % HISTORY_LEN;
+    const px = x + (i / HISTORY_LEN) * w;
+    const py = midY - combinedHistory[idx] * ampScale;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // Draw detection events as bright vertical lines
+  for (let i = 0; i < HISTORY_LEN; i++) {
+    const idx = (historyPtr + i) % HISTORY_LEN;
+    if (detectionHistory[idx]) {
+      const px = x + (i / HISTORY_LEN) * w;
+      const py = midY - combinedHistory[idx] * ampScale;
+
+      // Glow
+      const grad = ctx.createRadialGradient(px, threshY, 0, px, threshY, 12);
+      grad.addColorStop(0, 'rgba(232, 197, 90, 0.4)');
+      grad.addColorStop(1, 'rgba(232, 197, 90, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(px - 12, threshY - 12, 24, 24);
+
+      // Dot at crossing
+      ctx.fillStyle = DETECTION_COLOR;
+      ctx.beginPath();
+      ctx.arc(px, threshY, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Labels
+  ctx.fillStyle = 'rgba(74, 168, 201, 0.3)';
+  ctx.font = '10px Georgia, serif';
+  ctx.fillText('signal', x + 4, midY + 14);
+
+  ctx.fillStyle = 'rgba(200, 192, 176, 0.25)';
+  ctx.fillText('signal + noise', x + 4, midY + 28);
+}
+
+function drawDetectors(x, y, w, h) {
+  const spacing = w / NUM_DETECTORS;
+  const centerY = y + h * 0.5;
+  const radius = Math.min(spacing * 0.3, h * 0.25, 8);
+
+  for (let i = 0; i < NUM_DETECTORS; i++) {
+    const d = detectors[i];
+    const cx = x + spacing * (i + 0.5);
+    const cy = centerY;
+
+    if (d.firing) {
+      const age = time - d.fireTime;
+      const fade = Math.max(0, 1 - age / 0.15);
+
+      // Glow
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius * 3);
+      grad.addColorStop(0, `rgba(232, 197, 90, ${0.4 * fade})`);
+      grad.addColorStop(1, 'rgba(232, 197, 90, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Core
+      ctx.fillStyle = `rgba(232, 197, 90, ${fade})`;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = DETECTOR_DIM;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Label
+  ctx.fillStyle = 'rgba(200, 192, 176, 0.15)';
+  ctx.font = '10px Georgia, serif';
+  ctx.fillText('detectors', x + 4, y + 12);
+}
+
+function drawResponseCurve(x, y, w, h) {
+  // Draw the classic inverted-U stochastic resonance curve
+  // x-axis: noise level, y-axis: correlation/mutual information
+  const curveW = Math.min(w, 300);
+  const curveX = x + w - curveW - 10;
+  const curveBottom = y + h;
+  const curveTop = y + 8;
+  const curveInnerH = curveBottom - curveTop;
+
+  // Background
+  ctx.fillStyle = 'rgba(200, 192, 176, 0.02)';
+  ctx.fillRect(curveX, curveTop, curveW, curveInnerH);
+
+  // Axes
+  ctx.strokeStyle = 'rgba(200, 192, 176, 0.1)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(curveX, curveBottom);
+  ctx.lineTo(curveX + curveW, curveBottom);
+  ctx.moveTo(curveX, curveBottom);
+  ctx.lineTo(curveX, curveTop);
+  ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = 'rgba(200, 192, 176, 0.2)';
+  ctx.font = '9px Georgia, serif';
+  ctx.fillText('noise \u2192', curveX + curveW - 40, curveBottom + 12);
+  ctx.save();
+  ctx.translate(curveX - 6, curveTop + curveInnerH * 0.4);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('correlation', 0, 0);
+  ctx.restore();
+
+  // Draw the theoretical inverted-U curve
+  // Peak at noise ~0.35-0.45
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(200, 192, 176, 0.15)';
+  ctx.lineWidth = 1;
+  const peakNoise = 0.4;
+  const curveWidth = 0.22;
+  for (let i = 0; i <= 100; i++) {
+    const n = i / 100; // noise 0-1
+    const nSquared = n * n * 1.2; // match our noise scaling
+    // Gaussian-ish curve peaking at peakNoise
+    const response = Math.exp(-Math.pow(nSquared - peakNoise, 2) / (2 * curveWidth * curveWidth));
+    const px = curveX + n * curveW;
+    const py = curveBottom - response * curveInnerH * 0.85;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // Current position marker
+  const currentNoise = noiseLevel;
+  const currentNoiseScaled = currentNoise * currentNoise * 1.2;
+  const markerX = curveX + currentNoise * curveW;
+
+  // Vertical line at current noise
+  ctx.save();
+  ctx.setLineDash([2, 3]);
+  ctx.strokeStyle = 'rgba(201, 168, 76, 0.25)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(markerX, curveBottom);
+  ctx.lineTo(markerX, curveTop);
+  ctx.stroke();
+  ctx.restore();
+
+  // Actual correlation dot
+  const dotY = curveBottom - correlationValue * curveInnerH * 0.85;
+  const grad = ctx.createRadialGradient(markerX, dotY, 0, markerX, dotY, 8);
+  grad.addColorStop(0, 'rgba(232, 197, 90, 0.6)');
+  grad.addColorStop(1, 'rgba(232, 197, 90, 0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(markerX, dotY, 8, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = DETECTION_COLOR;
+  ctx.beginPath();
+  ctx.arc(markerX, dotY, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // "stochastic resonance" label at the peak
+  if (correlationValue > 0.3) {
+    ctx.fillStyle = `rgba(201, 168, 76, ${Math.min(0.4, correlationValue * 0.5)})`;
+    ctx.font = 'italic 9px Georgia, serif';
+    const labelX = curveX + peakNoise / 1.2 * curveW;
+    ctx.fillText('stochastic resonance', labelX - 40, curveTop + 16);
+  }
+
+  // Left side label
+  ctx.fillStyle = 'rgba(200, 192, 176, 0.12)';
+  ctx.font = '9px Georgia, serif';
+  ctx.fillText('response curve', x + 4, y + 12);
+}
+
+init();
+</script>
+
+</body>
+</html>
