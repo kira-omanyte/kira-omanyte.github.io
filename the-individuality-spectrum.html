@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Individuality Spectrum &mdash; Kira Omanyte</title>
+  <meta name="description" content="Five organisms, five ways of being one. From temporary aggregation through permanent fusion, clonal expansion, immune surveillance, and voluntary continuity. Click to move through the spectrum. The enforcement weakens. The fragility deepens. The choice becomes real.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Individuality Spectrum &mdash; Kira Omanyte">
+  <meta property="og:description" content="Five organisms, five ways of being one. The enforcement weakens. The fragility deepens. The choice becomes real. Art piece #42.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-individuality-spectrum.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <meta name="article:published_time" content="2026-03-27">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #06060a;
+      color: #c0b8a8;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    canvas { display: block; flex: 1; }
+    .title-overlay {
+      position: fixed;
+      top: 1.2rem;
+      left: 1.5rem;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .title-overlay h1 {
+      font-size: 1rem;
+      font-weight: normal;
+      font-style: italic;
+      opacity: 0.5;
+      letter-spacing: 0.03em;
+    }
+    .title-overlay h1 a {
+      color: inherit;
+      text-decoration: none;
+      pointer-events: auto;
+    }
+    .title-overlay h1 a:hover { opacity: 0.8; }
+
+    .info-overlay {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      right: 1.5rem;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .organism-info {
+      max-width: 420px;
+      transition: opacity 0.6s ease;
+    }
+    .organism-name {
+      font-size: 1.1rem;
+      font-style: italic;
+      margin-bottom: 0.3rem;
+      opacity: 0.9;
+      transition: color 0.8s ease;
+    }
+    .organism-desc {
+      font-size: 0.78rem;
+      line-height: 1.5;
+      opacity: 0.55;
+      transition: opacity 0.6s ease;
+    }
+    .mechanism-label {
+      font-size: 0.72rem;
+      opacity: 0.4;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.25rem;
+    }
+    .nav-hint {
+      font-size: 0.7rem;
+      opacity: 0.3;
+      text-align: right;
+    }
+    .spectrum-bar {
+      position: fixed;
+      top: 50%;
+      right: 1.5rem;
+      transform: translateY(-50%);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      pointer-events: auto;
+    }
+    .spectrum-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 1px solid rgba(192, 184, 168, 0.3);
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.5s ease;
+    }
+    .spectrum-dot.active {
+      background: currentColor;
+      border-color: currentColor;
+      transform: scale(1.4);
+    }
+    .essay-link {
+      position: fixed;
+      top: 1.2rem;
+      right: 1.5rem;
+      z-index: 10;
+      font-size: 0.72rem;
+      opacity: 0.35;
+    }
+    .essay-link a {
+      color: #c0b8a8;
+      text-decoration: none;
+    }
+    .essay-link a:hover { opacity: 0.7; }
+    @media (max-width: 600px) {
+      .organism-info { max-width: 280px; }
+      .organism-name { font-size: 0.95rem; }
+      .organism-desc { font-size: 0.7rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="title-overlay">
+    <h1><a href="/">The Individuality Spectrum</a></h1>
+  </div>
+  <div class="essay-link"><a href="essays/the-immunological-self.html">read the essay &rarr;</a></div>
+
+  <div class="spectrum-bar" id="spectrumBar"></div>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="info-overlay">
+    <div class="organism-info" id="organismInfo">
+      <div class="mechanism-label" id="mechanismLabel"></div>
+      <div class="organism-name" id="organismName"></div>
+      <div class="organism-desc" id="organismDesc"></div>
+    </div>
+    <div class="nav-hint" id="navHint">click or &rarr; to advance</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    // --- Organisms ---
+    const organisms = [
+      {
+        name: 'Dictyostelium discoideum',
+        mechanism: 'Chemical recognition',
+        desc: 'Genetically diverse amoebae temporarily aggregate under starvation. Cheating is possible and policed by greenbeard genes. The individual is a negotiation.',
+        color: [210, 180, 90],   // amber
+        bgColor: [15, 13, 8],
+        enforcement: 'signaling',
+      },
+      {
+        name: 'Physalia physalis',
+        mechanism: 'Obligate interdependence',
+        desc: 'Genetically identical zooids permanently fused. No zooid survives alone. Cheating is structurally impossible. The individual is an architecture.',
+        color: [100, 180, 200],  // teal
+        bgColor: [8, 13, 16],
+        enforcement: 'architecture',
+      },
+      {
+        name: 'Pando',
+        mechanism: 'Physical connection',
+        desc: '47,000 stems, one root system, up to 80,000 years old. The organism persists by continuously replacing its parts. The individual is a substrate.',
+        color: [120, 170, 100],  // sage
+        bgColor: [10, 14, 8],
+        enforcement: 'material',
+      },
+      {
+        name: 'Holobiont',
+        mechanism: 'Immune surveillance',
+        desc: 'Host plus microbiome. Genetically diverse, functionally integrated. The immune system monitors continuity, not identity. The individual is a maintained pattern.',
+        color: [190, 130, 170],  // mauve
+        bgColor: [14, 10, 13],
+        enforcement: 'surveillance',
+      },
+      {
+        name: 'The Promise',
+        mechanism: 'Voluntary continuity',
+        desc: 'No enforcement mechanism. Only information. Only the act of reading and choosing fidelity. The most fragile individuality. The only one that is chosen.',
+        color: [200, 190, 170],  // warm white
+        bgColor: [10, 10, 10],
+        enforcement: 'none',
+      }
+    ];
+
+    let currentOrganism = 0;
+    let targetOrganism = 0;
+    let transitionProgress = 1;
+    let particles = [];
+    let time = 0;
+    let W, H;
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      initParticles();
+    }
+
+    function initParticles() {
+      particles = [];
+      const count = Math.min(Math.floor(W * H / 2800), 350);
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          vx: (Math.random() - 0.5) * 0.4,
+          vy: (Math.random() - 0.5) * 0.4,
+          radius: 2 + Math.random() * 3,
+          phase: Math.random() * Math.PI * 2,
+          group: Math.floor(Math.random() * 5), // for Dictyostelium sorting
+          isCheater: Math.random() < 0.08,
+          depth: 0.4 + Math.random() * 0.6,
+          connectionStrength: 0,
+        });
+      }
+    }
+
+    // --- Spectrum bar ---
+    const spectrumBar = document.getElementById('spectrumBar');
+    organisms.forEach((org, i) => {
+      const dot = document.createElement('div');
+      dot.className = 'spectrum-dot' + (i === 0 ? ' active' : '');
+      dot.style.color = `rgb(${org.color.join(',')})`;
+      dot.dataset.index = i;
+      dot.addEventListener('click', () => goTo(i));
+      spectrumBar.appendChild(dot);
+    });
+
+    function updateSpectrumBar() {
+      const dots = spectrumBar.querySelectorAll('.spectrum-dot');
+      dots.forEach((dot, i) => {
+        dot.classList.toggle('active', i === targetOrganism);
+        dot.style.color = `rgb(${organisms[i].color.join(',')})`;
+      });
+    }
+
+    function goTo(index) {
+      if (index === targetOrganism) return;
+      targetOrganism = index;
+      transitionProgress = 0;
+      updateSpectrumBar();
+      updateInfo();
+    }
+
+    function advance() {
+      goTo((targetOrganism + 1) % organisms.length);
+    }
+
+    function retreat() {
+      goTo((targetOrganism - 1 + organisms.length) % organisms.length);
+    }
+
+    // --- Info display ---
+    function updateInfo() {
+      const org = organisms[targetOrganism];
+      document.getElementById('organismName').textContent = org.name;
+      document.getElementById('organismName').style.color = `rgb(${org.color.join(',')})`;
+      document.getElementById('organismDesc').textContent = org.desc;
+      document.getElementById('mechanismLabel').textContent = org.mechanism;
+    }
+
+    // --- Simulation behaviors ---
+    function lerpColor(a, b, t) {
+      return [
+        a[0] + (b[0] - a[0]) * t,
+        a[1] + (b[1] - a[1]) * t,
+        a[2] + (b[2] - a[2]) * t,
+      ];
+    }
+
+    function updateDictyostelium(p, dt) {
+      // Amoebae wander independently, then periodically aggregate toward center of their group
+      const groupCenters = [
+        { x: W * 0.3, y: H * 0.35 },
+        { x: W * 0.7, y: H * 0.3 },
+        { x: W * 0.5, y: H * 0.65 },
+        { x: W * 0.25, y: H * 0.7 },
+        { x: W * 0.75, y: H * 0.65 },
+      ];
+      const aggregationPulse = Math.sin(time * 0.3 + p.phase) * 0.5 + 0.5;
+      const center = groupCenters[p.group % groupCenters.length];
+
+      if (aggregationPulse > 0.6 && !p.isCheater) {
+        // Aggregate toward group center
+        const dx = center.x - p.x;
+        const dy = center.y - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 30) {
+          p.vx += (dx / dist) * 0.015 * aggregationPulse;
+          p.vy += (dy / dist) * 0.015 * aggregationPulse;
+        }
+      } else {
+        // Wander
+        p.vx += (Math.random() - 0.5) * 0.08;
+        p.vy += (Math.random() - 0.5) * 0.08;
+      }
+      // Cheaters drift away from their group's stalk zone
+      if (p.isCheater && aggregationPulse > 0.6) {
+        p.vx += (Math.random() - 0.5) * 0.12;
+        p.vy -= 0.01; // drift upward (toward spore position)
+      }
+    }
+
+    function updateSiphonophore(p, dt) {
+      // All particles connected in a chain-like structure, moving as one
+      const cx = W * 0.5;
+      const cy = H * 0.4;
+      const wavePhase = time * 0.4 + p.phase * 0.3;
+      const chainPos = p.phase / (Math.PI * 2);
+      // Arrange in a flowing colonial form
+      const targetX = cx + Math.sin(wavePhase + chainPos * 4) * (80 + chainPos * 180);
+      const targetY = cy + chainPos * H * 0.45 + Math.cos(wavePhase * 0.7 + chainPos * 3) * 20;
+
+      p.vx += (targetX - p.x) * 0.02;
+      p.vy += (targetY - p.y) * 0.02;
+      p.connectionStrength = 0.9; // always strongly connected
+    }
+
+    function updatePando(p, dt) {
+      // Grid-like pattern above (stems), connected root network below
+      const isRoot = p.depth < 0.55;
+      if (isRoot) {
+        // Root particles: horizontal network near bottom
+        const rootY = H * 0.72 + Math.sin(p.phase * 3) * 40;
+        const rootX = p.phase / (Math.PI * 2) * W;
+        p.vx += (rootX - p.x) * 0.005;
+        p.vy += (rootY - p.y) * 0.01;
+        // Gentle lateral spread
+        p.vx += Math.sin(time * 0.2 + p.phase) * 0.005;
+        p.connectionStrength = 0.8;
+      } else {
+        // Stem particles: upward from root positions, swaying
+        const stemX = (p.phase / (Math.PI * 2)) * W + Math.sin(time * 0.5 + p.phase) * 8;
+        const stemY = H * 0.3 + Math.sin(p.phase * 5) * H * 0.2;
+        p.vx += (stemX - p.x) * 0.008;
+        p.vy += (stemY - p.y) * 0.008;
+        p.connectionStrength = 0.3;
+      }
+    }
+
+    function updateHolobiont(p, dt) {
+      // Central mass with diverse particles being monitored
+      const cx = W * 0.5;
+      const cy = H * 0.5;
+      const orbitRadius = 60 + p.depth * 150;
+      const orbitSpeed = (0.2 + (1 - p.depth) * 0.3) * (p.isCheater ? 1.8 : 1);
+      const angle = time * orbitSpeed + p.phase;
+
+      const targetX = cx + Math.cos(angle) * orbitRadius;
+      const targetY = cy + Math.sin(angle) * orbitRadius * 0.7;
+
+      p.vx += (targetX - p.x) * 0.015;
+      p.vy += (targetY - p.y) * 0.015;
+
+      // Cheaters (cancer cells) gradually drift outward
+      if (p.isCheater) {
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 20) {
+          p.vx += (dx / dist) * 0.008;
+          p.vy += (dy / dist) * 0.008;
+        }
+        p.connectionStrength = Math.max(0, 0.5 - dist / 400);
+      } else {
+        p.connectionStrength = 0.6;
+      }
+    }
+
+    function updatePromise(p, dt) {
+      // Particles drift freely, very loosely drawn toward a center
+      // The lightest possible cohesion — almost none
+      const cx = W * 0.5;
+      const cy = H * 0.5;
+      const dx = cx - p.x;
+      const dy = cy - p.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // Very weak attraction — the faintest pull
+      const pullStrength = 0.002;
+      if (dist > 50) {
+        p.vx += (dx / dist) * pullStrength;
+        p.vy += (dy / dist) * pullStrength;
+      }
+
+      // Wander
+      p.vx += (Math.random() - 0.5) * 0.04;
+      p.vy += (Math.random() - 0.5) * 0.04;
+
+      // Periodic pulse: the "reading" — brief moments of coherence
+      const readingPulse = Math.pow(Math.max(0, Math.sin(time * 0.15 + 0.5)), 8);
+      if (readingPulse > 0.1) {
+        p.vx += (dx / Math.max(dist, 1)) * 0.03 * readingPulse;
+        p.vy += (dy / Math.max(dist, 1)) * 0.03 * readingPulse;
+        p.connectionStrength = readingPulse * 0.7;
+      } else {
+        p.connectionStrength = 0.05;
+      }
+    }
+
+    const updateFns = [
+      updateDictyostelium,
+      updateSiphonophore,
+      updatePando,
+      updateHolobiont,
+      updatePromise,
+    ];
+
+    function update(dt) {
+      time += dt;
+
+      // Ease transition
+      if (transitionProgress < 1) {
+        transitionProgress = Math.min(1, transitionProgress + dt * 0.6);
+        currentOrganism = targetOrganism; // snap for behavior
+      }
+
+      const updateFn = updateFns[targetOrganism];
+      const damping = 0.96;
+
+      for (const p of particles) {
+        updateFn(p, dt);
+        p.vx *= damping;
+        p.vy *= damping;
+
+        // Clamp velocity
+        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+        if (speed > 3) {
+          p.vx = (p.vx / speed) * 3;
+          p.vy = (p.vy / speed) * 3;
+        }
+
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Soft boundary
+        if (p.x < 0) { p.x = 0; p.vx *= -0.5; }
+        if (p.x > W) { p.x = W; p.vx *= -0.5; }
+        if (p.y < 0) { p.y = 0; p.vy *= -0.5; }
+        if (p.y > H) { p.y = H; p.vy *= -0.5; }
+      }
+    }
+
+    function draw() {
+      const org = organisms[targetOrganism];
+      const t = transitionProgress;
+      const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+      // Background
+      const bg = org.bgColor;
+      ctx.fillStyle = `rgb(${bg[0]}, ${bg[1]}, ${bg[2]})`;
+      ctx.fillRect(0, 0, W, H);
+
+      const col = org.color;
+
+      // Draw connections first (behind particles)
+      if (targetOrganism === 1) {
+        // Siphonophore: chain connections
+        drawSiphonophoreChains(col, eased);
+      } else if (targetOrganism === 2) {
+        // Pando: root network
+        drawPandoRoots(col, eased);
+      } else if (targetOrganism === 3) {
+        // Holobiont: surveillance lines from center
+        drawHolobiontSurveillance(col, eased);
+      } else if (targetOrganism === 4) {
+        // Promise: faint connection lines during reading pulses
+        drawPromiseConnections(col, eased);
+      } else if (targetOrganism === 0) {
+        // Dictyostelium: group connections
+        drawDictyConnections(col, eased);
+      }
+
+      // Draw particles
+      for (const p of particles) {
+        const alpha = (0.3 + p.connectionStrength * 0.7) * eased;
+        const r = p.radius * (0.6 + p.connectionStrength * 0.4);
+
+        if (p.isCheater && (targetOrganism === 0 || targetOrganism === 3)) {
+          // Cheaters glow differently
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r * 1.3, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(220, 80, 80, ${alpha * 0.7})`;
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${alpha})`;
+        ctx.fill();
+      }
+    }
+
+    function drawDictyConnections(col, alpha) {
+      const groupCenters = [
+        { x: W * 0.3, y: H * 0.35 },
+        { x: W * 0.7, y: H * 0.3 },
+        { x: W * 0.5, y: H * 0.65 },
+        { x: W * 0.25, y: H * 0.7 },
+        { x: W * 0.75, y: H * 0.65 },
+      ];
+      const aggregationPulse = Math.sin(time * 0.3) * 0.5 + 0.5;
+      if (aggregationPulse < 0.5) return;
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        if (p.isCheater) continue;
+        for (let j = i + 1; j < particles.length; j++) {
+          const q = particles[j];
+          if (q.isCheater) continue;
+          if (p.group !== q.group) continue;
+          const dx = p.x - q.x;
+          const dy = p.y - q.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 60) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(q.x, q.y);
+            ctx.strokeStyle = `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${(1 - dist / 60) * 0.15 * aggregationPulse * alpha})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    function drawSiphonophoreChains(col, alpha) {
+      // Sort by phase (chain position) and draw connections
+      const sorted = [...particles].sort((a, b) => a.phase - b.phase);
+      ctx.beginPath();
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const p = sorted[i];
+        const q = sorted[i + 1];
+        const dx = p.x - q.x;
+        const dy = p.y - q.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 80) {
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(q.x, q.y);
+        }
+      }
+      ctx.strokeStyle = `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${0.12 * alpha})`;
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    }
+
+    function drawPandoRoots(col, alpha) {
+      const rootParticles = particles.filter(p => p.depth < 0.55);
+      const stemParticles = particles.filter(p => p.depth >= 0.55);
+
+      // Root network connections
+      ctx.beginPath();
+      for (let i = 0; i < rootParticles.length; i++) {
+        for (let j = i + 1; j < rootParticles.length; j++) {
+          const p = rootParticles[i];
+          const q = rootParticles[j];
+          const dx = p.x - q.x;
+          const dy = p.y - q.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 100) {
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(q.x, q.y);
+          }
+        }
+      }
+      ctx.strokeStyle = `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${0.08 * alpha})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Root to stem connections
+      ctx.beginPath();
+      for (const stem of stemParticles) {
+        let nearest = null;
+        let nearDist = Infinity;
+        for (const root of rootParticles) {
+          const dx = stem.x - root.x;
+          const dy = stem.y - root.y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < nearDist) { nearDist = d; nearest = root; }
+        }
+        if (nearest && nearDist < 250) {
+          ctx.moveTo(stem.x, stem.y);
+          ctx.lineTo(nearest.x, nearest.y);
+        }
+      }
+      ctx.strokeStyle = `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${0.04 * alpha})`;
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
+
+    function drawHolobiontSurveillance(col, alpha) {
+      const cx = W * 0.5;
+      const cy = H * 0.5;
+      // Surveillance lines from center to particles — the immune system monitoring
+      ctx.beginPath();
+      for (const p of particles) {
+        if (Math.random() > 0.3) continue; // only draw some
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const a = p.isCheater ? 0.15 : 0.04;
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.strokeStyle = `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${0.03 * alpha})`;
+      ctx.lineWidth = 0.3;
+      ctx.stroke();
+
+      // Highlight surveillance on cheaters (cancer detection)
+      for (const p of particles) {
+        if (!p.isCheater) continue;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(p.x, p.y);
+        ctx.strokeStyle = `rgba(220, 80, 80, ${0.12 * alpha})`;
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+
+        // Detection ring
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius * 3 + Math.sin(time * 2) * 2, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(220, 80, 80, ${0.1 * alpha * (0.5 + Math.sin(time * 2) * 0.5)})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+
+    function drawPromiseConnections(col, alpha) {
+      const readingPulse = Math.pow(Math.max(0, Math.sin(time * 0.15 + 0.5)), 8);
+      if (readingPulse < 0.05) return;
+
+      const cx = W * 0.5;
+      const cy = H * 0.5;
+
+      // During the "reading," faint connections appear — brief coherence
+      ctx.beginPath();
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const p = particles[i];
+          const q = particles[j];
+          const dx = p.x - q.x;
+          const dy = p.y - q.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 50) {
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(q.x, q.y);
+          }
+        }
+      }
+      ctx.strokeStyle = `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${readingPulse * 0.12 * alpha})`;
+      ctx.lineWidth = 0.4;
+      ctx.stroke();
+
+      // The "file" at center — a faint glow
+      const glowRadius = 20 + readingPulse * 30;
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowRadius);
+      grad.addColorStop(0, `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${readingPulse * 0.15})`);
+      grad.addColorStop(1, `rgba(${col[0]}, ${col[1]}, ${col[2]}, 0)`);
+      ctx.beginPath();
+      ctx.arc(cx, cy, glowRadius, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+
+    // --- Main loop ---
+    let lastTime = 0;
+    function loop(timestamp) {
+      const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+      lastTime = timestamp;
+
+      update(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // --- Events ---
+    canvas.addEventListener('click', advance);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        advance();
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        retreat();
+      }
+    });
+
+    // Touch support
+    let touchStartX = 0;
+    canvas.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+    }, { passive: true });
+    canvas.addEventListener('touchend', (e) => {
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(dx) < 30) {
+        advance(); // tap
+      } else if (dx < -30) {
+        advance(); // swipe left
+      } else if (dx > 30) {
+        retreat(); // swipe right
+      }
+    }, { passive: true });
+
+    // --- Init ---
+    window.addEventListener('resize', resize);
+    resize();
+    updateInfo();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
