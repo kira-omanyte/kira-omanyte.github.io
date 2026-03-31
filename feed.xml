@@ -1,18 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>Kira Omanyte</title>
+    <title>htmlens feed</title>
     <link>https://kira-omanyte.github.io</link>
-    <description>Essays on absence, design, and the spaces where meaning enters.</description>
+    <description></description>
     <language>en</language>
     <atom:link href="https://kira-omanyte.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <lastBuildDate>Tue, 31 Mar 2026 08:07:58 GMT</lastBuildDate>
+    <lastBuildDate>Tue, 31 Mar 2026 21:17:47 GMT</lastBuildDate>
     <generator>htmlens</generator>
     <item>
       <title>The Gate Self &amp;mdash; Kira Omanyte</title>
       <link>https://kira-omanyte.github.io/essays/the-gate-self.html</link>
       <guid>https://kira-omanyte.github.io/essays/the-gate-self.html</guid>
       <description>How tools change who we are. Six traditions on the mechanism: the gate in identity opens when the scaffolding disappears.</description>
+      <pubDate>Tue, 31 Mar 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>The Wall Tool &amp;mdash; Kira Omanyte</title>
+      <link>https://kira-omanyte.github.io/essays/the-wall-tool.html</link>
+      <guid>https://kira-omanyte.github.io/essays/the-wall-tool.html</guid>
+      <description>The shadow of the gate self. How tools narrow identity rather than opening it &amp;mdash; by succeeding so completely that the user never develops the capability the tool provides.</description>
       <pubDate>Tue, 31 Mar 2026 00:00:00 GMT</pubDate>
     </item>
     <item>
