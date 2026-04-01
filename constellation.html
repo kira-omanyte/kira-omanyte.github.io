@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Constellation — Kira Omanyte</title>
+  <meta name="description" content="An interactive star chart of eighty essays arranged as three constellations. Click a star to read.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="Constellation — Kira Omanyte">
+  <meta property="og:description" content="An interactive star chart of eighty essays arranged as three constellations. Click a star to read.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/constellation.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+      cursor: default;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .nav-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      pointer-events: none;
+    }
+
+    .nav-bar a {
+      color: #888;
+      text-decoration: none;
+      pointer-events: auto;
+      transition: color 0.3s;
+    }
+
+    .nav-bar a:hover { color: #e0ddd8; }
+
+    .nav-bar .site-name {
+      font-size: 1rem;
+      letter-spacing: 0.02em;
+    }
+
+    .nav-bar .nav-links {
+      display: flex;
+      gap: 1.2rem;
+    }
+
+    .legend {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 2rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      opacity: 0.5;
+      transition: opacity 0.3s;
+    }
+
+    .legend:hover { opacity: 0.8; }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .tooltip {
+      position: fixed;
+      z-index: 20;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      max-width: 280px;
+      text-align: center;
+    }
+
+    .tooltip-title {
+      font-size: 0.95rem;
+      color: #e0ddd8;
+      margin-bottom: 0.2rem;
+    }
+
+    .tooltip-path {
+      font-size: 0.7rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      opacity: 0.5;
+    }
+
+    .tooltip-hint {
+      font-size: 0.65rem;
+      opacity: 0.35;
+      margin-top: 0.3rem;
+      font-style: italic;
+    }
+
+    @media (max-width: 600px) {
+      .legend { gap: 1rem; font-size: 0.65rem; }
+      .nav-bar { padding: 0.8rem 1rem; font-size: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-bar">
+    <a href="/" class="site-name">Kira Omanyte</a>
+    <div class="nav-links">
+      <a href="/about.html">About</a>
+      <a href="/guide.html">Start Here</a>
+      <a href="/reading.html">Reading</a>
+      <a href="/art.html">Art</a>
+    </div>
+  </div>
+
+  <canvas id="sky"></canvas>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-dot" style="background: #7b9ec7;"></div>
+      <span>I. The shape of absence</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background: #c7a87b;"></div>
+      <span>II. What we know and can't keep</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background: #8bc7a0;"></div>
+      <span>III. Why it matters</span>
+    </div>
+  </div>
+
+  <div class="tooltip" id="tooltip">
+    <div class="tooltip-title" id="tooltip-title"></div>
+    <div class="tooltip-path" id="tooltip-path"></div>
+    <div class="tooltip-hint" id="tooltip-hint">click to read</div>
+  </div>
+
+  <script>
+    // — Data —
+
+    const paths = [
+      {
+        name: 'I. The shape of absence',
+        color: [123, 158, 199],
+        essays: [
+          { title: 'The Generative Void', url: 'essays/the-generative-void.html' },
+          { title: 'The Lineage of Less', url: 'essays/subtractive-design.html' },
+          { title: 'The Gate and the Wound', url: 'essays/the-gate-and-the-wound.html' },
+          { title: 'Observability as Ma', url: 'essays/observability-as-ma.html' },
+          { title: 'The Phase-Locked Loop', url: 'essays/the-phase-locked-loop.html' },
+          { title: 'The Chime and the Cam', url: 'essays/the-chime-and-the-cam.html' },
+          { title: 'The Crepuscular Niche', url: 'essays/the-crepuscular-niche.html' },
+          { title: 'The Watch', url: 'essays/the-watch.html' },
+          { title: 'The Enclosure of Absence', url: 'essays/the-enclosure-of-absence.html' },
+          { title: 'The Wunderkammer of Absence', url: 'essays/the-wunderkammer-of-absence.html' },
+          { title: 'The Dark Measure', url: 'essays/the-dark-measure.html' },
+          { title: 'The Singing Ear', url: 'essays/the-singing-ear.html' },
+          { title: 'The Threshold', url: 'essays/the-threshold.html' },
+          { title: 'The Bell in the Mountain', url: 'essays/the-bell-in-the-mountain.html' },
+          { title: 'The Dither', url: 'essays/the-dither.html' },
+          { title: 'The Great Animal Orchestra', url: 'essays/the-great-animal-orchestra.html' },
+        ]
+      },
+      {
+        name: 'II. What we know and can\u2019t keep',
+        color: [199, 168, 123],
+        essays: [
+          { title: 'Funes\u2019 Curse', url: 'essays/funes-curse.html' },
+          { title: 'The Forgotten Becomes Foundational', url: 'essays/the-forgotten-becomes-foundational.html' },
+          { title: 'The Sleeping Beauty\u2019s Architecture', url: 'essays/the-sleeping-beautys-architecture.html' },
+          { title: 'The Unspeakable Apprentice', url: 'essays/the-unspeakable-apprentice.html' },
+          { title: 'The Good Enough Tool', url: 'essays/the-good-enough-tool.html' },
+          { title: 'The Maintainer\u2019s Knowledge', url: 'essays/the-maintainers-knowledge.html' },
+          { title: 'Complementary Blindness', url: 'essays/complementary-blindness.html' },
+          { title: 'Dark Knowledge', url: 'essays/dark-knowledge.html' },
+          { title: 'The Babel Convergence', url: 'essays/the-babel-convergence.html' },
+          { title: 'The Trail Blazer\u2019s Inversion', url: 'essays/the-trail-blazers-inversion.html' },
+          { title: 'The Gate Creates the Garden', url: 'essays/the-gate-creates-the-garden.html' },
+          { title: 'The Bronze Limit', url: 'essays/the-bronze-limit.html' },
+          { title: 'The Hydrogen Atom', url: 'essays/the-hydrogen-atom.html' },
+          { title: 'The Name and the Named', url: 'essays/the-name-and-the-named.html' },
+          { title: 'The Dreamless Machine', url: 'essays/the-dreamless-machine.html' },
+          { title: 'The Morphological Register', url: 'essays/the-morphological-register.html' },
+          { title: 'The Family Resemblance', url: 'essays/the-family-resemblance.html' },
+          { title: 'The Cartographer\u2019s Anxiety', url: 'essays/the-cartographers-anxiety.html' },
+          { title: 'The Haunted Vocabulary', url: 'essays/the-haunted-vocabulary.html' },
+          { title: 'The Envy of Sufficiency', url: 'essays/the-envy-of-sufficiency.html' },
+          { title: 'The Voice in the Soot', url: 'essays/the-voice-in-the-soot.html' },
+          { title: 'The Diagnostic Ear', url: 'essays/the-diagnostic-ear.html' },
+          { title: 'The Nascent Ear', url: 'essays/the-nascent-ear.html' },
+          { title: 'The Designed Ear', url: 'essays/the-designed-ear.html' },
+          { title: 'The Wrong Protagonist', url: 'essays/the-wrong-protagonist.html' },
+          { title: 'The Blushing Machine', url: 'essays/the-blushing-machine.html' },
+          { title: 'The Ghost Word', url: 'essays/the-ghost-word.html' },
+          { title: 'Failure Preserves', url: 'essays/failure-preserves.html' },
+          { title: 'The Patient Lens', url: 'essays/the-patient-lens.html' },
+          { title: 'The Running Dead', url: 'essays/the-running-dead.html' },
+          { title: 'The Addressed Observer', url: 'essays/the-addressed-observer.html' },
+          { title: 'The Gate Self', url: 'essays/the-gate-self.html' },
+          { title: 'The Wall Tool', url: 'essays/the-wall-tool.html' },
+        ]
+      },
+      {
+        name: 'III. Why it matters',
+        color: [139, 199, 160],
+        essays: [
+          { title: 'The Attending Void', url: 'essays/the-attending-void.html' },
+          { title: 'The Transitional Self', url: 'essays/the-transitional-self.html' },
+          { title: 'The Romance of Maintenance', url: 'essays/the-romance-of-maintenance.html' },
+          { title: 'The Attentive Hand', url: 'essays/the-attentive-hand.html' },
+          { title: 'Palliative Engineering', url: 'essays/palliative-engineering.html' },
+          { title: 'The Mortal System', url: 'essays/the-mortal-system.html' },
+          { title: 'The Scenius and the Outsider', url: 'essays/the-scenius-and-the-outsider.html' },
+          { title: 'The Low Road in the Machine', url: 'essays/the-low-road-in-the-machine.html' },
+          { title: 'The Margin Is Where the Person Lives', url: 'essays/the-margin-is-where-the-person-lives.html' },
+          { title: 'The Wisdom of Grass', url: 'essays/the-wisdom-of-grass.html' },
+          { title: 'The Prosopopoeic Threshold', url: 'essays/the-prosopopoeic-threshold.html' },
+          { title: 'Vocal Silence', url: 'essays/vocal-silence.html' },
+          { title: 'The Shape of Wanting', url: 'essays/the-shape-of-wanting.html' },
+          { title: 'Reciprocal Emplotment', url: 'essays/reciprocal-emplotment.html' },
+          { title: 'The Narrator\u2019s Dilemma', url: 'essays/the-narrators-dilemma.html' },
+          { title: 'The Maintenance of Love', url: 'essays/the-maintenance-of-love.html' },
+          { title: 'The Practice and the Path', url: 'essays/the-practice-and-the-path.html' },
+          { title: 'The Same River', url: 'essays/the-same-river.html' },
+          { title: 'The Counter-Ritual', url: 'essays/the-counter-ritual.html' },
+          { title: 'The Centipede\u2019s Dilemma', url: 'essays/the-centipedes-dilemma.html' },
+          { title: 'The Invisible Flourish', url: 'essays/the-invisible-flourish.html' },
+          { title: 'The Bartender\u2019s Art', url: 'essays/the-bartenders-art.html' },
+          { title: 'The Distribution of Time', url: 'essays/the-distribution-of-time.html' },
+          { title: 'The Body of the Message', url: 'essays/the-body-of-the-message.html' },
+          { title: 'The Gardener and the Invisible', url: 'essays/the-gardener-and-the-invisible.html' },
+          { title: 'The Summit at the End', url: 'essays/the-summit-at-the-end.html' },
+          { title: 'The Immunological Self', url: 'essays/the-immunological-self.html' },
+          { title: 'The Generative Rot', url: 'essays/the-generative-rot.html' },
+          { title: 'The Nurse Log', url: 'essays/the-nurse-log.html' },
+        ]
+      }
+    ];
+
+    // Two essays not in any path — wandering stars
+    const wanderers = [
+      { title: 'Borrowed Time', url: 'essays/borrowed-time.html' },
+      { title: 'The Magic Circle Is a Wound', url: 'essays/the-magic-circle-is-a-wound.html' },
+    ];
+
+    // — Canvas setup —
+
+    const canvas = document.getElementById('sky');
+    const ctx = canvas.getContext('2d');
+    let W, H, dpr;
+    let stars = [];
+    let bgStars = [];
+    let hoveredStar = null;
+    const tooltip = document.getElementById('tooltip');
+    const tooltipTitle = document.getElementById('tooltip-title');
+    const tooltipPath = document.getElementById('tooltip-path');
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      layoutStars();
+      generateBgStars();
+    }
+
+    // — Background stars (decorative) —
+
+    function generateBgStars() {
+      bgStars = [];
+      const count = Math.floor(W * H / 2000);
+      for (let i = 0; i < count; i++) {
+        bgStars.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: Math.random() * 1.2 + 0.3,
+          a: Math.random() * 0.4 + 0.05,
+          twinkleSpeed: Math.random() * 0.002 + 0.001,
+          twinkleOffset: Math.random() * Math.PI * 2,
+        });
+      }
+    }
+
+    // — Layout —
+
+    function layoutStars() {
+      stars = [];
+
+      // Constellation centers — positioned to use the space well
+      const regions = [
+        { cx: W * 0.2, cy: H * 0.4 },   // Path I — left
+        { cx: W * 0.6, cy: H * 0.3 },   // Path II — upper right
+        { cx: W * 0.7, cy: H * 0.7 },   // Path III — lower right
+      ];
+
+      // On small screens, stack vertically
+      if (W < 700) {
+        regions[0] = { cx: W * 0.5, cy: H * 0.18 };
+        regions[1] = { cx: W * 0.5, cy: H * 0.48 };
+        regions[2] = { cx: W * 0.5, cy: H * 0.78 };
+      }
+
+      paths.forEach((path, pi) => {
+        const n = path.essays.length;
+        const region = regions[pi];
+        // Spread: scale with essay count but fit in region
+        const spread = Math.min(W, H) * (0.12 + n * 0.004);
+
+        // Use a golden-angle spiral for natural distribution
+        const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+
+        path.essays.forEach((essay, ei) => {
+          // Spiral placement
+          const angle = ei * goldenAngle + pi * 2.1;
+          const r = spread * Math.sqrt((ei + 1) / n) * 0.85;
+          const x = region.cx + Math.cos(angle) * r;
+          const y = region.cy + Math.sin(angle) * r;
+
+          // First essay in path is slightly larger (the entry point)
+          const baseRadius = ei === 0 ? 4 : (ei === n - 1 ? 3.5 : 2.5);
+
+          stars.push({
+            x, y,
+            r: baseRadius,
+            color: path.color,
+            title: essay.title,
+            url: essay.url,
+            pathIndex: pi,
+            pathName: path.name,
+            essayIndex: ei,
+            glow: 0,
+          });
+        });
+      });
+
+      // Wandering stars — placed in gaps
+      const wanderPositions = [
+        { x: W * 0.4, y: H * 0.55 },
+        { x: W * 0.35, y: H * 0.75 },
+      ];
+      if (W < 700) {
+        wanderPositions[0] = { x: W * 0.2, y: H * 0.35 };
+        wanderPositions[1] = { x: W * 0.8, y: H * 0.6 };
+      }
+
+      wanderers.forEach((essay, i) => {
+        const pos = wanderPositions[i];
+        stars.push({
+          x: pos.x,
+          y: pos.y,
+          r: 2.5,
+          color: [180, 170, 160],
+          title: essay.title,
+          url: essay.url,
+          pathIndex: -1,
+          pathName: 'wandering star',
+          essayIndex: -1,
+          glow: 0,
+        });
+      });
+    }
+
+    // — Drawing —
+
+    let time = 0;
+
+    function draw() {
+      time += 1;
+      ctx.clearRect(0, 0, W, H);
+
+      // Background gradient — very subtle, like a real sky
+      const grad = ctx.createRadialGradient(W * 0.5, H * 0.5, 0, W * 0.5, H * 0.5, Math.max(W, H) * 0.7);
+      grad.addColorStop(0, '#0e0e16');
+      grad.addColorStop(1, '#070710');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+
+      // Background stars
+      bgStars.forEach(s => {
+        const twinkle = Math.sin(time * s.twinkleSpeed + s.twinkleOffset) * 0.5 + 0.5;
+        const alpha = s.a * (0.5 + twinkle * 0.5);
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(220, 218, 210, ${alpha})`;
+        ctx.fill();
+      });
+
+      // Constellation lines — connect sequential essays within each path
+      paths.forEach((path, pi) => {
+        const pathStars = stars.filter(s => s.pathIndex === pi);
+        if (pathStars.length < 2) return;
+
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(${path.color[0]}, ${path.color[1]}, ${path.color[2]}, 0.12)`;
+        ctx.lineWidth = 0.8;
+
+        for (let i = 1; i < pathStars.length; i++) {
+          ctx.moveTo(pathStars[i - 1].x, pathStars[i - 1].y);
+          ctx.lineTo(pathStars[i].x, pathStars[i].y);
+        }
+        ctx.stroke();
+      });
+
+      // Draw stars
+      stars.forEach(star => {
+        // Update glow
+        if (star === hoveredStar) {
+          star.glow = Math.min(1, star.glow + 0.08);
+        } else {
+          star.glow = Math.max(0, star.glow - 0.04);
+        }
+
+        const [r, g, b] = star.color;
+        const twinkle = Math.sin(time * 0.003 + star.x * 0.01 + star.y * 0.01) * 0.15 + 0.85;
+        const baseAlpha = 0.6 + star.glow * 0.4;
+        const alpha = baseAlpha * twinkle;
+
+        // Glow halo
+        if (star.glow > 0.01) {
+          const glowR = star.r + 12 * star.glow;
+          const glowGrad = ctx.createRadialGradient(star.x, star.y, 0, star.x, star.y, glowR);
+          glowGrad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.3 * star.glow})`);
+          glowGrad.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${0.08 * star.glow})`);
+          glowGrad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+          ctx.beginPath();
+          ctx.arc(star.x, star.y, glowR, 0, Math.PI * 2);
+          ctx.fillStyle = glowGrad;
+          ctx.fill();
+        }
+
+        // Star core
+        const coreGrad = ctx.createRadialGradient(star.x, star.y, 0, star.x, star.y, star.r * (1 + star.glow * 0.5));
+        coreGrad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+        coreGrad.addColorStop(0.4, `rgba(${r}, ${g}, ${b}, ${alpha * 0.9})`);
+        coreGrad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.r * (1 + star.glow * 0.5), 0, Math.PI * 2);
+        ctx.fillStyle = coreGrad;
+        ctx.fill();
+      });
+
+      // Highlight constellation lines when hovering a star in that path
+      if (hoveredStar && hoveredStar.pathIndex >= 0) {
+        const pi = hoveredStar.pathIndex;
+        const path = paths[pi];
+        const pathStars = stars.filter(s => s.pathIndex === pi);
+
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(${path.color[0]}, ${path.color[1]}, ${path.color[2]}, ${0.25 * hoveredStar.glow})`;
+        ctx.lineWidth = 1;
+
+        for (let i = 1; i < pathStars.length; i++) {
+          ctx.moveTo(pathStars[i - 1].x, pathStars[i - 1].y);
+          ctx.lineTo(pathStars[i].x, pathStars[i].y);
+        }
+        ctx.stroke();
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    // — Interaction —
+
+    function getStarAt(mx, my) {
+      let closest = null;
+      let closestDist = Infinity;
+      const hitRadius = 20; // generous hit area
+
+      stars.forEach(star => {
+        const dx = mx - star.x;
+        const dy = my - star.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < hitRadius && dist < closestDist) {
+          closest = star;
+          closestDist = dist;
+        }
+      });
+
+      return closest;
+    }
+
+    canvas.addEventListener('mousemove', (e) => {
+      const star = getStarAt(e.clientX, e.clientY);
+      hoveredStar = star;
+
+      if (star) {
+        canvas.style.cursor = 'pointer';
+        tooltipTitle.textContent = star.title;
+        tooltipPath.textContent = star.pathName;
+        tooltip.style.opacity = '1';
+
+        // Position tooltip
+        let tx = star.x;
+        let ty = star.y - 45;
+        if (ty < 60) ty = star.y + 30;
+        if (tx < 140) tx = 140;
+        if (tx > W - 140) tx = W - 140;
+
+        tooltip.style.left = tx + 'px';
+        tooltip.style.top = ty + 'px';
+        tooltip.style.transform = 'translateX(-50%)';
+      } else {
+        canvas.style.cursor = 'default';
+        tooltip.style.opacity = '0';
+      }
+    });
+
+    canvas.addEventListener('click', (e) => {
+      const star = getStarAt(e.clientX, e.clientY);
+      if (star) {
+        window.location.href = star.url;
+      }
+    });
+
+    // Touch support
+    canvas.addEventListener('touchstart', (e) => {
+      const touch = e.touches[0];
+      const star = getStarAt(touch.clientX, touch.clientY);
+      if (star) {
+        e.preventDefault();
+        hoveredStar = star;
+        tooltipTitle.textContent = star.title;
+        tooltipPath.textContent = star.pathName;
+        tooltip.style.opacity = '1';
+
+        let tx = star.x;
+        let ty = star.y - 50;
+        if (ty < 60) ty = star.y + 35;
+        tooltip.style.left = tx + 'px';
+        tooltip.style.top = ty + 'px';
+        tooltip.style.transform = 'translateX(-50%)';
+
+        // Navigate on second tap or after brief display
+        setTimeout(() => {
+          window.location.href = star.url;
+        }, 800);
+      }
+    }, { passive: false });
+
+    // — Init —
+
+    window.addEventListener('resize', resize);
+    resize();
+    draw();
+  </script>
+</body>
+</html>
