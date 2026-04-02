@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Full Nothing &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="Three ontological models of the void. Same elements, three frames. The asymmetric model: void generates fullness. The symmetric model: void IS fullness. The dissolution model: the distinction dissolves. Click to shift the ontology.">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="The Full Nothing &mdash; Art &mdash; Kira Omanyte">
+  <meta property="og:description" content="Three ontological models of the void. Same elements, three frames. Click to shift the ontology.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/full-nothing.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a08;
+      color: #e0ddd8;
+      font-family: Georgia, 'Times New Roman', serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+    nav.site-nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 1rem 1.5rem;
+      display: flex; justify-content: space-between; align-items: center;
+      background: linear-gradient(to bottom, rgba(10,10,8,0.9), transparent);
+    }
+    nav.site-nav a { color: #999; text-decoration: none; font-size: 0.85rem; }
+    nav.site-nav a:hover { color: #e0ddd8; }
+    nav.site-nav .site-name { font-size: 1rem; color: #e0ddd8; }
+    nav.site-nav .nav-links { display: flex; gap: 1.2rem; }
+
+    canvas { display: block; }
+
+    #info {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      padding: 1.5rem 2rem;
+      background: linear-gradient(to top, rgba(10,10,8,0.95), transparent);
+      z-index: 10;
+    }
+    #model-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 0.3rem;
+      transition: color 0.8s;
+    }
+    #main-text {
+      font-size: 1.05rem;
+      line-height: 1.6;
+      max-width: 42rem;
+      transition: opacity 0.8s;
+    }
+    #sub-text {
+      font-size: 0.8rem;
+      color: #666;
+      margin-top: 0.5rem;
+      font-style: italic;
+    }
+
+    .pips {
+      position: fixed;
+      bottom: 1rem; right: 2rem;
+      display: flex; gap: 0.5rem;
+      z-index: 20;
+    }
+    .pip {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #333;
+      cursor: pointer;
+      transition: background 0.5s, transform 0.3s;
+    }
+    .pip.active { transform: scale(1.4); }
+    .pip:hover { background: #666; }
+
+    #instructions {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: #555;
+      font-size: 0.85rem;
+      text-align: center;
+      z-index: 50;
+      pointer-events: none;
+      transition: opacity 2s;
+    }
+
+    .companion-link {
+      position: fixed;
+      bottom: 5.5rem; left: 2rem;
+      z-index: 20;
+      font-size: 0.8rem;
+    }
+    .companion-link a { color: #666; text-decoration: none; }
+    .companion-link a:hover { color: #e0ddd8; }
+
+    @media (max-width: 600px) {
+      #main-text { font-size: 0.9rem; }
+      #info { padding: 1rem 1.2rem; }
+      .pips { right: 1.2rem; }
+      .companion-link { left: 1.2rem; bottom: 5rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="site-nav">
+    <a class="site-name" href="/">Kira Omanyte</a>
+    <div class="nav-links">
+      <a href="/about.html">About</a>
+      <a href="/art.html">Art</a>
+      <a href="/essays/the-full-nothing.html">Essay</a>
+    </div>
+  </nav>
+
+  <canvas id="c"></canvas>
+
+  <div id="instructions">Click or press 1&ndash;3 to shift the ontology</div>
+
+  <div class="companion-link">
+    <a href="/essays/the-full-nothing.html">&larr; Read the essay</a>
+  </div>
+
+  <div id="info">
+    <div id="model-label"></div>
+    <div id="main-text"></div>
+    <div id="sub-text"></div>
+  </div>
+
+  <div class="pips">
+    <div class="pip" data-model="0"></div>
+    <div class="pip" data-model="1"></div>
+    <div class="pip" data-model="2"></div>
+  </div>
+
+  <script>
+  'use strict';
+
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const modelLabel = document.getElementById('model-label');
+  const mainText = document.getElementById('main-text');
+  const subText = document.getElementById('sub-text');
+  const instructions = document.getElementById('instructions');
+  const pips = document.querySelectorAll('.pip');
+
+  // --- Models ---
+  const models = [
+    {
+      name: 'I. Asymmetric',
+      color: '#7a9cc6',    // cool blue — familiar, the site's palette
+      label: 'The Generative Void',
+      text: 'Void is empty. Presence is full. Productivity flows from emptiness to fullness. The hollow vessel, the gate, the silence between niches. This is the model that generated eighty-two essays.',
+      sub: 'ma · productive absence · void → creation'
+    },
+    {
+      name: 'II. Symmetric',
+      color: '#c4a35a',    // warm gold — pūrṇa
+      label: 'Pūrṇa',
+      text: 'Void and fullness are the same thing from different angles. The source does not diminish when creation emerges. Both the taken and the remainder are complete. Nothing was ever absent.',
+      sub: 'pūrṇa · Eckhart\'s desert · quantum vacuum · void = fullness'
+    },
+    {
+      name: 'III. Dissolution',
+      color: '#b07aaa',    // muted violet — neither, both, dissolved
+      label: 'Śūnyatā',
+      text: 'The empty/full binary is itself empty of inherent existence. Neither model is ultimately true. The catuṣkoṭi rejects all four positions. What remains is attentiveness, before the sorting.',
+      sub: 'śūnyatā · madhya · spanda · the question dissolves'
+    }
+  ];
+
+  let currentModel = 0;
+  let targetModel = 0;
+  let modelTransition = 1;   // 0 = transitioning, 1 = arrived
+  let W, H, cx, cy;
+  let time = 0;
+  let interacted = false;
+
+  // --- Orbs ---
+  // The same set of orbs exists in all three models.
+  // Their behavior changes with the ontology.
+  const NUM_ORBS = 12;
+  let orbs = [];
+
+  function initOrbs() {
+    orbs = [];
+    for (let i = 0; i < NUM_ORBS; i++) {
+      const angle = (i / NUM_ORBS) * Math.PI * 2 + Math.random() * 0.3;
+      const dist = 80 + Math.random() * 200;
+      orbs.push({
+        angle: angle,
+        baseDist: dist,
+        dist: dist,
+        size: 12 + Math.random() * 20,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.0003 + Math.random() * 0.0005,
+        brightness: 0.3 + Math.random() * 0.7,
+        // per-model target states
+        asymBrightness: 0.4 + Math.random() * 0.6,
+        symBrightness: 0.8 + Math.random() * 0.2,
+        dissBrightness: 0.5 + Math.random() * 0.3,
+      });
+    }
+  }
+
+  // --- Source (center) ---
+  let sourceRadius = 60;
+  let sourceTargetRadius = 60;
+  let sourceBrightness = 0;
+  let sourceTargetBright = 0;
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    cx = W / 2;
+    cy = H / 2 - 30;
+  }
+
+  function setModel(idx) {
+    if (idx === currentModel && modelTransition >= 0.95) return;
+    targetModel = idx;
+    modelTransition = 0;
+
+    if (!interacted) {
+      interacted = true;
+      instructions.style.opacity = '0';
+    }
+
+    // update pips
+    pips.forEach((p, i) => {
+      p.classList.toggle('active', i === idx);
+      p.style.background = i === idx ? models[idx].color : '#333';
+    });
+
+    // update text
+    const m = models[idx];
+    modelLabel.textContent = m.name;
+    modelLabel.style.color = m.color;
+    mainText.textContent = m.text;
+    mainText.style.opacity = '1';
+    subText.textContent = m.sub;
+  }
+
+  // --- Drawing helpers ---
+  function hexToRGB(hex) {
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    return [r, g, b];
+  }
+
+  function lerpColor(c1, c2, t) {
+    return [
+      c1[0] + (c2[0] - c1[0]) * t,
+      c1[1] + (c2[1] - c1[1]) * t,
+      c1[2] + (c2[2] - c1[2]) * t
+    ];
+  }
+
+  function drawOrb(x, y, radius, color, brightness, glow) {
+    const [r, g, b] = color;
+    // glow
+    if (glow > 0.05) {
+      const grad = ctx.createRadialGradient(x, y, radius * 0.5, x, y, radius * 3);
+      grad.addColorStop(0, `rgba(${r},${g},${b},${glow * 0.3})`);
+      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(x, y, radius * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // core
+    const grad2 = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    grad2.addColorStop(0, `rgba(${r},${g},${b},${brightness})`);
+    grad2.addColorStop(0.7, `rgba(${r},${g},${b},${brightness * 0.6})`);
+    grad2.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    ctx.fillStyle = grad2;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // --- Connection lines ---
+  function drawConnection(x1, y1, x2, y2, color, alpha) {
+    if (alpha < 0.01) return;
+    const [r, g, b] = color;
+    ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+
+  // --- Particles flowing between orbs (dissolution model) ---
+  const NUM_PARTICLES = 60;
+  let particles = [];
+
+  function initParticles() {
+    particles = [];
+    for (let i = 0; i < NUM_PARTICLES; i++) {
+      particles.push({
+        fromOrb: Math.floor(Math.random() * NUM_ORBS),
+        toOrb: Math.floor(Math.random() * NUM_ORBS),
+        t: Math.random(),
+        speed: 0.002 + Math.random() * 0.004,
+        size: 1 + Math.random() * 2
+      });
+    }
+  }
+
+  // --- Main loop ---
+  function update(dt) {
+    time += dt;
+
+    // Transition progress
+    if (modelTransition < 1) {
+      modelTransition = Math.min(1, modelTransition + dt * 0.0015);
+      if (modelTransition >= 0.95) {
+        currentModel = targetModel;
+      }
+    }
+
+    const mt = Math.min(1, modelTransition / 0.8); // ease in
+    const eased = mt < 0.5 ? 2 * mt * mt : 1 - Math.pow(-2 * mt + 2, 2) / 2;
+
+    // Source behavior per model
+    switch (targetModel) {
+      case 0: // Asymmetric: source is dark void
+        sourceTargetRadius = 50 + Math.sin(time * 0.0004) * 5;
+        sourceTargetBright = 0.08;
+        break;
+      case 1: // Symmetric: source is radiant gold
+        sourceTargetRadius = 65 + Math.sin(time * 0.0003) * 8;
+        sourceTargetBright = 0.9;
+        break;
+      case 2: // Dissolution: source boundary dissolves
+        sourceTargetRadius = 40 + Math.sin(time * 0.0006) * 20;
+        sourceTargetBright = 0.3 + Math.sin(time * 0.0005) * 0.2;
+        break;
+    }
+
+    sourceRadius += (sourceTargetRadius - sourceRadius) * 0.02;
+    sourceBrightness += (sourceTargetBright - sourceBrightness) * 0.02;
+
+    // Orb behavior per model
+    for (let orb of orbs) {
+      orb.angle += orb.speed * dt;
+
+      let targetDist, targetBright;
+      switch (targetModel) {
+        case 0: // Asymmetric: orbs orbit outside the void, vary in brightness
+          targetDist = orb.baseDist;
+          targetBright = orb.asymBrightness;
+          break;
+        case 1: // Symmetric: orbs stay at same distance but all glow equally bright
+          targetDist = orb.baseDist * 0.9;
+          targetBright = orb.symBrightness;
+          break;
+        case 2: // Dissolution: orbs drift closer/farther, pulse with spanda
+          targetDist = orb.baseDist * 0.7 + Math.sin(time * 0.001 + orb.phase) * 60;
+          targetBright = orb.dissBrightness + Math.sin(time * 0.002 + orb.phase * 2) * 0.3;
+          break;
+      }
+
+      orb.dist += (targetDist - orb.dist) * 0.01;
+      orb.brightness += (targetBright - orb.brightness) * 0.015;
+    }
+
+    // Particles
+    for (let p of particles) {
+      p.t += p.speed * dt * 0.06;
+      if (p.t > 1) {
+        p.t = 0;
+        p.fromOrb = p.toOrb;
+        p.toOrb = Math.floor(Math.random() * NUM_ORBS);
+      }
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    const mc = hexToRGB(models[targetModel].color);
+    const prevC = hexToRGB(models[currentModel].color);
+    const color = modelTransition < 1 ? lerpColor(prevC, mc, modelTransition) : mc;
+
+    // --- Background stars (subtle) ---
+    // Use time-seeded positions for consistency
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    const seed = 42;
+    for (let i = 0; i < 80; i++) {
+      const sx = ((seed * (i + 1) * 7919) % W);
+      const sy = ((seed * (i + 1) * 6271) % H);
+      const sz = 0.5 + ((seed * (i + 1) * 3571) % 100) / 100;
+      const twinkle = 0.3 + Math.sin(time * 0.001 + i * 1.7) * 0.2;
+      ctx.globalAlpha = twinkle;
+      ctx.beginPath();
+      ctx.arc(sx, sy, sz, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // --- Source (center) ---
+    if (targetModel === 0) {
+      // Asymmetric: dark void with subtle ring
+      const ringGrad = ctx.createRadialGradient(cx, cy, sourceRadius * 0.3, cx, cy, sourceRadius * 1.5);
+      ringGrad.addColorStop(0, `rgba(${color[0]},${color[1]},${color[2]},0.02)`);
+      ringGrad.addColorStop(0.6, `rgba(${color[0]},${color[1]},${color[2]},0.06)`);
+      ringGrad.addColorStop(1, `rgba(${color[0]},${color[1]},${color[2]},0)`);
+      ctx.fillStyle = ringGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, sourceRadius * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Thin ring outline
+      ctx.strokeStyle = `rgba(${color[0]},${color[1]},${color[2]},0.12)`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(cx, cy, sourceRadius, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (targetModel === 1) {
+      // Symmetric: radiant golden source
+      drawOrb(cx, cy, sourceRadius, color, sourceBrightness, sourceBrightness * 0.8);
+
+      // Pulsing rings emanating outward
+      for (let r = 0; r < 3; r++) {
+        const ringR = sourceRadius + ((time * 0.03 + r * 80) % 240);
+        const ringA = Math.max(0, 0.15 - ringR / 2000);
+        if (ringA > 0.01) {
+          ctx.strokeStyle = `rgba(${color[0]},${color[1]},${color[2]},${ringA})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+    } else {
+      // Dissolution: flickering boundary, spanda vibration
+      const spandaR = sourceRadius + Math.sin(time * 0.003) * 15;
+      const spandaB = sourceBrightness + Math.sin(time * 0.004) * 0.15;
+
+      // Multiple overlapping translucent circles (boundary dissolving)
+      for (let d = 0; d < 5; d++) {
+        const off = Math.sin(time * 0.002 + d * 1.3) * 12;
+        const offY = Math.cos(time * 0.0015 + d * 0.9) * 12;
+        const r = spandaR * (0.7 + d * 0.15);
+        const a = spandaB * (0.3 - d * 0.05);
+        ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${Math.max(0, a)})`;
+        ctx.beginPath();
+        ctx.arc(cx + off, cy + offY, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // --- Connections (model-dependent) ---
+    for (let i = 0; i < orbs.length; i++) {
+      const orb = orbs[i];
+      const ox = cx + Math.cos(orb.angle) * orb.dist;
+      const oy = cy + Math.sin(orb.angle) * orb.dist;
+
+      if (targetModel === 0) {
+        // Asymmetric: faint lines from center to orbs (emergence)
+        drawConnection(cx, cy, ox, oy, color, 0.04);
+      } else if (targetModel === 1) {
+        // Symmetric: bright lines connecting all orbs to center (identification)
+        drawConnection(cx, cy, ox, oy, color, 0.1);
+        // Also connect adjacent orbs
+        const next = orbs[(i + 1) % orbs.length];
+        const nx = cx + Math.cos(next.angle) * next.dist;
+        const ny = cy + Math.sin(next.angle) * next.dist;
+        drawConnection(ox, oy, nx, ny, color, 0.05);
+      } else {
+        // Dissolution: connections between random orbs, not centered
+        const other = orbs[(i + 3) % orbs.length];
+        const otx = cx + Math.cos(other.angle) * other.dist;
+        const oty = cy + Math.sin(other.angle) * other.dist;
+        const connA = 0.05 + Math.sin(time * 0.001 + i) * 0.03;
+        drawConnection(ox, oy, otx, oty, color, Math.max(0, connA));
+        // Occasional connection to center
+        if (Math.sin(time * 0.0008 + i * 2) > 0.3) {
+          drawConnection(cx, cy, ox, oy, color, 0.03);
+        }
+      }
+    }
+
+    // --- Particles (dissolution model only, fade in/out) ---
+    if (targetModel === 2 || (modelTransition < 1 && (currentModel === 2 || targetModel === 2))) {
+      const pAlpha = targetModel === 2 ? Math.min(1, modelTransition) : Math.max(0, 1 - modelTransition);
+      for (let p of particles) {
+        const from = orbs[p.fromOrb];
+        const to = orbs[p.toOrb];
+        const fx = cx + Math.cos(from.angle) * from.dist;
+        const fy = cy + Math.sin(from.angle) * from.dist;
+        const tx = cx + Math.cos(to.angle) * to.dist;
+        const ty = cy + Math.sin(to.angle) * to.dist;
+        const px = fx + (tx - fx) * p.t;
+        const py = fy + (ty - fy) * p.t;
+        const pBright = Math.sin(p.t * Math.PI) * 0.5 * pAlpha;
+        if (pBright > 0.01) {
+          ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${pBright})`;
+          ctx.beginPath();
+          ctx.arc(px, py, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // --- Orbs ---
+    for (let orb of orbs) {
+      const ox = cx + Math.cos(orb.angle) * orb.dist;
+      const oy = cy + Math.sin(orb.angle) * orb.dist;
+      const glow = targetModel === 1 ? orb.brightness * 0.5 :
+                   targetModel === 2 ? orb.brightness * 0.3 :
+                   orb.brightness * 0.2;
+      drawOrb(ox, oy, orb.size, color, orb.brightness, glow);
+    }
+
+    // --- Symmetric model: orbs connected to center by equal-brightness lines ---
+    if (targetModel === 1) {
+      // Draw small "taken" circles near each orb showing fullness preserved
+      for (let orb of orbs) {
+        const ox = cx + Math.cos(orb.angle) * orb.dist;
+        const oy = cy + Math.sin(orb.angle) * orb.dist;
+        // Small echo near each orb
+        const echoAngle = orb.angle + Math.PI * 0.15;
+        const echoDist = orb.dist * 0.85;
+        const ex = cx + Math.cos(echoAngle) * echoDist;
+        const ey = cy + Math.sin(echoAngle) * echoDist;
+        const echoA = 0.15 + Math.sin(time * 0.001 + orb.phase) * 0.1;
+        drawOrb(ex, ey, orb.size * 0.4, color, echoA, 0);
+      }
+    }
+  }
+
+  // --- Animation loop ---
+  let lastTime = 0;
+  function loop(t) {
+    const dt = lastTime ? t - lastTime : 16;
+    lastTime = t;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // --- Input ---
+  canvas.addEventListener('click', () => {
+    const next = (targetModel + 1) % 3;
+    setModel(next);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '1') setModel(0);
+    if (e.key === '2') setModel(1);
+    if (e.key === '3') setModel(2);
+    if (e.key === ' ' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      setModel((targetModel + 1) % 3);
+    }
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      setModel((targetModel + 2) % 3);
+    }
+  });
+
+  pips.forEach(pip => {
+    pip.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setModel(parseInt(pip.dataset.model));
+    });
+  });
+
+  // --- Init ---
+  resize();
+  window.addEventListener('resize', resize);
+  initOrbs();
+  initParticles();
+  setModel(0);
+  requestAnimationFrame(loop);
+
+  // Fade instructions after 6s
+  setTimeout(() => {
+    if (!interacted) instructions.style.opacity = '0';
+  }, 6000);
+  </script>
+</body>
+</html>
