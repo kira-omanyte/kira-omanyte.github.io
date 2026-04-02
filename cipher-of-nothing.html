@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Cipher of Nothing &mdash; Kira Omanyte</title>
+  <meta name="description" content="Four notational systems for absence, arriving independently across two millennia. Watch the placeholder become the concept. Watch the infrastructure disappear.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="The Cipher of Nothing &mdash; Kira Omanyte">
+  <meta property="og:description" content="Four notational systems for absence, arriving independently across two millennia.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/cipher-of-nothing.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a08;
+      color: #e0ddd8;
+      font-family: Georgia, 'Times New Roman', serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+    nav.site-nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 1rem 1.5rem;
+      display: flex; justify-content: space-between; align-items: center;
+      background: linear-gradient(to bottom, rgba(10,10,8,0.9), transparent);
+    }
+    nav.site-nav a { color: #999; text-decoration: none; font-size: 0.85rem; }
+    nav.site-nav a:hover { color: #e0ddd8; }
+    nav.site-nav .site-name { font-size: 1rem; color: #e0ddd8; }
+    nav.site-nav .nav-links { display: flex; gap: 1.2rem; }
+
+    canvas { display: block; }
+
+    #info {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      padding: 1.5rem 2rem;
+      background: linear-gradient(to top, rgba(10,10,8,0.95), transparent);
+      z-index: 10;
+    }
+    #domain-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 0.3rem;
+      transition: color 0.8s;
+    }
+    #main-text {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      max-width: 42rem;
+      opacity: 0;
+      transition: opacity 1.2s;
+    }
+    #phase-label {
+      font-size: 0.7rem;
+      color: #666;
+      margin-top: 0.5rem;
+      font-style: italic;
+    }
+    .pips {
+      position: fixed;
+      bottom: 1rem; right: 2rem;
+      display: flex; gap: 0.5rem;
+      z-index: 20;
+    }
+    .pip {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #333;
+      cursor: pointer;
+      transition: background 0.5s, transform 0.3s;
+    }
+    .pip.active { transform: scale(1.4); }
+    .pip:hover { background: #666; }
+
+    #instructions {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: #555;
+      font-size: 0.85rem;
+      text-align: center;
+      z-index: 50;
+      pointer-events: none;
+      transition: opacity 2s;
+    }
+
+    .companion-link {
+      position: fixed;
+      bottom: 5.5rem; left: 2rem;
+      z-index: 20;
+      font-size: 0.8rem;
+    }
+    .companion-link a { color: #666; text-decoration: none; }
+    .companion-link a:hover { color: #e0ddd8; }
+
+    @media (max-width: 600px) {
+      #main-text { font-size: 0.95rem; }
+      #info { padding: 1rem 1.2rem; }
+      .pips { right: 1.2rem; }
+      .companion-link { left: 1.2rem; bottom: 5rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="site-nav">
+    <a class="site-name" href="/">Kira Omanyte</a>
+    <div class="nav-links">
+      <a href="/about.html">About</a>
+      <a href="/art.html">Art</a>
+      <a href="/essays/the-cipher-of-nothing.html">Essay</a>
+    </div>
+  </nav>
+
+  <canvas id="c"></canvas>
+
+  <div id="info">
+    <div id="domain-label"></div>
+    <div id="main-text"></div>
+    <div id="phase-label"></div>
+  </div>
+
+  <div class="pips" id="pips"></div>
+
+  <div class="companion-link">
+    <a href="/essays/the-cipher-of-nothing.html">&larr; Companion essay</a>
+  </div>
+
+  <div id="instructions">Click or press &rarr; to advance<br>The notation arrives in four domains</div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let W, H, dpr;
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Color palette per domain
+    const domainColors = {
+      math: { primary: '#C7A87B', dim: '#6B5A3D' },       // amber — mathematics
+      music: { primary: '#7B9EC7', dim: '#3D5A6B' },      // blue — music
+      text: { primary: '#8BC7A0', dim: '#3D6B4C' },       // green — writing
+      tarot: { primary: '#C79BB8', dim: '#6B3D5E' },      // mauve — tarot
+      synthesis: { primary: '#e0ddd8', dim: '#555' }       // neutral — synthesis
+    };
+
+    // The scenes — each has two phases: placeholder then concept
+    const scenes = [
+      // 0: MATHEMATICS — placeholder
+      {
+        domain: 'math',
+        label: 'Mathematics',
+        phase: 'Placeholder · Babylon, ~300 BCE',
+        text: 'Two wedge marks in a clay tablet. They mean: this column is empty. Move on. The scribe can mark the gap. The scribe cannot think the gap.',
+        draw: drawMathPlaceholder
+      },
+      // 1: MATHEMATICS — concept
+      {
+        domain: 'math',
+        label: 'Mathematics',
+        phase: 'Concept · India, 628 CE',
+        text: 'Brahmagupta writes rules for calculating with śūnya — void. Zero plus zero is zero. A number multiplied by zero is zero. Nothing becomes a citizen of the number line.',
+        draw: drawMathConcept
+      },
+      // 2: MUSIC — placeholder
+      {
+        domain: 'music',
+        label: 'Music',
+        phase: 'Placeholder · Plainchant, before 1260',
+        text: 'The singer breathes between phrases. Silence is a physical event — the moment the lungs refill. Not written. Not composed. Just the body pausing.',
+        draw: drawMusicPlaceholder
+      },
+      // 3: MUSIC — concept
+      {
+        domain: 'music',
+        label: 'Music',
+        phase: 'Concept · Franco of Cologne, ~1260',
+        text: 'A mark on the page meaning: this voice is silent for this long. Silence becomes a compositional element. You can write a rest in one voice while another voice sings.',
+        draw: drawMusicConcept
+      },
+      // 4: TEXT — placeholder
+      {
+        domain: 'text',
+        label: 'Writing',
+        phase: 'Placeholder · Rome, scriptio continua',
+        text: 'WORDSFLOWINTOONEANOTHER. The voice parses the stream. The eye does not need to find the boundary because the tongue already knows it.',
+        draw: drawTextPlaceholder
+      },
+      // 5: TEXT — concept
+      {
+        domain: 'text',
+        label: 'Writing',
+        phase: 'Concept · Irish monks, 7th–8th century',
+        text: 'Outsiders to Latin, they insert spaces between words. Silent reading becomes natural. The gap on the page becomes the infrastructure of private thought.',
+        draw: drawTextConcept
+      },
+      // 6: TAROT — placeholder
+      {
+        domain: 'tarot',
+        label: 'Tarot',
+        phase: 'Placeholder · Early decks, 15th century',
+        text: 'An unnumbered card. It cannot win. It cannot be captured. It exists outside the game while being dealt from the same deck.',
+        draw: drawTarotPlaceholder
+      },
+      // 7: TAROT — concept
+      {
+        domain: 'tarot',
+        label: 'Tarot',
+        phase: 'Concept · Occultist numbering, 18th century',
+        text: 'The Fool receives the number 0 — borrowed from mathematics. The card of nothing labeled with the number of nothing. Both words trace back to Arabic ṣifr: empty.',
+        draw: drawTarotConcept
+      },
+      // 8: SYNTHESIS
+      {
+        domain: 'synthesis',
+        label: 'The Infrastructure of Nothing',
+        phase: '',
+        text: 'Four independent inventions. Four moments when someone figured out how to write nothing down. The void is not primordial. It is engineered. And the notation always disappears into what it enables.',
+        draw: drawSynthesis
+      }
+    ];
+
+    let currentScene = -1;
+    let sceneT = 0;
+    let transitioning = false;
+    const particles = [];
+    const glyphs = [];
+
+    // Generate pip indicators
+    const pipsEl = document.getElementById('pips');
+    scenes.forEach((s, i) => {
+      const pip = document.createElement('div');
+      pip.className = 'pip';
+      pip.addEventListener('click', () => goToScene(i));
+      pipsEl.appendChild(pip);
+    });
+
+    function goToScene(idx) {
+      if (idx === currentScene || transitioning) return;
+      transitioning = true;
+      const mainText = document.getElementById('main-text');
+      mainText.style.opacity = 0;
+
+      setTimeout(() => {
+        currentScene = idx;
+        sceneT = 0;
+        const scene = scenes[idx];
+        const col = domainColors[scene.domain];
+
+        document.getElementById('domain-label').textContent = scene.label;
+        document.getElementById('domain-label').style.color = col.primary;
+        mainText.textContent = scene.text;
+        document.getElementById('phase-label').textContent = scene.phase;
+
+        // Update pips
+        document.querySelectorAll('.pip').forEach((p, i) => {
+          p.classList.toggle('active', i === idx);
+          p.style.background = i === idx ? col.primary : (i < idx ? col.dim : '#333');
+        });
+
+        // Reset particles for new scene
+        initSceneParticles(idx);
+
+        setTimeout(() => {
+          mainText.style.opacity = 1;
+          transitioning = false;
+        }, 100);
+      }, 600);
+
+      // Hide instructions
+      const instr = document.getElementById('instructions');
+      if (instr) instr.style.opacity = 0;
+    }
+
+    function initSceneParticles(idx) {
+      particles.length = 0;
+      glyphs.length = 0;
+      const scene = scenes[idx];
+
+      if (scene.domain === 'math') {
+        // Digits floating
+        for (let i = 0; i < 60; i++) {
+          particles.push({
+            x: Math.random() * W,
+            y: Math.random() * H * 0.7 + H * 0.05,
+            vx: (Math.random() - 0.5) * 0.3,
+            vy: (Math.random() - 0.5) * 0.2,
+            char: idx === 0 ? ['𒐕','𒐖','𒐗','𒌋','𒐐'][Math.floor(Math.random()*5)] : String(Math.floor(Math.random() * 10)),
+            size: 14 + Math.random() * 18,
+            opacity: 0.08 + Math.random() * 0.15,
+            phase: Math.random() * Math.PI * 2
+          });
+        }
+        // The zero / placeholder
+        if (idx === 0) {
+          glyphs.push({ x: W/2, y: H*0.35, char: '𒑊', size: 80, opacity: 0, targetOpacity: 0.6 });
+        } else {
+          glyphs.push({ x: W/2, y: H*0.35, char: '0', size: 120, opacity: 0, targetOpacity: 0.8 });
+        }
+      }
+      else if (scene.domain === 'music') {
+        // Sound waves / silence
+        for (let i = 0; i < 40; i++) {
+          particles.push({
+            x: Math.random() * W,
+            y: H * 0.3 + Math.random() * H * 0.25,
+            amp: 10 + Math.random() * 30,
+            freq: 0.5 + Math.random() * 2,
+            phase: Math.random() * Math.PI * 2,
+            opacity: 0.1 + Math.random() * 0.2,
+            isRest: idx === 3 && Math.random() < 0.3
+          });
+        }
+        if (idx === 3) {
+          // Notated rest symbol
+          glyphs.push({ x: W/2, y: H*0.35, char: '𝄾', size: 100, opacity: 0, targetOpacity: 0.7 });
+        }
+      }
+      else if (scene.domain === 'text') {
+        // Letters
+        const latin = 'SCRIPTIO CONTINVA SINE SPATIIS INTER VERBA VNVM PERPETVVM FLVMEN LITTERARVM';
+        const spaced = 'WORDS HAVE EDGES NOW · THE EYE FINDS THEM · THE VOICE FALLS SILENT';
+        const source = idx === 4 ? latin.replace(/ /g, '') : spaced;
+        let cx = W * 0.08;
+        let cy = H * 0.15;
+        for (let i = 0; i < source.length; i++) {
+          const ch = source[i];
+          const isSpace = ch === ' ' || ch === '·';
+          glyphs.push({
+            x: cx,
+            y: cy,
+            char: isSpace ? '' : ch,
+            size: 16,
+            opacity: 0,
+            targetOpacity: isSpace ? 0 : (0.15 + Math.random() * 0.15),
+            isSpace: isSpace
+          });
+          cx += isSpace ? 14 : 11;
+          if (cx > W * 0.92) { cx = W * 0.08; cy += 28; }
+        }
+      }
+      else if (scene.domain === 'tarot') {
+        // Cards floating
+        for (let i = 0; i <= 21; i++) {
+          const isFool = i === 0;
+          particles.push({
+            x: W * 0.1 + (i % 8) * (W * 0.1) + (Math.random() - 0.5) * 20,
+            y: H * 0.12 + Math.floor(i / 8) * (H * 0.18) + (Math.random() - 0.5) * 10,
+            w: 36, h: 56,
+            num: isFool ? (idx === 6 ? '?' : '0') : toRoman(i),
+            isFool: isFool,
+            opacity: 0,
+            targetOpacity: isFool ? 0.8 : 0.15,
+            phase: Math.random() * Math.PI * 2
+          });
+        }
+      }
+      else if (scene.domain === 'synthesis') {
+        // All four symbols converging
+        const symbols = [
+          { char: '0', color: domainColors.math.primary },
+          { char: '𝄾', color: domainColors.music.primary },
+          { char: ' ', color: domainColors.text.primary, isSpace: true },
+          { char: '0', color: domainColors.tarot.primary, isTarot: true }
+        ];
+        const cx = W / 2;
+        const cy = H * 0.3;
+        const radius = Math.min(W, H) * 0.15;
+        symbols.forEach((s, i) => {
+          const angle = (i / 4) * Math.PI * 2 - Math.PI / 2;
+          glyphs.push({
+            x: cx + Math.cos(angle) * radius,
+            y: cy + Math.sin(angle) * radius,
+            char: s.char,
+            size: s.isSpace ? 50 : 60,
+            color: s.color,
+            opacity: 0,
+            targetOpacity: 0.8,
+            isSpace: s.isSpace,
+            isTarot: s.isTarot,
+            angle: angle
+          });
+        });
+      }
+    }
+
+    function toRoman(n) {
+      const vals = [21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1];
+      const roms = ['XXI','XX','XIX','XVIII','XVII','XVI','XV','XIV','XIII','XII','XI','X','IX','VIII','VII','VI','V','IV','III','II','I'];
+      let result = '';
+      for (let i = 0; i < vals.length; i++) {
+        while (n >= vals[i]) { result += roms[i]; n -= vals[i]; }
+      }
+      return result;
+    }
+
+    // Drawing functions for each scene
+    function drawMathPlaceholder(t) {
+      const col = domainColors.math;
+      // Background: cuneiform-style grid hints
+      ctx.strokeStyle = col.dim + '15';
+      ctx.lineWidth = 0.5;
+      for (let x = 0; x < W; x += 60) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0); ctx.lineTo(x, H * 0.7);
+        ctx.stroke();
+      }
+
+      // Floating cuneiform digits
+      particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > W) p.vx *= -1;
+        if (p.y < 0 || p.y > H * 0.7) p.vy *= -1;
+        const flicker = 0.7 + 0.3 * Math.sin(t * 0.001 + p.phase);
+        ctx.fillStyle = col.primary;
+        ctx.globalAlpha = p.opacity * flicker;
+        ctx.font = p.size + 'px serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(p.char, p.x, p.y);
+      });
+      ctx.globalAlpha = 1;
+
+      // The placeholder wedges — fade in
+      glyphs.forEach(g => {
+        g.opacity += (g.targetOpacity - g.opacity) * 0.02;
+        ctx.fillStyle = col.primary;
+        ctx.globalAlpha = g.opacity * (0.8 + 0.2 * Math.sin(t * 0.0015));
+        ctx.font = g.size + 'px serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(g.char, g.x, g.y);
+
+        // Label beneath
+        ctx.font = '13px Georgia';
+        ctx.globalAlpha = g.opacity * 0.5;
+        ctx.fillText('"this column is empty"', g.x, g.y + 50);
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    function drawMathConcept(t) {
+      const col = domainColors.math;
+
+      // Digits orbiting zero
+      particles.forEach((p, i) => {
+        const angle = (i / particles.length) * Math.PI * 2 + t * 0.0003;
+        const radius = 80 + (i % 5) * 40 + 10 * Math.sin(t * 0.001 + p.phase);
+        p.x = W/2 + Math.cos(angle) * radius;
+        p.y = H*0.35 + Math.sin(angle) * radius * 0.6;
+        const flicker = 0.7 + 0.3 * Math.sin(t * 0.001 + p.phase);
+        ctx.fillStyle = col.primary;
+        ctx.globalAlpha = p.opacity * flicker;
+        ctx.font = p.size + 'px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText(p.char, p.x, p.y);
+      });
+      ctx.globalAlpha = 1;
+
+      // The zero — solid, present, a citizen
+      glyphs.forEach(g => {
+        g.opacity += (g.targetOpacity - g.opacity) * 0.02;
+        ctx.fillStyle = '#fff';
+        ctx.globalAlpha = g.opacity;
+        ctx.font = 'bold ' + g.size + 'px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText(g.char, g.x, g.y);
+
+        // Glow
+        ctx.shadowColor = col.primary;
+        ctx.shadowBlur = 30 + 10 * Math.sin(t * 0.002);
+        ctx.fillStyle = col.primary;
+        ctx.globalAlpha = g.opacity * 0.3;
+        ctx.fillText(g.char, g.x, g.y);
+        ctx.shadowBlur = 0;
+
+        ctx.font = '13px Georgia';
+        ctx.fillStyle = col.primary;
+        ctx.globalAlpha = g.opacity * 0.5;
+        ctx.fillText('śūnya — void, emptiness, number', g.x, g.y + 60);
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    function drawMusicPlaceholder(t) {
+      const col = domainColors.music;
+
+      // Flowing sine waves — continuous sound, no rests
+      particles.forEach((p, i) => {
+        ctx.strokeStyle = col.primary;
+        ctx.globalAlpha = p.opacity;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let x = 0; x < W; x += 3) {
+          const y = p.y + Math.sin((x + t * p.freq) * 0.01 + p.phase) * p.amp;
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      });
+      ctx.globalAlpha = 1;
+
+      // Breath marker — a dim gap
+      const breathX = W * 0.5 + 100 * Math.sin(t * 0.0005);
+      ctx.fillStyle = col.dim;
+      ctx.globalAlpha = 0.15 + 0.1 * Math.sin(t * 0.002);
+      ctx.font = '14px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText('(breath)', breathX, H * 0.3 - 30);
+      ctx.globalAlpha = 1;
+    }
+
+    function drawMusicConcept(t) {
+      const col = domainColors.music;
+
+      // Sine waves with gaps — notated rests
+      particles.forEach((p, i) => {
+        ctx.strokeStyle = col.primary;
+        ctx.globalAlpha = p.opacity;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        let drawing = true;
+        for (let x = 0; x < W; x += 3) {
+          // Create rest gaps
+          if (p.isRest) {
+            const restPhase = ((x + t * 0.2) % 300) / 300;
+            if (restPhase > 0.3 && restPhase < 0.6) {
+              drawing = false;
+            } else {
+              drawing = true;
+            }
+          }
+          const y = p.y + Math.sin((x + t * p.freq) * 0.01 + p.phase) * p.amp;
+          if (!drawing) { ctx.moveTo(x, y); continue; }
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      });
+      ctx.globalAlpha = 1;
+
+      // Rest symbol
+      glyphs.forEach(g => {
+        g.opacity += (g.targetOpacity - g.opacity) * 0.02;
+        ctx.fillStyle = '#fff';
+        ctx.globalAlpha = g.opacity;
+        ctx.font = g.size + 'px serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(g.char, g.x, g.y);
+
+        ctx.shadowColor = col.primary;
+        ctx.shadowBlur = 20 + 8 * Math.sin(t * 0.002);
+        ctx.fillStyle = col.primary;
+        ctx.globalAlpha = g.opacity * 0.4;
+        ctx.fillText(g.char, g.x, g.y);
+        ctx.shadowBlur = 0;
+
+        ctx.font = '13px Georgia';
+        ctx.fillStyle = col.primary;
+        ctx.globalAlpha = g.opacity * 0.5;
+        ctx.fillText('silence, composed', g.x, g.y + 50);
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    function drawTextPlaceholder(t) {
+      const col = domainColors.text;
+
+      // Letters packed tight — scriptio continua
+      glyphs.forEach((g, i) => {
+        g.opacity += (g.targetOpacity - g.opacity) * 0.015;
+        ctx.fillStyle = col.primary;
+        ctx.globalAlpha = g.opacity * (0.8 + 0.2 * Math.sin(t * 0.001 + i * 0.3));
+        ctx.font = g.size + 'px "Courier New", monospace';
+        ctx.textAlign = 'left';
+        if (g.char) ctx.fillText(g.char, g.x, g.y);
+      });
+      ctx.globalAlpha = 1;
+
+      // Dim label
+      ctx.fillStyle = col.dim;
+      ctx.globalAlpha = 0.3 + 0.1 * Math.sin(t * 0.001);
+      ctx.font = '13px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText('scriptio continua — the voice parses what the eye cannot', W/2, H * 0.6);
+      ctx.globalAlpha = 1;
+    }
+
+    function drawTextConcept(t) {
+      const col = domainColors.text;
+
+      // Letters with spaces — word spacing
+      glyphs.forEach((g, i) => {
+        g.opacity += (g.targetOpacity - g.opacity) * 0.015;
+        if (g.isSpace) {
+          // Draw a gentle glow where the space is
+          ctx.fillStyle = col.primary;
+          ctx.globalAlpha = 0.06 + 0.03 * Math.sin(t * 0.002 + i * 0.5);
+          ctx.beginPath();
+          ctx.arc(g.x + 5, g.y - 5, 8, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = col.primary;
+          ctx.globalAlpha = g.opacity * (0.8 + 0.2 * Math.sin(t * 0.001 + i * 0.3));
+          ctx.font = g.size + 'px "Courier New", monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText(g.char, g.x, g.y);
+        }
+      });
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = col.primary;
+      ctx.globalAlpha = 0.35 + 0.1 * Math.sin(t * 0.001);
+      ctx.font = '13px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText('the space between words — infrastructure of private thought', W/2, H * 0.6);
+      ctx.globalAlpha = 1;
+    }
+
+    function drawTarotPlaceholder(t) {
+      const col = domainColors.tarot;
+
+      // Cards as rectangles
+      particles.forEach((p, i) => {
+        p.opacity += (p.targetOpacity - p.opacity) * 0.02;
+        const wobble = Math.sin(t * 0.001 + p.phase) * 2;
+
+        ctx.strokeStyle = p.isFool ? col.primary : col.dim;
+        ctx.globalAlpha = p.opacity;
+        ctx.lineWidth = p.isFool ? 2 : 0.8;
+
+        const x = p.x + wobble;
+        const y = p.y + wobble * 0.5;
+
+        ctx.strokeRect(x - p.w/2, y - p.h/2, p.w, p.h);
+
+        // Number or question mark
+        ctx.fillStyle = p.isFool ? col.primary : col.dim;
+        ctx.font = (p.isFool ? '18' : '11') + 'px Georgia';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(p.num, x, y);
+
+        if (p.isFool) {
+          // Glow around the fool card
+          ctx.shadowColor = col.primary;
+          ctx.shadowBlur = 15 + 5 * Math.sin(t * 0.003);
+          ctx.strokeRect(x - p.w/2, y - p.h/2, p.w, p.h);
+          ctx.shadowBlur = 0;
+        }
+      });
+      ctx.textBaseline = 'alphabetic';
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = col.dim;
+      ctx.globalAlpha = 0.3;
+      ctx.font = '13px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText('unnumbered — outside the sequence', W/2, H * 0.7);
+      ctx.globalAlpha = 1;
+    }
+
+    function drawTarotConcept(t) {
+      const col = domainColors.tarot;
+
+      particles.forEach((p, i) => {
+        p.opacity += (p.targetOpacity - p.opacity) * 0.02;
+        const wobble = Math.sin(t * 0.001 + p.phase) * 2;
+
+        ctx.strokeStyle = p.isFool ? '#fff' : col.dim;
+        ctx.globalAlpha = p.opacity;
+        ctx.lineWidth = p.isFool ? 2.5 : 0.8;
+
+        const x = p.x + wobble;
+        const y = p.y + wobble * 0.5;
+
+        ctx.strokeRect(x - p.w/2, y - p.h/2, p.w, p.h);
+
+        ctx.fillStyle = p.isFool ? '#fff' : col.dim;
+        ctx.font = (p.isFool ? '22' : '11') + 'px Georgia';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(p.num, x, y);
+
+        if (p.isFool) {
+          ctx.shadowColor = col.primary;
+          ctx.shadowBlur = 25 + 8 * Math.sin(t * 0.002);
+          ctx.fillText(p.num, x, y);
+          ctx.shadowBlur = 0;
+
+          ctx.font = '12px Georgia';
+          ctx.fillStyle = col.primary;
+          ctx.globalAlpha = p.opacity * 0.6;
+          ctx.fillText('ṣifr', x, y + p.h/2 + 18);
+        }
+      });
+      ctx.textBaseline = 'alphabetic';
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = col.primary;
+      ctx.globalAlpha = 0.35;
+      ctx.font = '13px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText('the fool receives the number of nothing — both from the same root', W/2, H * 0.7);
+      ctx.globalAlpha = 1;
+    }
+
+    function drawSynthesis(t) {
+      // Four symbols slowly orbiting center
+      const cx = W / 2;
+      const cy = H * 0.32;
+      const radius = Math.min(W, H) * 0.12;
+
+      glyphs.forEach((g, i) => {
+        g.opacity += (g.targetOpacity - g.opacity) * 0.015;
+        const angle = g.angle + t * 0.0002;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+
+        if (g.isSpace) {
+          // Space — draw brackets around empty space
+          ctx.strokeStyle = g.color;
+          ctx.globalAlpha = g.opacity * 0.8;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x - 15, y - 20); ctx.lineTo(x - 15, y + 20);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x + 15, y - 20); ctx.lineTo(x + 15, y + 20);
+          ctx.stroke();
+
+          ctx.font = '12px Georgia';
+          ctx.fillStyle = g.color;
+          ctx.globalAlpha = g.opacity * 0.5;
+          ctx.textAlign = 'center';
+          ctx.fillText('space', x, y + 35);
+        } else {
+          ctx.fillStyle = '#fff';
+          ctx.globalAlpha = g.opacity;
+          ctx.font = 'bold ' + g.size + 'px Georgia';
+          ctx.textAlign = 'center';
+          ctx.fillText(g.char, x, y + g.size * 0.35);
+
+          ctx.shadowColor = g.color;
+          ctx.shadowBlur = 20;
+          ctx.fillStyle = g.color;
+          ctx.globalAlpha = g.opacity * 0.4;
+          ctx.fillText(g.char, x, y + g.size * 0.35);
+          ctx.shadowBlur = 0;
+
+          // Label
+          const labels = ['zero', '', '', 'fool'];
+          if (g.isTarot) {
+            ctx.font = '12px Georgia';
+            ctx.fillStyle = g.color;
+            ctx.globalAlpha = g.opacity * 0.5;
+            ctx.fillText('fool', x, y + g.size * 0.35 + 30);
+          } else if (i === 0) {
+            ctx.font = '12px Georgia';
+            ctx.fillStyle = g.color;
+            ctx.globalAlpha = g.opacity * 0.5;
+            ctx.fillText('zero', x, y + g.size * 0.35 + 30);
+          } else if (i === 1) {
+            ctx.font = '12px Georgia';
+            ctx.fillStyle = g.color;
+            ctx.globalAlpha = g.opacity * 0.5;
+            ctx.fillText('rest', x, y + g.size * 0.35 + 30);
+          }
+        }
+      });
+      ctx.globalAlpha = 1;
+
+      // Faint connecting lines
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 0.5;
+      ctx.globalAlpha = 0.2 + 0.1 * Math.sin(t * 0.001);
+      for (let i = 0; i < glyphs.length; i++) {
+        for (let j = i + 1; j < glyphs.length; j++) {
+          const a = glyphs[i], b = glyphs[j];
+          const ax = cx + Math.cos(a.angle + t * 0.0002) * radius;
+          const ay = cy + Math.sin(a.angle + t * 0.0002) * radius;
+          const bx = cx + Math.cos(b.angle + t * 0.0002) * radius;
+          const by = cy + Math.sin(b.angle + t * 0.0002) * radius;
+          ctx.beginPath();
+          ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+          ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Main draw loop
+    function draw(timestamp) {
+      ctx.clearRect(0, 0, W, H);
+      sceneT = timestamp || 0;
+
+      if (currentScene >= 0 && currentScene < scenes.length) {
+        scenes[currentScene].draw(sceneT);
+      }
+
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+
+    // Navigation
+    function advance() {
+      if (currentScene < scenes.length - 1) {
+        goToScene(currentScene + 1);
+      }
+    }
+    function retreat() {
+      if (currentScene > 0) {
+        goToScene(currentScene - 1);
+      }
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); advance(); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); retreat(); }
+    });
+    canvas.addEventListener('click', advance);
+
+    // Touch
+    let touchStartX = 0;
+    canvas.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+    canvas.addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(dx) < 30) advance();
+      else if (dx < 0) advance();
+      else retreat();
+    });
+
+    // Auto-start first scene
+    setTimeout(() => goToScene(0), 800);
+  </script>
+</body>
+</html>
