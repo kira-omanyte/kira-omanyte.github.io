@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ēlektron &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="Amber forming around an inclusion. The form crystallizes as the substance dissolves. A meditation on the preservation paradox: the same chemistry that creates the permanent container destroys what it holds.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="Ēlektron &mdash; Kira Omanyte">
+  <meta property="og:description" content="The preservation paradox: amber preserves form and destroys substance. Watch it happen.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/elektron.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0806;
+      color: #c8b890;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    canvas {
+      display: block;
+      flex: 1;
+      cursor: default;
+    }
+    .info {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.8rem;
+      color: #665a40;
+      line-height: 1.5;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 0.6s;
+    }
+    .info a {
+      color: #998860;
+      pointer-events: auto;
+      text-decoration: none;
+    }
+    .info a:hover { text-decoration: underline; }
+    .title-bar {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .title-bar h1 {
+      font-size: 1rem;
+      font-weight: normal;
+      letter-spacing: 0.15em;
+      color: #998860;
+      font-style: italic;
+    }
+    .title-bar .subtitle {
+      font-size: 0.75rem;
+      color: #554d38;
+      margin-top: 0.25rem;
+    }
+    .phase-label {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 0.85rem;
+      font-style: italic;
+      color: #998860;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 1.5s;
+      text-align: center;
+      letter-spacing: 0.1em;
+    }
+    @media (prefers-color-scheme: light) {
+      body { background: #f5f0e8; color: #4a4030; }
+      .info { color: #998870; }
+      .info a { color: #6b5d45; }
+      .title-bar h1 { color: #6b5d45; }
+      .title-bar .subtitle { color: #998870; }
+      .phase-label { color: #6b5d45; }
+    }
+  </style>
+</head>
+<body>
+  <div class="title-bar">
+    <h1>Ēlektron</h1>
+    <div class="subtitle">the preservation paradox</div>
+  </div>
+  <div class="phase-label" id="phaseLabel"></div>
+  <canvas id="c"></canvas>
+  <div class="info">
+    Click to restart &middot; <a href="essays/elektron.html">Read the essay</a> &middot; <a href="/art.html">All art</a>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const phaseLabel = document.getElementById('phaseLabel');
+    let W, H, cx, cy;
+    let t = 0;
+    let phase = 0; // 0: alive, 1: resin flows, 2: hardening, 3: amber, 4: sparks
+    let phaseTime = 0;
+    const PHASE_DURATIONS = [4000, 5000, 6000, 5000, 6000]; // ms per phase
+    const PHASE_NAMES = [
+      'alive',
+      'the resin flows',
+      'polymerization',
+      'amber',
+      'ēlektron'
+    ];
+    let particles = [];
+    let resinDrops = [];
+    let sparks = [];
+    let amberOpacity = 0;
+    let inclusionOpacity = 1;
+    let sparkActive = false;
+    let labelTimer = 0;
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+      cx = W / 2;
+      cy = H / 2;
+    }
+
+    // Inclusion: a small insect-like form made of particles
+    function createInclusion() {
+      particles = [];
+      const scale = Math.min(W, H) * 0.12;
+
+      // Body segments
+      for (let i = 0; i < 40; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const r = Math.random() * scale * 0.3;
+        particles.push({
+          x: cx + Math.cos(angle) * r,
+          y: cy + Math.sin(angle) * r,
+          ox: cx + Math.cos(angle) * r,
+          oy: cy + Math.sin(angle) * r,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.3,
+          size: 1.5 + Math.random() * 2,
+          type: 'body',
+          life: 1,
+          drift: Math.random() * Math.PI * 2
+        });
+      }
+
+      // Wings
+      for (let side = -1; side <= 1; side += 2) {
+        for (let i = 0; i < 25; i++) {
+          const wx = cx + side * (scale * 0.15 + Math.random() * scale * 0.35);
+          const wy = cy - scale * 0.1 + (Math.random() - 0.5) * scale * 0.4;
+          particles.push({
+            x: wx, y: wy, ox: wx, oy: wy,
+            vx: (Math.random() - 0.5) * 0.2,
+            vy: (Math.random() - 0.5) * 0.2,
+            size: 0.8 + Math.random() * 1.5,
+            type: 'wing',
+            life: 1,
+            drift: Math.random() * Math.PI * 2
+          });
+        }
+      }
+
+      // Legs
+      for (let i = 0; i < 18; i++) {
+        const side = i < 9 ? -1 : 1;
+        const idx = i % 9;
+        const lx = cx + side * (scale * 0.05 + idx * scale * 0.03);
+        const ly = cy + scale * 0.15 + idx * scale * 0.02;
+        particles.push({
+          x: lx, y: ly, ox: lx, oy: ly,
+          vx: (Math.random() - 0.5) * 0.4,
+          vy: (Math.random() - 0.5) * 0.4,
+          size: 0.6 + Math.random(),
+          type: 'leg',
+          life: 1,
+          drift: Math.random() * Math.PI * 2
+        });
+      }
+
+      // Antennae
+      for (let side = -1; side <= 1; side += 2) {
+        for (let i = 0; i < 6; i++) {
+          const ax = cx + side * (scale * 0.02 + i * scale * 0.03);
+          const ay = cy - scale * 0.2 - i * scale * 0.04;
+          particles.push({
+            x: ax, y: ay, ox: ax, oy: ay,
+            vx: (Math.random() - 0.5) * 0.15,
+            vy: (Math.random() - 0.5) * 0.15,
+            size: 0.5 + Math.random() * 0.8,
+            type: 'antenna',
+            life: 1,
+            drift: Math.random() * Math.PI * 2
+          });
+        }
+      }
+    }
+
+    function createResinDrops() {
+      resinDrops = [];
+      for (let i = 0; i < 12; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.min(W, H) * (0.3 + Math.random() * 0.2);
+        resinDrops.push({
+          x: cx + Math.cos(angle) * dist,
+          y: cy + Math.sin(angle) * dist,
+          targetX: cx + (Math.random() - 0.5) * 40,
+          targetY: cy + (Math.random() - 0.5) * 40,
+          size: 15 + Math.random() * 25,
+          speed: 0.003 + Math.random() * 0.004,
+          progress: 0,
+          opacity: 0.4 + Math.random() * 0.3
+        });
+      }
+    }
+
+    function showPhaseLabel(text) {
+      phaseLabel.textContent = text;
+      phaseLabel.style.opacity = '1';
+      labelTimer = 2000;
+    }
+
+    function init() {
+      t = 0;
+      phase = 0;
+      phaseTime = 0;
+      amberOpacity = 0;
+      inclusionOpacity = 1;
+      sparkActive = false;
+      sparks = [];
+      resize();
+      createInclusion();
+      createResinDrops();
+      showPhaseLabel(PHASE_NAMES[0]);
+    }
+
+    function drawAmberShape(opacity, hardness) {
+      const scale = Math.min(W, H) * 0.22;
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      // Amber blob — organic teardrop-ish shape
+      const points = 64;
+      ctx.beginPath();
+      for (let i = 0; i <= points; i++) {
+        const a = (i / points) * Math.PI * 2;
+        // Base radius with organic variation
+        let r = scale * (0.8 + 0.2 * Math.sin(a * 2 + 0.5) + 0.1 * Math.cos(a * 3 - 0.3));
+        // Slight teardrop: elongate top
+        r += scale * 0.15 * Math.max(0, -Math.sin(a));
+        // Less wobble as it hardens
+        const wobble = (1 - hardness) * 0.08;
+        r += scale * wobble * Math.sin(a * 7 + t * 0.001);
+        r += scale * wobble * 0.5 * Math.cos(a * 11 + t * 0.0007);
+
+        const px = Math.cos(a) * r;
+        const py = Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+
+      // Amber fill — golden gradient
+      const grad = ctx.createRadialGradient(0, -scale * 0.2, 0, 0, 0, scale);
+      const h = hardness;
+      // Gets more golden/deep as it hardens
+      grad.addColorStop(0, `rgba(${220 + 35 * h}, ${180 + 30 * h}, ${80 + 40 * h}, ${opacity * 0.6})`);
+      grad.addColorStop(0.5, `rgba(${180 + 30 * h}, ${130 + 20 * h}, ${40 + 30 * h}, ${opacity * 0.5})`);
+      grad.addColorStop(1, `rgba(${140 + 20 * h}, ${90 + 15 * h}, ${20 + 20 * h}, ${opacity * 0.3})`);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Inner glow
+      const glow = ctx.createRadialGradient(scale * 0.1, -scale * 0.15, 0, 0, 0, scale * 0.6);
+      glow.addColorStop(0, `rgba(255, 230, 150, ${opacity * 0.2 * h})`);
+      glow.addColorStop(1, `rgba(255, 200, 100, 0)`);
+      ctx.fillStyle = glow;
+      ctx.fill();
+
+      // Edge
+      ctx.strokeStyle = `rgba(200, 160, 60, ${opacity * 0.4})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function drawSparks() {
+      // Static electricity sparks from amber surface
+      for (let i = sparks.length - 1; i >= 0; i--) {
+        const s = sparks[i];
+        s.life -= 0.015;
+        s.x += s.vx;
+        s.y += s.vy;
+        s.vy += 0.01; // slight gravity
+
+        if (s.life <= 0) {
+          sparks.splice(i, 1);
+          continue;
+        }
+
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size * s.life, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(180, 200, 255, ${s.life * 0.8})`;
+        ctx.fill();
+
+        // Tiny lightning bolt trail
+        if (s.life > 0.5 && Math.random() < 0.3) {
+          ctx.beginPath();
+          ctx.moveTo(s.x, s.y);
+          const bx = s.x + (Math.random() - 0.5) * 15;
+          const by = s.y + (Math.random() - 0.5) * 15;
+          ctx.lineTo(bx, by);
+          ctx.strokeStyle = `rgba(160, 190, 255, ${s.life * 0.3})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+
+    function spawnSparks() {
+      const scale = Math.min(W, H) * 0.22;
+      for (let i = 0; i < 3; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const r = scale * (0.7 + Math.random() * 0.3);
+        sparks.push({
+          x: cx + Math.cos(angle) * r,
+          y: cy + Math.sin(angle) * r,
+          vx: Math.cos(angle) * (1 + Math.random() * 2),
+          vy: Math.sin(angle) * (1 + Math.random() * 2),
+          size: 1 + Math.random() * 2,
+          life: 1
+        });
+      }
+    }
+
+    let lastTime = 0;
+    function animate(now) {
+      const dt = lastTime ? Math.min(now - lastTime, 50) : 16;
+      lastTime = now;
+      t += dt;
+      phaseTime += dt;
+
+      // Phase transitions
+      if (phaseTime >= PHASE_DURATIONS[phase] && phase < 4) {
+        phase++;
+        phaseTime = 0;
+        showPhaseLabel(PHASE_NAMES[phase]);
+      }
+
+      // Update label fade
+      if (labelTimer > 0) {
+        labelTimer -= dt;
+        if (labelTimer <= 0) {
+          phaseLabel.style.opacity = '0';
+        }
+      }
+
+      // Phase-specific logic
+      const pp = Math.min(1, phaseTime / PHASE_DURATIONS[phase]);
+
+      if (phase === 0) {
+        // Alive: particles drift gently
+        for (const p of particles) {
+          p.drift += 0.002;
+          p.x = p.ox + Math.sin(p.drift) * 2;
+          p.y = p.oy + Math.cos(p.drift * 0.7) * 2;
+        }
+      } else if (phase === 1) {
+        // Resin flowing in
+        amberOpacity = pp * 0.3;
+        for (const d of resinDrops) {
+          d.progress = Math.min(1, d.progress + d.speed * dt * 0.06);
+        }
+        // Particles start to slow
+        for (const p of particles) {
+          p.drift += 0.002 * (1 - pp * 0.5);
+          p.x = p.ox + Math.sin(p.drift) * 2 * (1 - pp * 0.3);
+          p.y = p.oy + Math.cos(p.drift * 0.7) * 2 * (1 - pp * 0.3);
+        }
+      } else if (phase === 2) {
+        // Hardening: amber solidifies, inclusion starts to fade
+        amberOpacity = 0.3 + pp * 0.5;
+        inclusionOpacity = 1 - pp * 0.3;
+        // Particles freeze
+        for (const p of particles) {
+          p.x = p.ox + Math.sin(p.drift) * 2 * (0.7 - pp * 0.7);
+          p.y = p.oy + Math.cos(p.drift * 0.7) * 2 * (0.7 - pp * 0.7);
+        }
+      } else if (phase === 3) {
+        // Perfect amber: inclusion dissolves
+        amberOpacity = 0.8;
+        inclusionOpacity = 0.7 - pp * 0.65;
+        // Random particles lose life
+        for (const p of particles) {
+          if (Math.random() < 0.0008 * dt) {
+            p.life = Math.max(0, p.life - 0.1);
+          }
+        }
+      } else if (phase === 4) {
+        // Sparks: static electricity
+        amberOpacity = 0.8 + Math.sin(t * 0.002) * 0.05;
+        inclusionOpacity = Math.max(0.02, 0.05 - pp * 0.04);
+        sparkActive = true;
+        if (Math.random() < 0.05) spawnSparks();
+        // All particles fade
+        for (const p of particles) {
+          p.life = Math.max(0, p.life - 0.0003 * dt);
+        }
+      }
+
+      // Draw
+      // Subtle background
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      ctx.fillStyle = isDark ? '#0a0806' : '#f5f0e8';
+      ctx.fillRect(0, 0, W, H);
+
+      // Resin drops flowing toward center (phase 1+)
+      if (phase >= 1) {
+        for (const d of resinDrops) {
+          const dp = d.progress;
+          const dx = d.x + (d.targetX - d.x) * dp;
+          const dy = d.y + (d.targetY - d.y) * dp;
+          const grad = ctx.createRadialGradient(dx, dy, 0, dx, dy, d.size * (1 - dp * 0.5));
+          const baseR = isDark ? 180 : 160;
+          const baseG = isDark ? 140 : 120;
+          const baseB = isDark ? 40 : 30;
+          grad.addColorStop(0, `rgba(${baseR}, ${baseG}, ${baseB}, ${d.opacity * (1 - dp * 0.7)})`);
+          grad.addColorStop(1, `rgba(${baseR}, ${baseG}, ${baseB}, 0)`);
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(dx, dy, d.size * (1 - dp * 0.5), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Amber shape
+      if (amberOpacity > 0) {
+        const hardness = phase >= 3 ? 1 : phase === 2 ? pp : 0;
+        drawAmberShape(amberOpacity, hardness);
+      }
+
+      // Inclusion particles
+      for (const p of particles) {
+        if (p.life <= 0) continue;
+        const alpha = p.life * inclusionOpacity;
+        if (alpha < 0.01) continue;
+
+        let color;
+        if (p.type === 'wing') {
+          color = isDark
+            ? `rgba(200, 190, 170, ${alpha * 0.6})`
+            : `rgba(80, 70, 50, ${alpha * 0.5})`;
+        } else if (p.type === 'body') {
+          color = isDark
+            ? `rgba(180, 160, 130, ${alpha * 0.9})`
+            : `rgba(60, 50, 35, ${alpha * 0.8})`;
+        } else {
+          color = isDark
+            ? `rgba(170, 155, 130, ${alpha * 0.7})`
+            : `rgba(70, 60, 40, ${alpha * 0.6})`;
+        }
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * (0.5 + p.life * 0.5), 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+
+      // Sparks
+      if (sparkActive) drawSparks();
+
+      // Subtle ambient particles (dust in amber)
+      if (amberOpacity > 0.3) {
+        const scale = Math.min(W, H) * 0.18;
+        for (let i = 0; i < 8; i++) {
+          const angle = t * 0.00003 * (i + 1) + i * 0.78;
+          const r = scale * (0.3 + 0.4 * Math.sin(i * 1.3 + t * 0.0001));
+          const dx = cx + Math.cos(angle) * r;
+          const dy = cy + Math.sin(angle) * r;
+          ctx.beginPath();
+          ctx.arc(dx, dy, 0.5, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 220, 120, ${amberOpacity * 0.15})`;
+          ctx.fill();
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    window.addEventListener('resize', resize);
+    canvas.addEventListener('click', init);
+
+    init();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
