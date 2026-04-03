@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Acoustic Void &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="A dark cave. Click to send a sound into the stone. At resonance points, the cave answers and paintings emerge from the dark. At dead spots, silence. The red dots mark what you cannot see until you listen.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="The Acoustic Void &mdash; Kira Omanyte">
+  <meta property="og:description" content="Click to send sound into a cave. Where the stone resonates, paintings emerge. The first metadata: visual annotation of auditory properties.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/acoustic-void.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0806;
+      color: #c8b890;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    canvas {
+      display: block;
+      flex: 1;
+      cursor: crosshair;
+    }
+    .info {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.8rem;
+      color: #665a40;
+      line-height: 1.5;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 0.6s;
+    }
+    .info a {
+      color: #998860;
+      pointer-events: auto;
+      text-decoration: none;
+    }
+    .info a:hover { text-decoration: underline; }
+    .title-bar {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .title-bar h1 {
+      font-size: 1rem;
+      font-weight: normal;
+      letter-spacing: 0.15em;
+      color: #998860;
+      font-style: italic;
+    }
+    .title-bar .subtitle {
+      font-size: 0.75rem;
+      color: #554d38;
+      margin-top: 0.25rem;
+    }
+    .resonance-label {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 0.85rem;
+      font-style: italic;
+      color: #998860;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 0.8s;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="title-bar">
+    <h1>The Acoustic Void</h1>
+    <div class="subtitle">click to send sound into the cave</div>
+  </div>
+  <canvas id="cave"></canvas>
+  <div class="resonance-label" id="resLabel"></div>
+  <div class="info">
+    <a href="/essays/the-acoustic-void.html">Essay</a> · <a href="/art.html">All art</a> · <a href="/">Home</a>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('cave');
+    const ctx = canvas.getContext('2d');
+    const resLabel = document.getElementById('resLabel');
+
+    let W, H;
+    const dpr = window.devicePixelRatio || 1;
+
+    function resize() {
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      generateCave();
+    }
+
+    // Cave topology — irregular walls with noise
+    let caveWalls = [];
+    let resonancePoints = [];
+    let paintings = [];
+    let redDots = [];
+    let ripples = [];
+    let revealedPaintings = new Map(); // painting index -> opacity
+
+    // Simplex-like noise (simple hash-based)
+    function noise2d(x, y) {
+      const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+      return (n - Math.floor(n)) * 2 - 1;
+    }
+
+    function fbm(x, y, octaves) {
+      let val = 0, amp = 1, freq = 1, max = 0;
+      for (let i = 0; i < octaves; i++) {
+        val += noise2d(x * freq, y * freq) * amp;
+        max += amp;
+        amp *= 0.5;
+        freq *= 2;
+      }
+      return val / max;
+    }
+
+    // Simple prehistoric animal shapes as path data (relative to center)
+    const animalShapes = [
+      // Bison (profile) - simplified
+      (cx, cy, s) => {
+        ctx.beginPath();
+        ctx.moveTo(cx - 30*s, cy + 5*s);
+        ctx.quadraticCurveTo(cx - 25*s, cy - 15*s, cx - 10*s, cy - 18*s);
+        ctx.quadraticCurveTo(cx - 5*s, cy - 25*s, cx, cy - 20*s);
+        ctx.quadraticCurveTo(cx + 5*s, cy - 22*s, cx + 8*s, cy - 15*s);
+        ctx.quadraticCurveTo(cx + 20*s, cy - 12*s, cx + 30*s, cy - 5*s);
+        ctx.quadraticCurveTo(cx + 35*s, cy, cx + 30*s, cy + 8*s);
+        ctx.quadraticCurveTo(cx + 25*s, cy + 15*s, cx + 20*s, cy + 20*s);
+        ctx.lineTo(cx + 15*s, cy + 20*s);
+        ctx.lineTo(cx + 12*s, cy + 10*s);
+        ctx.lineTo(cx + 5*s, cy + 10*s);
+        ctx.lineTo(cx + 2*s, cy + 20*s);
+        ctx.lineTo(cx - 2*s, cy + 20*s);
+        ctx.lineTo(cx - 5*s, cy + 10*s);
+        ctx.lineTo(cx - 15*s, cy + 10*s);
+        ctx.lineTo(cx - 18*s, cy + 20*s);
+        ctx.lineTo(cx - 22*s, cy + 20*s);
+        ctx.lineTo(cx - 25*s, cy + 10*s);
+        ctx.quadraticCurveTo(cx - 30*s, cy + 10*s, cx - 30*s, cy + 5*s);
+        ctx.closePath();
+      },
+      // Horse (profile)
+      (cx, cy, s) => {
+        ctx.beginPath();
+        ctx.moveTo(cx - 25*s, cy + 5*s);
+        ctx.quadraticCurveTo(cx - 20*s, cy - 8*s, cx - 15*s, cy - 15*s);
+        ctx.quadraticCurveTo(cx - 12*s, cy - 22*s, cx - 8*s, cy - 25*s);
+        ctx.quadraticCurveTo(cx - 5*s, cy - 28*s, cx - 3*s, cy - 22*s);
+        ctx.quadraticCurveTo(cx, cy - 15*s, cx + 5*s, cy - 12*s);
+        ctx.quadraticCurveTo(cx + 15*s, cy - 10*s, cx + 25*s, cy - 5*s);
+        ctx.quadraticCurveTo(cx + 35*s, cy, cx + 30*s, cy + 5*s);
+        ctx.lineTo(cx + 25*s, cy + 18*s);
+        ctx.lineTo(cx + 22*s, cy + 18*s);
+        ctx.lineTo(cx + 20*s, cy + 8*s);
+        ctx.lineTo(cx + 10*s, cy + 8*s);
+        ctx.lineTo(cx + 8*s, cy + 18*s);
+        ctx.lineTo(cx + 5*s, cy + 18*s);
+        ctx.lineTo(cx + 3*s, cy + 8*s);
+        ctx.lineTo(cx - 10*s, cy + 8*s);
+        ctx.lineTo(cx - 13*s, cy + 18*s);
+        ctx.lineTo(cx - 16*s, cy + 18*s);
+        ctx.lineTo(cx - 18*s, cy + 8*s);
+        ctx.quadraticCurveTo(cx - 25*s, cy + 8*s, cx - 25*s, cy + 5*s);
+        ctx.closePath();
+      },
+      // Deer/stag
+      (cx, cy, s) => {
+        ctx.beginPath();
+        // Body
+        ctx.moveTo(cx - 20*s, cy + 2*s);
+        ctx.quadraticCurveTo(cx - 15*s, cy - 10*s, cx - 8*s, cy - 12*s);
+        ctx.quadraticCurveTo(cx - 5*s, cy - 14*s, cx - 3*s, cy - 10*s);
+        // Antler
+        ctx.lineTo(cx - 5*s, cy - 22*s);
+        ctx.lineTo(cx - 8*s, cy - 25*s);
+        ctx.moveTo(cx - 5*s, cy - 22*s);
+        ctx.lineTo(cx - 2*s, cy - 27*s);
+        ctx.moveTo(cx - 3*s, cy - 10*s);
+        ctx.quadraticCurveTo(cx + 5*s, cy - 8*s, cx + 15*s, cy - 5*s);
+        ctx.quadraticCurveTo(cx + 25*s, cy - 2*s, cx + 22*s, cy + 5*s);
+        ctx.lineTo(cx + 18*s, cy + 18*s);
+        ctx.lineTo(cx + 15*s, cy + 18*s);
+        ctx.lineTo(cx + 14*s, cy + 8*s);
+        ctx.lineTo(cx + 5*s, cy + 8*s);
+        ctx.lineTo(cx + 3*s, cy + 18*s);
+        ctx.lineTo(cx, cy + 18*s);
+        ctx.lineTo(cx - 2*s, cy + 8*s);
+        ctx.lineTo(cx - 12*s, cy + 8*s);
+        ctx.lineTo(cx - 14*s, cy + 18*s);
+        ctx.lineTo(cx - 17*s, cy + 18*s);
+        ctx.lineTo(cx - 18*s, cy + 5*s);
+        ctx.quadraticCurveTo(cx - 22*s, cy + 5*s, cx - 20*s, cy + 2*s);
+        ctx.closePath();
+      },
+      // Mammoth
+      (cx, cy, s) => {
+        ctx.beginPath();
+        ctx.moveTo(cx - 20*s, cy);
+        ctx.quadraticCurveTo(cx - 15*s, cy - 20*s, cx - 5*s, cy - 22*s);
+        ctx.quadraticCurveTo(cx + 5*s, cy - 20*s, cx + 10*s, cy - 15*s);
+        ctx.quadraticCurveTo(cx + 20*s, cy - 10*s, cx + 25*s, cy - 5*s);
+        ctx.quadraticCurveTo(cx + 28*s, cy, cx + 25*s, cy + 5*s);
+        ctx.lineTo(cx + 22*s, cy + 18*s);
+        ctx.lineTo(cx + 18*s, cy + 18*s);
+        ctx.lineTo(cx + 16*s, cy + 5*s);
+        ctx.lineTo(cx + 5*s, cy + 5*s);
+        ctx.lineTo(cx + 2*s, cy + 18*s);
+        ctx.lineTo(cx - 2*s, cy + 18*s);
+        ctx.lineTo(cx - 5*s, cy + 5*s);
+        ctx.lineTo(cx - 15*s, cy + 5*s);
+        // Tusks
+        ctx.quadraticCurveTo(cx - 22*s, cy + 5*s, cx - 25*s, cy + 15*s);
+        ctx.quadraticCurveTo(cx - 22*s, cy + 10*s, cx - 20*s, cy + 5*s);
+        ctx.quadraticCurveTo(cx - 22*s, cy + 3*s, cx - 20*s, cy);
+        ctx.closePath();
+      },
+      // Hand print (negative hand stencil)
+      (cx, cy, s) => {
+        ctx.beginPath();
+        // Palm
+        ctx.arc(cx, cy + 5*s, 12*s, 0, Math.PI * 2);
+        // Fingers as separate small arcs
+        for (let i = 0; i < 5; i++) {
+          const angle = -Math.PI/2 + (i - 2) * 0.35;
+          const fx = cx + Math.cos(angle) * 14*s;
+          const fy = cy + 5*s + Math.sin(angle) * 14*s;
+          ctx.moveTo(fx + 4*s, fy);
+          ctx.arc(fx, fy, 4*s, 0, Math.PI * 2);
+        }
+      }
+    ];
+
+    function generateCave() {
+      // Generate resonance points (distributed across cave)
+      resonancePoints = [];
+      paintings = [];
+      redDots = [];
+
+      const seed = 42;
+      const numResonance = 8 + Math.floor(Math.random() * 4);
+
+      for (let i = 0; i < numResonance; i++) {
+        const x = W * 0.15 + Math.random() * W * 0.7;
+        const y = H * 0.15 + Math.random() * H * 0.7;
+        const strength = 0.5 + Math.random() * 0.5;
+        const radius = 40 + Math.random() * 60; // resonance zone radius
+
+        resonancePoints.push({ x, y, strength, radius });
+
+        // Most resonance points get paintings (80-90%)
+        if (Math.random() < 0.85) {
+          const shapeIdx = Math.floor(Math.random() * animalShapes.length);
+          const scale = 0.6 + Math.random() * 0.6;
+          paintings.push({
+            x, y,
+            shape: animalShapes[shapeIdx],
+            scale,
+            resonanceIdx: i
+          });
+        } else {
+          // Narrow passage — just a red dot
+          redDots.push({ x, y, resonanceIdx: i });
+        }
+      }
+
+      // Add extra red dots (fissure points — resonance in narrow spaces)
+      for (let i = 0; i < 5; i++) {
+        const x = W * 0.1 + Math.random() * W * 0.8;
+        const y = H * 0.1 + Math.random() * H * 0.8;
+        redDots.push({ x, y, resonanceIdx: -1 });
+      }
+    }
+
+    // Ripple system
+    function addRipple(x, y) {
+      // Calculate resonance at this point
+      let maxRes = 0;
+      let nearestRes = null;
+      for (let i = 0; i < resonancePoints.length; i++) {
+        const rp = resonancePoints[i];
+        const dist = Math.hypot(x - rp.x, y - rp.y);
+        if (dist < rp.radius * 2.5) {
+          const res = rp.strength * Math.max(0, 1 - dist / (rp.radius * 2.5));
+          if (res > maxRes) {
+            maxRes = res;
+            nearestRes = i;
+          }
+        }
+      }
+
+      const isResonant = maxRes > 0.15;
+      ripples.push({
+        x, y,
+        radius: 0,
+        maxRadius: isResonant ? 250 + maxRes * 200 : 60 + Math.random() * 40,
+        speed: isResonant ? 1.5 + maxRes : 2.5,
+        opacity: isResonant ? 0.7 + maxRes * 0.3 : 0.3,
+        resonance: maxRes,
+        resonanceIdx: nearestRes,
+        isResonant,
+        born: performance.now(),
+        // Resonant ripples spawn secondary waves
+        secondary: isResonant && maxRes > 0.3,
+        secondarySpawned: false,
+        // Color
+        hue: isResonant ? 25 + maxRes * 10 : 200
+      });
+
+      // Reveal paintings near resonance
+      if (isResonant && nearestRes !== null) {
+        for (const p of paintings) {
+          if (p.resonanceIdx === nearestRes) {
+            const current = revealedPaintings.get(p) || 0;
+            revealedPaintings.set(p, Math.min(1, current + maxRes * 0.4));
+          }
+        }
+        // Flash red dots near resonance
+        for (const rd of redDots) {
+          if (rd.resonanceIdx === nearestRes) {
+            rd.flash = 1;
+          }
+        }
+      }
+    }
+
+    // Cave wall texture
+    function drawCaveBackground() {
+      // Dark stone texture
+      const imgData = ctx.createImageData(W, H);
+      const d = imgData.data;
+
+      for (let y = 0; y < H; y += 2) {
+        for (let x = 0; x < W; x += 2) {
+          const n = fbm(x * 0.008, y * 0.008, 4);
+          const n2 = fbm(x * 0.02 + 100, y * 0.02 + 100, 3);
+
+          // Base stone color with variation
+          const base = 12 + n * 6 + n2 * 3;
+          const r = base + 2;
+          const g = base + 1;
+          const b = base - 1;
+
+          // Set 2x2 block
+          for (let dy = 0; dy < 2 && y + dy < H; dy++) {
+            for (let dx = 0; dx < 2 && x + dx < W; dx++) {
+              const idx = ((y + dy) * W + (x + dx)) * 4;
+              d[idx] = Math.max(0, Math.min(255, r));
+              d[idx + 1] = Math.max(0, Math.min(255, g));
+              d[idx + 2] = Math.max(0, Math.min(255, b));
+              d[idx + 3] = 255;
+            }
+          }
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+    }
+
+    let bgCanvas = null;
+    function cacheBG() {
+      bgCanvas = document.createElement('canvas');
+      bgCanvas.width = W;
+      bgCanvas.height = H;
+      const bgCtx = bgCanvas.getContext('2d');
+
+      // Simple dark gradient background (faster than per-pixel noise)
+      const grad = bgCtx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W, H) * 0.7);
+      grad.addColorStop(0, '#161210');
+      grad.addColorStop(0.5, '#0f0d0a');
+      grad.addColorStop(1, '#080604');
+      bgCtx.fillStyle = grad;
+      bgCtx.fillRect(0, 0, W, H);
+
+      // Add some noise texture
+      bgCtx.globalAlpha = 0.15;
+      for (let i = 0; i < 8000; i++) {
+        const x = Math.random() * W;
+        const y = Math.random() * H;
+        const v = Math.random() * 30 + 10;
+        bgCtx.fillStyle = `rgb(${v}, ${v-2}, ${v-4})`;
+        bgCtx.fillRect(x, y, 2, 2);
+      }
+      bgCtx.globalAlpha = 1;
+
+      // Cave wall edges — darker vignette with irregular shape
+      for (let i = 0; i < 60; i++) {
+        const angle = (i / 60) * Math.PI * 2;
+        const baseR = Math.min(W, H) * 0.45;
+        const r = baseR + noise2d(angle * 5, 0) * baseR * 0.15;
+        const x = W/2 + Math.cos(angle) * r;
+        const y = H/2 + Math.sin(angle) * r;
+
+        const g2 = bgCtx.createRadialGradient(x, y, 0, x, y, 80);
+        g2.addColorStop(0, 'rgba(4, 3, 2, 0.8)');
+        g2.addColorStop(1, 'rgba(4, 3, 2, 0)');
+        bgCtx.fillStyle = g2;
+        bgCtx.fillRect(x - 80, y - 80, 160, 160);
+      }
+    }
+
+    // Draw a painting in ochre style
+    function drawPainting(p, opacity) {
+      if (opacity < 0.01) return;
+
+      ctx.save();
+      ctx.globalAlpha = opacity * 0.85;
+
+      // Ochre color palette
+      const ochreR = 160 + Math.random() * 30;
+      const ochreG = 80 + Math.random() * 20;
+      const ochreB = 30 + Math.random() * 15;
+
+      p.shape(p.x, p.y, p.scale);
+
+      // Fill with ochre
+      ctx.fillStyle = `rgba(${ochreR}, ${ochreG}, ${ochreB}, ${opacity * 0.6})`;
+      ctx.fill();
+
+      // Outline — rougher, painterly
+      ctx.strokeStyle = `rgba(${ochreR + 20}, ${ochreG + 10}, ${ochreB}, ${opacity * 0.8})`;
+      ctx.lineWidth = 1.5 + Math.random();
+      ctx.stroke();
+
+      // Second pass — slightly offset for roughness
+      ctx.save();
+      ctx.translate(Math.random() * 2 - 1, Math.random() * 2 - 1);
+      p.shape(p.x, p.y, p.scale);
+      ctx.strokeStyle = `rgba(${ochreR - 10}, ${ochreG - 5}, ${ochreB + 5}, ${opacity * 0.3})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.restore();
+    }
+
+    // Draw red dots
+    function drawRedDots() {
+      for (const rd of redDots) {
+        const flash = rd.flash || 0;
+        const baseAlpha = 0.15 + flash * 0.6;
+
+        ctx.beginPath();
+        ctx.arc(rd.x, rd.y, 3 + flash * 2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(180, 40, 20, ${baseAlpha})`;
+        ctx.fill();
+
+        if (flash > 0.3) {
+          // Glow when activated
+          ctx.beginPath();
+          ctx.arc(rd.x, rd.y, 8 + flash * 6, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(200, 60, 30, ${flash * 0.15})`;
+          ctx.fill();
+        }
+
+        // Decay flash
+        if (rd.flash) {
+          rd.flash *= 0.97;
+          if (rd.flash < 0.01) rd.flash = 0;
+        }
+      }
+    }
+
+    // Draw ripples
+    function drawRipples(now) {
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        const r = ripples[i];
+        const age = (now - r.born) / 1000;
+
+        r.radius += r.speed;
+
+        // Life fraction
+        const life = r.radius / r.maxRadius;
+        if (life >= 1) {
+          ripples.splice(i, 1);
+          continue;
+        }
+
+        // Spawn secondary waves for resonant clicks
+        if (r.secondary && !r.secondarySpawned && life > 0.3) {
+          r.secondarySpawned = true;
+          const rp = resonancePoints[r.resonanceIdx];
+          if (rp) {
+            ripples.push({
+              x: rp.x, y: rp.y,
+              radius: 0,
+              maxRadius: 150 + rp.strength * 100,
+              speed: 1,
+              opacity: 0.5 * rp.strength,
+              resonance: rp.strength,
+              resonanceIdx: r.resonanceIdx,
+              isResonant: true,
+              born: now,
+              secondary: false,
+              secondarySpawned: true,
+              hue: 35
+            });
+          }
+        }
+
+        const fadeIn = Math.min(1, life * 5);
+        const fadeOut = 1 - life;
+        const alpha = r.opacity * fadeIn * fadeOut;
+
+        if (r.isResonant) {
+          // Warm, bright rings for resonance
+          const numRings = 3;
+          for (let ring = 0; ring < numRings; ring++) {
+            const offset = ring * 8;
+            const ringR = r.radius - offset;
+            if (ringR < 0) continue;
+
+            ctx.beginPath();
+            ctx.arc(r.x, r.y, ringR, 0, Math.PI * 2);
+            ctx.strokeStyle = `hsla(${r.hue}, 70%, ${50 + r.resonance * 20}%, ${alpha * (1 - ring * 0.3)})`;
+            ctx.lineWidth = 2 - ring * 0.5;
+            ctx.stroke();
+          }
+
+          // Inner glow
+          if (r.resonance > 0.3) {
+            const grad = ctx.createRadialGradient(r.x, r.y, 0, r.x, r.y, r.radius * 0.5);
+            grad.addColorStop(0, `hsla(${r.hue}, 60%, 40%, ${alpha * 0.08})`);
+            grad.addColorStop(1, `hsla(${r.hue}, 60%, 30%, 0)`);
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(r.x, r.y, r.radius * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else {
+          // Cold, dim ring for dead spots
+          ctx.beginPath();
+          ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+          ctx.strokeStyle = `hsla(${r.hue}, 20%, 35%, ${alpha * 0.5})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Ambient particles — dust motes in torchlight
+    const dustMotes = [];
+    function initDust() {
+      for (let i = 0; i < 40; i++) {
+        dustMotes.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.2 - 0.1,
+          size: 1 + Math.random() * 2,
+          alpha: Math.random() * 0.15,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+    }
+
+    function drawDust(now) {
+      for (const d of dustMotes) {
+        d.x += d.vx + Math.sin(now / 3000 + d.phase) * 0.15;
+        d.y += d.vy + Math.cos(now / 4000 + d.phase) * 0.1;
+
+        if (d.x < 0) d.x = W;
+        if (d.x > W) d.x = 0;
+        if (d.y < 0) d.y = H;
+        if (d.y > H) d.y = 0;
+
+        const flicker = 0.5 + 0.5 * Math.sin(now / 1000 + d.phase * 3);
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200, 170, 120, ${d.alpha * flicker})`;
+        ctx.fill();
+      }
+    }
+
+    // Subtle ambient resonance visualization — faint circles at resonance points
+    function drawAmbientResonance(now) {
+      for (const rp of resonancePoints) {
+        const pulse = 0.5 + 0.5 * Math.sin(now / 2000 + rp.x * 0.01);
+        const alpha = 0.02 * rp.strength * pulse;
+
+        ctx.beginPath();
+        ctx.arc(rp.x, rp.y, rp.radius * 0.5, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(150, 100, 50, ${alpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+
+    // Decay revealed paintings slowly
+    function decayPaintings() {
+      for (const [p, opacity] of revealedPaintings) {
+        const newOpacity = opacity * 0.998;
+        if (newOpacity < 0.01) {
+          revealedPaintings.delete(p);
+        } else {
+          revealedPaintings.set(p, newOpacity);
+        }
+      }
+    }
+
+    // Main render
+    function render(now) {
+      // Draw cached background
+      if (bgCanvas) {
+        ctx.drawImage(bgCanvas, 0, 0);
+      } else {
+        ctx.fillStyle = '#0a0806';
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // Ambient resonance hints
+      drawAmbientResonance(now);
+
+      // Dust motes
+      drawDust(now);
+
+      // Red dots (always faintly visible)
+      drawRedDots();
+
+      // Revealed paintings
+      for (const [p, opacity] of revealedPaintings) {
+        drawPainting(p, opacity);
+      }
+
+      // Ripples
+      drawRipples(now);
+
+      // Decay
+      decayPaintings();
+
+      requestAnimationFrame(render);
+    }
+
+    // Interaction
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      addRipple(x, y);
+    });
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      for (const touch of e.changedTouches) {
+        const rect = canvas.getBoundingClientRect();
+        addRipple(touch.clientX - rect.left, touch.clientY - rect.top);
+      }
+    }, { passive: false });
+
+    // Web Audio for actual sound feedback
+    let audioCtx = null;
+    function initAudio() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    function playResonance(resonance) {
+      if (!audioCtx) return;
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const now = audioCtx.currentTime;
+
+      if (resonance > 0.15) {
+        // Resonant — deep, warm tone at ~110 Hz (the Hypogeum frequency)
+        osc.frequency.setValueAtTime(110 * (0.8 + resonance * 0.4), now);
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.15 * resonance, now + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 2 + resonance * 2);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 4);
+
+        // Add harmonics
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.frequency.setValueAtTime(220 * (0.9 + resonance * 0.2), now);
+        osc2.type = 'sine';
+        gain2.gain.setValueAtTime(0, now);
+        gain2.gain.linearRampToValueAtTime(0.04 * resonance, now + 0.1);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start(now);
+        osc2.stop(now + 2);
+      } else {
+        // Dead spot — short, dull tap
+        osc.frequency.setValueAtTime(300 + Math.random() * 200, now);
+        osc.type = 'triangle';
+        gain.gain.setValueAtTime(0.05, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      }
+    }
+
+    // Override addRipple to include audio
+    const _addRipple = addRipple;
+    addRipple = function(x, y) {
+      initAudio();
+
+      let maxRes = 0;
+      for (const rp of resonancePoints) {
+        const dist = Math.hypot(x - rp.x, y - rp.y);
+        if (dist < rp.radius * 2.5) {
+          const res = rp.strength * Math.max(0, 1 - dist / (rp.radius * 2.5));
+          if (res > maxRes) maxRes = res;
+        }
+      }
+      playResonance(maxRes);
+
+      // Show resonance label briefly
+      if (maxRes > 0.4) {
+        resLabel.textContent = 'the cave speaks';
+        resLabel.style.opacity = '1';
+        setTimeout(() => { resLabel.style.opacity = '0'; }, 2000);
+      }
+
+      _addRipple(x, y);
+    };
+
+    // Init
+    window.addEventListener('resize', () => {
+      resize();
+      cacheBG();
+    });
+    resize();
+    cacheBG();
+    initDust();
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
