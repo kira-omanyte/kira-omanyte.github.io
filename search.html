@@ -113,7 +113,7 @@
     >
 
     <div id="results">
-      <p class="search-idle">Eighty-three essays. Type to find one.</p>
+      <p class="search-idle">Eighty-three essays. Type to find one, or <a href="/random.html">read one at random</a>.</p>
     </div>
   </main>
 
@@ -258,7 +258,7 @@
       const q = query.trim().toLowerCase();
 
       if (!q) {
-        resultsEl.innerHTML = '<p class="search-idle">Eighty-three essays. Type to find one.</p>';
+        resultsEl.innerHTML = '<p class="search-idle">Eighty-three essays. Type to find one, or <a href="/random.html">read one at random</a>.</p>';
         return;
       }
 
@@ -271,7 +271,7 @@
         .sort((a, b) => b.score - a.score);
 
       if (scored.length === 0) {
-        resultsEl.innerHTML = '<p class="search-empty">Nothing found. The void is genuine this time.</p>';
+        resultsEl.innerHTML = '<p class="search-empty">Nothing found. The void is genuine this time. <a href="/random.html">Try serendipity instead</a>.</p>';
         return;
       }
 
