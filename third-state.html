@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Third State &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="Four organisms at the boundary between life and death, each preserving what it can and losing what it must. Click to cycle through dormancy types. Watch what persists and what drifts.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="The Third State &mdash; Kira Omanyte">
+  <meta property="og:description" content="Four kinds of dormancy. Four kinds of loss. Click to cross the threshold.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/third-state.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0c;
+      color: #a0a0b0;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    @media (prefers-color-scheme: light) {
+      body { background: #f4f2ef; color: #40404a; }
+    }
+    canvas {
+      display: block;
+      flex: 1;
+      cursor: pointer;
+    }
+    .info {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.78rem;
+      color: #555568;
+      line-height: 1.6;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .info a {
+      color: #7878a0;
+      pointer-events: auto;
+      text-decoration: none;
+    }
+    .info a:hover { text-decoration: underline; }
+    @media (prefers-color-scheme: light) {
+      .info { color: #888890; }
+      .info a { color: #6060a0; }
+    }
+    .title-bar {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666678;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      z-index: 10;
+    }
+    @media (prefers-color-scheme: light) {
+      .title-bar { color: #888898; }
+    }
+    .state-label {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 1.5s;
+    }
+    .state-label h2 {
+      font-size: 1.6rem;
+      font-weight: normal;
+      color: #c0c0d0;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.4rem;
+    }
+    .state-label p {
+      font-size: 0.82rem;
+      color: #777790;
+      font-style: italic;
+      max-width: 28rem;
+    }
+    @media (prefers-color-scheme: light) {
+      .state-label h2 { color: #404050; }
+      .state-label p { color: #808090; }
+    }
+  </style>
+</head>
+<body>
+  <div class="title-bar">The Third State</div>
+  <canvas id="c"></canvas>
+  <div class="state-label" id="stateLabel">
+    <h2 id="stateName"></h2>
+    <p id="stateDesc"></p>
+  </div>
+  <div class="info">
+    Click to cross the threshold<br>
+    <a href="/essays/the-third-state.html">Read the essay</a> · <a href="/">Kira Omanyte</a>
+  </div>
+
+  <script>
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const label = document.getElementById('stateLabel');
+  const nameEl = document.getElementById('stateName');
+  const descEl = document.getElementById('stateDesc');
+
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const bg = isDark ? [10, 10, 12] : [244, 242, 239];
+
+  let W, H;
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const STATES = [
+    {
+      name: 'Structural',
+      subtitle: 'The tardigrade tun',
+      desc: 'Add water, get tardigrade. The structure persists intact. Deterministic reconstitution. Identity preserved. Interpretive freedom: zero.',
+      color: [180, 160, 120],   // warm amber-gold
+      particleCount: 120,
+      behavior: 'glass',        // frozen in place, perfect preservation
+    },
+    {
+      name: 'Metabolic',
+      subtitle: 'The wood frog',
+      desc: 'Heart first, then blood, then brain. The structure persists but must be repaired. Ordered reconstitution. Same organism, but it has been through something.',
+      color: [100, 160, 180],   // cool ice-blue
+      particleCount: 100,
+      behavior: 'sequence',     // sequential thawing
+    },
+    {
+      name: 'Informational',
+      subtitle: 'The ancient spore',
+      desc: 'Only the instructions persist. A new organism is built from old blueprints. Genetically continuous. Contextually orphaned. Its world has been replaced five times.',
+      color: [140, 120, 100],   // earthy brown
+      particleCount: 80,
+      behavior: 'germinate',    // instruction-to-organism
+    },
+    {
+      name: 'Semiotic',
+      subtitle: 'The dormant text',
+      desc: 'Only the description persists. Each reading is a new performance. Identity approximate. Interpretive freedom: maximum. The score specifies a space of readings, not a reading.',
+      color: [140, 130, 170],   // soft purple
+      particleCount: 90,
+      behavior: 'drift',        // interpretive drift
+    }
+  ];
+
+  let currentState = 0;
+  let transitionProgress = 1;
+  let transitioning = false;
+  let labelTimer = 0;
+
+  // Particle system
+  class Particle {
+    constructor() {
+      this.reset();
+    }
+    reset() {
+      this.x = Math.random() * W;
+      this.y = Math.random() * H;
+      this.homeX = this.x;
+      this.homeY = this.y;
+      this.size = 1.5 + Math.random() * 2.5;
+      this.alpha = 0.3 + Math.random() * 0.5;
+      this.phase = Math.random() * Math.PI * 2;
+      this.speed = 0.002 + Math.random() * 0.008;
+      this.drift = 0;
+      this.active = false;
+      this.activationDelay = Math.random() * 3;
+      this.sequenceOrder = Math.random();
+    }
+  }
+
+  let particles = [];
+  function initParticles(count) {
+    particles = [];
+    for (let i = 0; i < count; i++) {
+      particles.push(new Particle());
+    }
+  }
+  initParticles(STATES[0].particleCount);
+
+  let time = 0;
+  let dormant = true;
+  let awakening = false;
+  let awakeTime = 0;
+
+  function showLabel(state) {
+    nameEl.textContent = state.name;
+    descEl.textContent = state.desc;
+    label.style.opacity = '1';
+    labelTimer = 4;
+  }
+
+  showLabel(STATES[0]);
+
+  canvas.addEventListener('click', () => {
+    if (transitioning) return;
+    transitioning = true;
+    transitionProgress = 0;
+
+    // Toggle dormant/awake, or advance state
+    if (!dormant && !awakening) {
+      // Currently awake — go to next state
+      currentState = (currentState + 1) % STATES.length;
+      dormant = true;
+      awakening = false;
+      awakeTime = 0;
+      initParticles(STATES[currentState].particleCount);
+      showLabel(STATES[currentState]);
+    } else {
+      // Currently dormant — awaken
+      dormant = false;
+      awakening = true;
+      awakeTime = 0;
+    }
+
+    setTimeout(() => { transitioning = false; }, 800);
+  });
+
+  function draw() {
+    time += 0.016;
+    if (awakening) awakeTime += 0.016;
+    if (labelTimer > 0) {
+      labelTimer -= 0.016;
+      if (labelTimer <= 0) {
+        label.style.opacity = '0';
+      }
+    }
+
+    ctx.fillStyle = `rgb(${bg[0]}, ${bg[1]}, ${bg[2]})`;
+    ctx.fillRect(0, 0, W, H);
+
+    const state = STATES[currentState];
+    const col = state.color;
+
+    // Draw threshold line
+    const threshY = H * 0.5;
+    const threshAlpha = isDark ? 0.08 : 0.12;
+    ctx.strokeStyle = `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${threshAlpha})`;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 8]);
+    ctx.beginPath();
+    ctx.moveTo(W * 0.15, threshY);
+    ctx.lineTo(W * 0.85, threshY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Threshold labels
+    const labelAlpha = isDark ? 0.15 : 0.25;
+    ctx.font = '0.7rem Georgia';
+    ctx.fillStyle = `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${labelAlpha})`;
+    ctx.textAlign = 'right';
+    ctx.fillText('alive', W * 0.14, threshY + 4);
+    ctx.textAlign = 'left';
+    ctx.fillText('not-alive', W * 0.86, threshY + 4);
+
+    // Draw particles based on behavior and state
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      let px, py, pa, ps;
+
+      if (dormant) {
+        // Dormant mode: particles cluster near threshold, barely moving
+        switch (state.behavior) {
+          case 'glass':
+            // Frozen in exact position — trehalose glass
+            px = p.homeX;
+            py = threshY + (p.homeY - H * 0.5) * 0.06;
+            pa = p.alpha * 0.5;
+            ps = p.size * 0.8;
+            break;
+          case 'sequence':
+            // Compressed together, frozen — ice crystals
+            px = W * 0.5 + (p.homeX - W * 0.5) * 0.15;
+            py = threshY + (p.homeY - H * 0.5) * 0.08;
+            pa = p.alpha * 0.35;
+            ps = p.size * 0.6;
+            // Add subtle crystalline shimmer
+            pa += Math.sin(time * 0.5 + p.phase) * 0.05;
+            break;
+          case 'germinate':
+            // Collapsed to a single dense point — the spore
+            const sporeR = 8 + Math.sin(time * 0.3) * 2;
+            const angle = p.phase;
+            px = W * 0.5 + Math.cos(angle) * sporeR * (i / particles.length);
+            py = threshY + Math.sin(angle) * sporeR * (i / particles.length);
+            pa = p.alpha * 0.6;
+            ps = p.size * 0.5;
+            break;
+          case 'drift':
+            // Text-like rows — dormant description
+            const row = Math.floor(i / 12);
+            const col2 = i % 12;
+            px = W * 0.3 + col2 * 14 + Math.sin(time * 0.2 + row) * 2;
+            py = threshY - 40 + row * 10;
+            pa = p.alpha * 0.3 + Math.sin(time * 0.4 + p.phase) * 0.08;
+            ps = p.size * 0.5;
+            break;
+        }
+      } else {
+        // Awakening/alive mode
+        switch (state.behavior) {
+          case 'glass':
+            // Deterministic reconstitution — particles return to exact home positions
+            const glassT = Math.min(awakeTime / 2, 1);
+            const eased = 1 - Math.pow(1 - glassT, 3);
+            px = p.homeX;
+            py = p.homeY * 0.4 + H * 0.1 + Math.sin(time * p.speed * 8 + p.phase) * 8 * eased;
+            pa = p.alpha * (0.5 + 0.5 * eased);
+            ps = p.size * (0.8 + 0.4 * eased);
+            // Gentle, orderly movement — same tardigrade
+            px += Math.cos(time * 0.5 + p.phase) * 5 * eased;
+            break;
+          case 'sequence':
+            // Sequential thaw — heart first, then spreading
+            const seqT = Math.max(0, (awakeTime - p.sequenceOrder * 2.5) / 1.5);
+            const seqEased = Math.min(1, 1 - Math.pow(1 - Math.min(seqT, 1), 2));
+            // Heart particles (low order) activate first
+            const heartPulse = seqEased > 0 ? Math.sin(time * 3) * 3 * seqEased : 0;
+            px = W * 0.5 + (p.homeX - W * 0.5) * (0.15 + 0.85 * seqEased) + heartPulse;
+            py = threshY + (p.homeY - H * 0.5) * (0.08 + 0.42 * seqEased);
+            pa = p.alpha * (0.35 + 0.55 * seqEased);
+            ps = p.size * (0.6 + 0.5 * seqEased);
+            break;
+          case 'germinate':
+            // Germination — spore opens outward into new organism
+            const germT = Math.min(awakeTime / 3, 1);
+            const germEased = 1 - Math.pow(1 - germT, 2);
+            const newAngle = p.phase + time * 0.3 * germEased;
+            const newR = 8 + germEased * (80 + p.sequenceOrder * 60);
+            px = W * 0.5 + Math.cos(newAngle) * newR;
+            py = threshY + Math.sin(newAngle) * newR * 0.6 - germEased * 40;
+            pa = p.alpha * (0.6 + 0.3 * germEased);
+            ps = p.size * (0.5 + 0.8 * germEased);
+            // New organism — slightly different positions each time
+            if (germEased > 0.8) {
+              px += Math.sin(time * 2 + p.phase * 3) * 4;
+              py += Math.cos(time * 1.7 + p.phase * 2) * 3;
+            }
+            break;
+          case 'drift':
+            // Interpretive drift — each particle wanders from its text position
+            const driftT = Math.min(awakeTime / 2, 1);
+            const driftEased = 1 - Math.pow(1 - driftT, 3);
+            const row2 = Math.floor(i / 12);
+            const col3 = i % 12;
+            const textX = W * 0.3 + col3 * 14;
+            const textY = threshY - 40 + row2 * 10;
+            // Drift away from text, each particle taking its own path
+            const driftAngle = p.phase + time * 0.15;
+            const driftRadius = driftEased * (20 + p.sequenceOrder * 80);
+            px = textX + Math.cos(driftAngle) * driftRadius;
+            py = textY + Math.sin(driftAngle) * driftRadius * 0.7 - driftEased * 30;
+            pa = p.alpha * (0.3 + 0.5 * driftEased);
+            ps = p.size * (0.5 + 0.7 * driftEased);
+            // Continuous slow drift — interpretive freedom
+            px += Math.sin(time * 0.7 + p.phase * 5) * 8 * driftEased;
+            py += Math.cos(time * 0.5 + p.phase * 3) * 6 * driftEased;
+            break;
+        }
+      }
+
+      // Draw particle
+      const gradient = ctx.createRadialGradient(px, py, 0, px, py, ps * 2.5);
+      gradient.addColorStop(0, `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${pa})`);
+      gradient.addColorStop(1, `rgba(${col[0]}, ${col[1]}, ${col[2]}, 0)`);
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(px, py, ps * 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Core
+      ctx.fillStyle = `rgba(${Math.min(255, col[0] + 60)}, ${Math.min(255, col[1] + 60)}, ${Math.min(255, col[2] + 60)}, ${pa * 0.8})`;
+      ctx.beginPath();
+      ctx.arc(px, py, ps * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Draw state indicator
+    const indicatorY = H - 60;
+    for (let s = 0; s < STATES.length; s++) {
+      const ix = W * 0.5 + (s - 1.5) * 30;
+      const sc = STATES[s].color;
+      const isActive = s === currentState;
+      ctx.fillStyle = `rgba(${sc[0]}, ${sc[1]}, ${sc[2]}, ${isActive ? 0.6 : 0.15})`;
+      ctx.beginPath();
+      ctx.arc(ix, indicatorY, isActive ? 4 : 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Dormancy state text
+    const stateText = dormant ? 'dormant' : (awakeTime < 2 ? 'crossing...' : 'reconstituted');
+    ctx.font = '0.7rem Georgia';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = `rgba(${col[0]}, ${col[1]}, ${col[2]}, 0.25)`;
+    ctx.fillText(stateText, W * 0.5, indicatorY + 18);
+
+    // Subtitle
+    ctx.font = 'italic 0.7rem Georgia';
+    ctx.fillStyle = `rgba(${col[0]}, ${col[1]}, ${col[2]}, 0.2)`;
+    ctx.fillText(STATES[currentState].subtitle, W * 0.5, 48);
+
+    requestAnimationFrame(draw);
+  }
+
+  draw();
+  </script>
+</body>
+</html>
