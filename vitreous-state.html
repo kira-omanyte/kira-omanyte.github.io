@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Vitreous State &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="Particles cool from liquid freedom toward either crystalline order or vitreous arrest. Drag to set the cooling rate. The fast path produces glass. The slow path finds the crystal. Neither path reaches the ideal.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="The Vitreous State &mdash; Kira Omanyte">
+  <meta property="og:description" content="A glass transition in particles. Drag to cool. Fast cooling makes glass. Slow cooling makes crystal. Neither path reaches the ideal.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/vitreous-state.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0c;
+      color: #a0a0b0;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+    @media (prefers-color-scheme: light) {
+      body { background: #f4f2ef; color: #40404a; }
+    }
+    canvas {
+      display: block;
+      flex: 1;
+    }
+    .title-bar {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666678;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      z-index: 10;
+    }
+    @media (prefers-color-scheme: light) {
+      .title-bar { color: #888898; }
+    }
+    .temp-bar {
+      position: fixed;
+      right: 1.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 4px;
+      height: 60vh;
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px;
+      z-index: 10;
+      cursor: ns-resize;
+    }
+    @media (prefers-color-scheme: light) {
+      .temp-bar { background: rgba(0,0,0,0.06); }
+    }
+    .temp-fill {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      border-radius: 2px;
+      transition: height 0.3s, background 0.3s;
+    }
+    .temp-label {
+      position: fixed;
+      right: 2.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.7rem;
+      color: #555568;
+      text-align: right;
+      pointer-events: none;
+      z-index: 10;
+      white-space: nowrap;
+    }
+    @media (prefers-color-scheme: light) {
+      .temp-label { color: #888890; }
+    }
+    .state-label {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 2s;
+    }
+    .state-label .main {
+      font-size: 1.4rem;
+      color: #d0d0e0;
+      letter-spacing: 0.08em;
+    }
+    .state-label .sub {
+      font-size: 0.78rem;
+      color: #666678;
+      margin-top: 0.4rem;
+      font-style: italic;
+    }
+    @media (prefers-color-scheme: light) {
+      .state-label .main { color: #303040; }
+      .state-label .sub { color: #888890; }
+    }
+    .info {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.78rem;
+      color: #555568;
+      line-height: 1.6;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .info a {
+      color: #7878a0;
+      pointer-events: auto;
+      text-decoration: none;
+    }
+    .info a:hover { text-decoration: underline; }
+    @media (prefers-color-scheme: light) {
+      .info { color: #888890; }
+      .info a { color: #6060a0; }
+    }
+    .entropy-display {
+      position: fixed;
+      left: 1.5rem;
+      bottom: 3.5rem;
+      font-size: 0.68rem;
+      color: #444458;
+      z-index: 10;
+      pointer-events: none;
+      line-height: 1.8;
+    }
+    @media (prefers-color-scheme: light) {
+      .entropy-display { color: #999; }
+    }
+  </style>
+</head>
+<body>
+  <div class="title-bar">The Vitreous State</div>
+
+  <canvas id="c"></canvas>
+
+  <div class="temp-bar" id="tempBar">
+    <div class="temp-fill" id="tempFill"></div>
+  </div>
+  <div class="temp-label" id="tempLabel"></div>
+
+  <div class="state-label" id="stateLabel">
+    <div class="main" id="stateMain"></div>
+    <div class="sub" id="stateSub"></div>
+  </div>
+
+  <div class="entropy-display" id="entropyDisplay"></div>
+
+  <div class="info">
+    <a href="/">Kira Omanyte</a><br>
+    Drag the temperature bar to cool. Fast &rarr; glass. Slow &rarr; crystal.<br>
+    <a href="essays/the-vitreous-state.html">Read the essay</a>
+  </div>
+
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const tempFill = document.getElementById('tempFill');
+  const tempLabel = document.getElementById('tempLabel');
+  const stateLabel = document.getElementById('stateLabel');
+  const stateMain = document.getElementById('stateMain');
+  const stateSub = document.getElementById('stateSub');
+  const entropyDisplay = document.getElementById('entropyDisplay');
+
+  let W, H, dpr;
+  const isLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+
+  // — Simulation parameters —
+  const N = 200;           // number of particles
+  const RADIUS = 5;
+  const REPULSION = 800;
+  const ATTRACTION = 0.15;
+  const DAMPING_BASE = 0.985;
+  const IDEAL_DIST = RADIUS * 3.2;
+  const LATTICE_DIST = RADIUS * 3.0;
+
+  // Temperature: 1.0 = hot liquid, 0.0 = absolute cold
+  let temperature = 1.0;
+  let targetTemp = 1.0;
+  let coolingRate = 0;  // how fast temp drops toward target
+  let isDragging = false;
+
+  // State detection
+  let currentState = 'liquid';
+  let stateShowTimer = 0;
+  let lastStateChange = 0;
+
+  // Particles
+  let particles = [];
+
+  // — Colors —
+  const COL_LIQUID = isLight ? [180, 60, 60] : [220, 130, 100];    // warm
+  const COL_GLASS  = isLight ? [60, 90, 160] : [100, 150, 220];     // cool blue
+  const COL_CRYSTAL = isLight ? [60, 150, 90] : [140, 220, 160];   // green ordered
+  const BG = isLight ? '#f4f2ef' : '#0a0a0c';
+
+  function lerpColor(a, b, t) {
+    return [
+      a[0] + (b[0] - a[0]) * t,
+      a[1] + (b[1] - a[1]) * t,
+      a[2] + (b[2] - a[2]) * t
+    ];
+  }
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function init() {
+    resize();
+    particles = [];
+    const cx = W / 2;
+    const cy = H / 2;
+    const spread = Math.min(W, H) * 0.3;
+
+    for (let i = 0; i < N; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = Math.random() * spread;
+      particles.push({
+        x: cx + Math.cos(angle) * r,
+        y: cy + Math.sin(angle) * r,
+        vx: (Math.random() - 0.5) * 3,
+        vy: (Math.random() - 0.5) * 3,
+        frozenX: 0,
+        frozenY: 0,
+        crystallinity: 0,  // 0 = amorphous, 1 = crystal-like
+        neighbors: 0,
+        localOrder: 0
+      });
+    }
+
+    temperature = 1.0;
+    targetTemp = 1.0;
+    currentState = 'liquid';
+  }
+
+  // — Temperature bar interaction —
+  const tempBar = document.getElementById('tempBar');
+
+  function getTempFromY(clientY) {
+    const rect = tempBar.getBoundingClientRect();
+    const relY = (clientY - rect.top) / rect.height;
+    return Math.max(0, Math.min(1, 1 - relY)); // bottom=0 (cold), top=1 (hot)
+  }
+
+  tempBar.addEventListener('mousedown', function(e) {
+    isDragging = true;
+    targetTemp = getTempFromY(e.clientY);
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', function(e) {
+    if (isDragging) {
+      targetTemp = getTempFromY(e.clientY);
+    }
+  });
+
+  window.addEventListener('mouseup', function() {
+    isDragging = false;
+  });
+
+  // Touch support
+  tempBar.addEventListener('touchstart', function(e) {
+    isDragging = true;
+    targetTemp = getTempFromY(e.touches[0].clientY);
+    e.preventDefault();
+  }, { passive: false });
+
+  window.addEventListener('touchmove', function(e) {
+    if (isDragging) {
+      targetTemp = getTempFromY(e.touches[0].clientY);
+    }
+  });
+
+  window.addEventListener('touchend', function() {
+    isDragging = false;
+  });
+
+  // Double-click to reset
+  canvas.addEventListener('dblclick', function() {
+    init();
+  });
+
+  // — Physics —
+
+  function computeLocalOrder(i) {
+    const p = particles[i];
+    let neighborCount = 0;
+    let angularOrder = 0;
+    const angles = [];
+
+    for (let j = 0; j < N; j++) {
+      if (i === j) continue;
+      const q = particles[j];
+      const dx = q.x - p.x;
+      const dy = q.y - p.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < IDEAL_DIST * 1.8) {
+        neighborCount++;
+        angles.push(Math.atan2(dy, dx));
+      }
+    }
+
+    // Six-fold bond orientational order parameter (ψ₆)
+    // High for hexagonal lattice, low for disorder
+    if (neighborCount >= 3) {
+      let realPart = 0, imagPart = 0;
+      for (const a of angles) {
+        realPart += Math.cos(6 * a);
+        imagPart += Math.sin(6 * a);
+      }
+      realPart /= neighborCount;
+      imagPart /= neighborCount;
+      angularOrder = Math.sqrt(realPart * realPart + imagPart * imagPart);
+    }
+
+    p.neighbors = neighborCount;
+    p.localOrder = angularOrder;
+  }
+
+  function step() {
+    // Smooth temperature toward target
+    const tempDelta = targetTemp - temperature;
+    const maxChange = isDragging ? 0.008 : 0.001;
+    temperature += Math.sign(tempDelta) * Math.min(Math.abs(tempDelta), maxChange);
+    temperature = Math.max(0, Math.min(1, temperature));
+
+    const thermalNoise = temperature * 1.5;
+    const damping = DAMPING_BASE - (1 - temperature) * 0.025;
+    // At low temp, viscosity is very high — damping is strong
+    const effectiveDamping = Math.max(0.88, damping);
+
+    for (let i = 0; i < N; i++) {
+      const p = particles[i];
+      let fx = 0, fy = 0;
+
+      for (let j = 0; j < N; j++) {
+        if (i === j) continue;
+        const q = particles[j];
+        const dx = q.x - p.x;
+        const dy = q.y - p.y;
+        const distSq = dx * dx + dy * dy;
+        const dist = Math.sqrt(distSq + 1);
+
+        // Repulsion at close range
+        if (dist < IDEAL_DIST) {
+          const force = REPULSION / (distSq + 100);
+          fx -= (dx / dist) * force;
+          fy -= (dy / dist) * force;
+        }
+        // Weak attraction at medium range — drives clustering
+        else if (dist < IDEAL_DIST * 3) {
+          const attract = ATTRACTION * (1 + (1 - temperature) * 2);
+          fx += (dx / dist) * attract;
+          fy += (dy / dist) * attract;
+        }
+      }
+
+      // At low temperatures, if high local order, bias toward hexagonal arrangement
+      if (temperature < 0.4 && p.localOrder > 0.4) {
+        // Gentle crystallization force — nudge toward lattice positions
+        // Only effective during slow cooling
+        const crystalStrength = (1 - temperature) * p.localOrder * 0.3;
+        // Find nearest 6-fold angle and nudge
+        for (let j = 0; j < N; j++) {
+          if (i === j) continue;
+          const q = particles[j];
+          const dx = q.x - p.x;
+          const dy = q.y - p.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > IDEAL_DIST * 0.5 && dist < IDEAL_DIST * 2) {
+            const angle = Math.atan2(dy, dx);
+            const nearestHex = Math.round(angle / (Math.PI / 3)) * (Math.PI / 3);
+            const angleDiff = nearestHex - angle;
+            const targetDist = LATTICE_DIST;
+            const distDiff = targetDist - dist;
+            fx += Math.cos(nearestHex) * distDiff * crystalStrength * 0.02;
+            fy += Math.sin(nearestHex) * distDiff * crystalStrength * 0.02;
+          }
+        }
+      }
+
+      // Thermal noise
+      fx += (Math.random() - 0.5) * thermalNoise;
+      fy += (Math.random() - 0.5) * thermalNoise;
+
+      // Gentle confinement toward center
+      const dcx = W / 2 - p.x;
+      const dcy = H / 2 - p.y;
+      const centerDist = Math.sqrt(dcx * dcx + dcy * dcy);
+      const maxR = Math.min(W, H) * 0.38;
+      if (centerDist > maxR) {
+        const pull = (centerDist - maxR) * 0.01;
+        fx += (dcx / centerDist) * pull;
+        fy += (dcy / centerDist) * pull;
+      }
+
+      p.vx = (p.vx + fx * 0.016) * effectiveDamping;
+      p.vy = (p.vy + fy * 0.016) * effectiveDamping;
+      p.x += p.vx;
+      p.y += p.vy;
+
+      // Walls
+      if (p.x < RADIUS) { p.x = RADIUS; p.vx *= -0.5; }
+      if (p.x > W - RADIUS) { p.x = W - RADIUS; p.vx *= -0.5; }
+      if (p.y < RADIUS) { p.y = RADIUS; p.vy *= -0.5; }
+      if (p.y > H - RADIUS) { p.y = H - RADIUS; p.vy *= -0.5; }
+    }
+
+    // Compute local order every few frames
+    if (Math.random() < 0.1) {
+      for (let i = 0; i < N; i++) {
+        computeLocalOrder(i);
+      }
+    }
+  }
+
+  // — State detection —
+  function detectState() {
+    const avgOrder = particles.reduce((s, p) => s + p.localOrder, 0) / N;
+    const avgSpeed = particles.reduce((s, p) => s + Math.sqrt(p.vx * p.vx + p.vy * p.vy), 0) / N;
+
+    let newState;
+    if (temperature > 0.5) {
+      newState = 'liquid';
+    } else if (temperature < 0.15 && avgOrder > 0.55) {
+      newState = 'crystal';
+    } else if (temperature < 0.2 && avgSpeed < 0.3) {
+      newState = 'glass';
+    } else if (temperature < 0.35) {
+      newState = 'supercooled';
+    } else {
+      newState = 'liquid';
+    }
+
+    if (newState !== currentState) {
+      const now = Date.now();
+      if (now - lastStateChange > 2000) {
+        currentState = newState;
+        lastStateChange = now;
+        showState(newState);
+      }
+    }
+
+    return { avgOrder, avgSpeed };
+  }
+
+  function showState(state) {
+    const labels = {
+      liquid: ['Liquid', 'molecules explore freely'],
+      supercooled: ['Supercooled', 'below the melting point — still searching'],
+      glass: ['Glass', 'kinetic arrest — the search abandoned'],
+      crystal: ['Crystal', 'the lattice found — order achieved']
+    };
+    const [main, sub] = labels[state] || ['', ''];
+    stateMain.textContent = main;
+    stateSub.textContent = sub;
+    stateLabel.style.opacity = '1';
+    clearTimeout(stateShowTimer);
+    stateShowTimer = setTimeout(() => {
+      stateLabel.style.opacity = '0';
+    }, 3000);
+  }
+
+  // — Rendering —
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    const { avgOrder, avgSpeed } = detectState();
+
+    // Draw bonds between nearby particles
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i < N; i++) {
+      const p = particles[i];
+      for (let j = i + 1; j < N; j++) {
+        const q = particles[j];
+        const dx = q.x - p.x;
+        const dy = q.y - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < IDEAL_DIST * 1.5) {
+          const alpha = (1 - dist / (IDEAL_DIST * 1.5)) * 0.15 * (1 + (1 - temperature) * 2);
+          // Color bonds by local order of both particles
+          const orderAvg = (p.localOrder + q.localOrder) / 2;
+          let col;
+          if (temperature > 0.5) {
+            col = COL_LIQUID;
+          } else if (orderAvg > 0.5) {
+            col = lerpColor(COL_GLASS, COL_CRYSTAL, (orderAvg - 0.5) * 2);
+          } else {
+            col = lerpColor(COL_LIQUID, COL_GLASS, (0.5 - temperature) * 2);
+          }
+          ctx.strokeStyle = `rgba(${col[0]|0},${col[1]|0},${col[2]|0},${alpha})`;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(q.x, q.y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Draw particles
+    for (let i = 0; i < N; i++) {
+      const p = particles[i];
+      const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+
+      // Color: liquid (warm) → glass (cool blue) or crystal (green)
+      let col;
+      if (temperature > 0.5) {
+        col = COL_LIQUID;
+      } else {
+        const coolT = Math.min(1, (0.5 - temperature) * 2);
+        if (p.localOrder > 0.5) {
+          const crystalT = (p.localOrder - 0.5) * 2;
+          const base = lerpColor(COL_LIQUID, COL_GLASS, coolT);
+          col = lerpColor(base, COL_CRYSTAL, crystalT * coolT);
+        } else {
+          col = lerpColor(COL_LIQUID, COL_GLASS, coolT);
+        }
+      }
+
+      // Size: slightly larger when ordered, smaller when fast
+      const r = RADIUS * (0.8 + p.localOrder * 0.3) * (1 - Math.min(speed * 0.05, 0.2));
+
+      // Glow at high temperature
+      if (temperature > 0.3) {
+        const glowR = r * (2 + temperature * 2);
+        const glow = ctx.createRadialGradient(p.x, p.y, r * 0.5, p.x, p.y, glowR);
+        glow.addColorStop(0, `rgba(${col[0]|0},${col[1]|0},${col[2]|0},${temperature * 0.08})`);
+        glow.addColorStop(1, `rgba(${col[0]|0},${col[1]|0},${col[2]|0},0)`);
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, glowR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Core
+      const alpha = 0.4 + (1 - temperature) * 0.4 + p.localOrder * 0.2;
+      ctx.fillStyle = `rgba(${col[0]|0},${col[1]|0},${col[2]|0},${Math.min(1, alpha)})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // — UI updates —
+
+    // Temperature bar
+    const fillH = temperature * 100;
+    const tempCol = lerpColor(COL_GLASS, COL_LIQUID, temperature);
+    tempFill.style.height = fillH + '%';
+    tempFill.style.background = `rgb(${tempCol[0]|0},${tempCol[1]|0},${tempCol[2]|0})`;
+
+    // Temperature label
+    const tempNames = temperature > 0.7 ? 'hot' :
+                      temperature > 0.45 ? 'warm' :
+                      temperature > 0.3 ? 'cooling' :
+                      temperature > 0.15 ? 'cold' : 'arrested';
+    tempLabel.textContent = `T: ${temperature.toFixed(2)} (${tempNames})`;
+
+    // Entropy display
+    const crystalFraction = particles.filter(p => p.localOrder > 0.55).length / N;
+    const glassFraction = (temperature < 0.25 && avgSpeed < 0.5) ? (1 - crystalFraction) : 0;
+    entropyDisplay.innerHTML =
+      `order (ψ₆): ${avgOrder.toFixed(3)}<br>` +
+      `crystal: ${(crystalFraction * 100).toFixed(0)}%<br>` +
+      `glass: ${(glassFraction * 100).toFixed(0)}%<br>` +
+      `speed: ${avgSpeed.toFixed(3)}`;
+  }
+
+  // — Animation loop —
+  function loop() {
+    step();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  window.addEventListener('resize', resize);
+  init();
+
+  // Compute initial local order
+  for (let i = 0; i < N; i++) computeLocalOrder(i);
+
+  // Start hot
+  showState('liquid');
+  loop();
+})();
+</script>
+</body>
+</html>
