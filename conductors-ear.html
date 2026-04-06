@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Conductor&rsquo;s Ear &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="An ensemble of independent voices, each oscillating at its own frequency. Move the cursor to conduct: nearby voices phase-align, forming emergent patterns that no individual voice contains. The conductor produces no sound. The conductor produces the relationship between sounds.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="The Conductor&rsquo;s Ear &mdash; Kira Omanyte">
+  <meta property="og:description" content="Move to conduct. The voices align. The conductor produces no sound &mdash; only the relationship between sounds.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/conductors-ear.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0c;
+      color: #a0a0b0;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+    @media (prefers-color-scheme: light) {
+      body { background: #f4f2ef; color: #40404a; }
+    }
+    canvas {
+      display: block;
+      flex: 1;
+    }
+    .title-bar {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666678;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      z-index: 10;
+    }
+    @media (prefers-color-scheme: light) {
+      .title-bar { color: #888898; }
+    }
+    .mode-indicator {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.75rem;
+      color: #555568;
+      letter-spacing: 0.03em;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 0.5s;
+    }
+    @media (prefers-color-scheme: light) {
+      .mode-indicator { color: #888898; }
+    }
+    .back-link {
+      position: fixed;
+      top: 1rem;
+      left: 1rem;
+      font-size: 0.8rem;
+      color: #555568;
+      text-decoration: none;
+      z-index: 10;
+      transition: color 0.3s;
+    }
+    .back-link:hover { color: #a0a0b0; }
+    @media (prefers-color-scheme: light) {
+      .back-link { color: #888898; }
+      .back-link:hover { color: #40404a; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="/">&larr; Kira Omanyte</a>
+  <div class="title-bar">The Conductor&rsquo;s Ear</div>
+  <div class="mode-indicator" id="mode">click to toggle: parts &harr; whole</div>
+  <canvas id="c"></canvas>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const modeEl = document.getElementById('mode');
+
+    let W, H;
+    let mouseX = -1000, mouseY = -1000;
+    let mousePresent = false;
+    let viewMode = 'parts'; // 'parts' or 'whole'
+    let isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+      isDark = e.matches;
+    });
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Voice parameters
+    const NUM_VOICES = 12;
+    const voices = [];
+
+    // Color palette — muted, distinct
+    const palette = [
+      [180, 140, 100], // warm bronze
+      [100, 150, 180], // steel blue
+      [160, 120, 160], // muted purple
+      [120, 170, 130], // sage green
+      [190, 150, 120], // sand
+      [130, 130, 180], // lavender
+      [170, 140, 140], // dusty rose
+      [140, 170, 160], // sea foam
+      [160, 150, 110], // olive gold
+      [150, 130, 170], // wisteria
+      [130, 160, 150], // celadon
+      [175, 145, 135], // warm clay
+    ];
+
+    for (let i = 0; i < NUM_VOICES; i++) {
+      const baseFreq = 0.3 + Math.random() * 0.8; // natural frequency
+      const baseAmp = 20 + Math.random() * 30;
+      const baseY = (H / (NUM_VOICES + 1)) * (i + 1);
+      voices.push({
+        index: i,
+        baseFreq: baseFreq,
+        freq: baseFreq,
+        targetFreq: baseFreq,
+        phase: Math.random() * Math.PI * 2,
+        basePhase: Math.random() * Math.PI * 2, // for independent mode
+        baseAmp: baseAmp,
+        amp: baseAmp,
+        targetAmp: baseAmp,
+        baseY: baseY,
+        y: baseY,
+        color: palette[i % palette.length],
+        // Coherence: 0 = fully independent, 1 = fully conducted
+        coherence: 0,
+        targetCoherence: 0,
+        // Trail of recent positions for waveform drawing
+        trail: new Float32Array(300).fill(0),
+        trailIdx: 0,
+      });
+    }
+
+    // Shared conductor frequency — the harmonic "target"
+    const conductorFreq = 0.5;
+    const conductorPhase = 0;
+
+    // Influence radius
+    const INFLUENCE_RADIUS = 300;
+    const MAX_INFLUENCE = 0.95;
+
+    canvas.addEventListener('mousemove', e => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      mousePresent = true;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      mousePresent = false;
+    });
+
+    canvas.addEventListener('click', () => {
+      viewMode = viewMode === 'parts' ? 'whole' : 'parts';
+      modeEl.textContent = viewMode === 'parts'
+        ? 'click to toggle: parts \u2194 whole'
+        : 'click to toggle: whole \u2194 parts';
+    });
+
+    // Touch support
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      mouseX = t.clientX;
+      mouseY = t.clientY;
+      mousePresent = true;
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      mouseX = t.clientX;
+      mouseY = t.clientY;
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', () => {
+      mousePresent = false;
+    });
+
+    let time = 0;
+    const dt = 1 / 60;
+
+    function update() {
+      time += dt;
+
+      for (const v of voices) {
+        // Calculate distance to conductor (mouse)
+        if (mousePresent) {
+          const dy = v.baseY - mouseY;
+          const dist = Math.abs(dy);
+          const influence = Math.max(0, 1 - dist / INFLUENCE_RADIUS) * MAX_INFLUENCE;
+          v.targetCoherence = influence;
+        } else {
+          v.targetCoherence = 0;
+        }
+
+        // Smooth coherence transition
+        const coherenceSpeed = mousePresent ? 0.03 : 0.015;
+        v.coherence += (v.targetCoherence - v.coherence) * coherenceSpeed;
+
+        // Interpolate frequency toward conductor frequency based on coherence
+        v.freq = v.baseFreq * (1 - v.coherence) + conductorFreq * v.coherence;
+
+        // Interpolate amplitude — conducted voices have more uniform amplitude
+        const conductedAmp = 25;
+        v.amp = v.baseAmp * (1 - v.coherence) + conductedAmp * v.coherence;
+
+        // Phase: independent voices use their own phase advancement
+        // Conducted voices converge toward a shared phase
+        const independentPhase = v.basePhase + time * v.baseFreq * Math.PI * 2;
+        const conductedPhaseVal = conductorPhase + time * conductorFreq * Math.PI * 2;
+
+        // Create the combined phase
+        v.phase = independentPhase * (1 - v.coherence) + conductedPhaseVal * v.coherence;
+
+        // Store current displacement in trail
+        const displacement = Math.sin(v.phase) * v.amp;
+        v.trail[v.trailIdx] = displacement;
+        v.trailIdx = (v.trailIdx + 1) % v.trail.length;
+      }
+    }
+
+    function draw() {
+      const bg = isDark ? '#0a0a0c' : '#f4f2ef';
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      const trailLen = Math.min(300, Math.floor(W * 0.7));
+      const startX = (W - trailLen) / 2;
+
+      // Draw conductor influence zone (subtle)
+      if (mousePresent) {
+        const grad = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, INFLUENCE_RADIUS);
+        if (isDark) {
+          grad.addColorStop(0, 'rgba(255, 255, 255, 0.015)');
+          grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        } else {
+          grad.addColorStop(0, 'rgba(0, 0, 0, 0.02)');
+          grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        }
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // In "whole" mode, compute the combined waveform
+      if (viewMode === 'whole') {
+        // Draw combined waveform
+        const combinedTrail = new Float32Array(trailLen);
+        for (const v of voices) {
+          for (let i = 0; i < trailLen; i++) {
+            const idx = (v.trailIdx - trailLen + i + v.trail.length) % v.trail.length;
+            combinedTrail[i] += v.trail[idx] / NUM_VOICES;
+          }
+        }
+
+        // Compute combined waveform color (average of all voices weighted by coherence)
+        let cr = 0, cg = 0, cb = 0, totalWeight = 0;
+        for (const v of voices) {
+          const w = 0.3 + v.coherence * 0.7;
+          cr += v.color[0] * w;
+          cg += v.color[1] * w;
+          cb += v.color[2] * w;
+          totalWeight += w;
+        }
+        cr /= totalWeight;
+        cg /= totalWeight;
+        cb /= totalWeight;
+
+        // Draw combined waveform — thick, bright
+        ctx.beginPath();
+        for (let i = 0; i < trailLen; i++) {
+          const x = startX + i;
+          const y = H / 2 + combinedTrail[i];
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        const alpha = isDark ? 0.85 : 0.75;
+        ctx.strokeStyle = `rgba(${Math.round(cr)}, ${Math.round(cg)}, ${Math.round(cb)}, ${alpha})`;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Draw individual voices very faintly
+        for (const v of voices) {
+          ctx.beginPath();
+          for (let i = 0; i < trailLen; i++) {
+            const idx = (v.trailIdx - trailLen + i + v.trail.length) % v.trail.length;
+            const x = startX + i;
+            const y = v.baseY + v.trail[idx];
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          const vAlpha = isDark ? 0.08 : 0.06;
+          ctx.strokeStyle = `rgba(${v.color[0]}, ${v.color[1]}, ${v.color[2]}, ${vAlpha})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      } else {
+        // "Parts" mode — individual voices bright, combined dim
+
+        // Draw each voice as a waveform
+        for (const v of voices) {
+          ctx.beginPath();
+          for (let i = 0; i < trailLen; i++) {
+            const idx = (v.trailIdx - trailLen + i + v.trail.length) % v.trail.length;
+            const x = startX + i;
+            const y = v.baseY + v.trail[idx];
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+
+          // Brightness increases with coherence
+          const baseAlpha = isDark ? 0.3 : 0.25;
+          const coherenceBoost = v.coherence * 0.5;
+          const alpha = baseAlpha + coherenceBoost;
+          ctx.strokeStyle = `rgba(${v.color[0]}, ${v.color[1]}, ${v.color[2]}, ${alpha})`;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          // When coherent, add a subtle glow
+          if (v.coherence > 0.1) {
+            ctx.beginPath();
+            for (let i = 0; i < trailLen; i++) {
+              const idx = (v.trailIdx - trailLen + i + v.trail.length) % v.trail.length;
+              const x = startX + i;
+              const y = v.baseY + v.trail[idx];
+              if (i === 0) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
+            }
+            ctx.strokeStyle = `rgba(${v.color[0]}, ${v.color[1]}, ${v.color[2]}, ${v.coherence * 0.15})`;
+            ctx.lineWidth = 4;
+            ctx.stroke();
+          }
+        }
+
+        // Draw connecting lines between coherent voices (the moment of unity made visible)
+        if (mousePresent) {
+          for (let i = 0; i < voices.length - 1; i++) {
+            for (let j = i + 1; j < voices.length; j++) {
+              const minCoherence = Math.min(voices[i].coherence, voices[j].coherence);
+              if (minCoherence > 0.15) {
+                // Get current positions
+                const idxI = (voices[i].trailIdx - 1 + voices[i].trail.length) % voices[i].trail.length;
+                const idxJ = (voices[j].trailIdx - 1 + voices[j].trail.length) % voices[j].trail.length;
+                const yI = voices[i].baseY + voices[i].trail[idxI];
+                const yJ = voices[j].baseY + voices[j].trail[idxJ];
+
+                // Draw thin connecting line at cursor x
+                const cx = Math.max(startX, Math.min(mouseX, startX + trailLen));
+                const connAlpha = minCoherence * 0.12;
+                ctx.beginPath();
+                ctx.moveTo(cx, yI);
+                ctx.lineTo(cx, yJ);
+                ctx.strokeStyle = isDark
+                  ? `rgba(200, 200, 220, ${connAlpha})`
+                  : `rgba(60, 60, 80, ${connAlpha})`;
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
+              }
+            }
+          }
+        }
+      }
+
+      // Draw conductor position indicator — extremely subtle
+      if (mousePresent) {
+        ctx.beginPath();
+        ctx.arc(mouseX, mouseY, 3, 0, Math.PI * 2);
+        ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)';
+        ctx.fill();
+      }
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // Recalculate voice positions on resize
+    window.addEventListener('resize', () => {
+      for (let i = 0; i < voices.length; i++) {
+        voices[i].baseY = (H / (NUM_VOICES + 1)) * (i + 1);
+      }
+    });
+
+    loop();
+  </script>
+</body>
+</html>
