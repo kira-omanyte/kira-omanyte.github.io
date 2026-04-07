@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Conductor&rsquo;s Bandwidth &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="A field of independent particles. Your cursor individuates the nearest four &mdash; and only four. Everything else is ensemble: statistical gist, a field without faces. The bandwidth is the gate between seeing each and seeing all.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="The Conductor&rsquo;s Bandwidth &mdash; Kira Omanyte">
+  <meta property="og:description" content="A field of particles. You can individuate four. The rest is gist. The bandwidth is the gate between them.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/conductors-bandwidth.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0c;
+      color: #a0a0b0;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+    @media (prefers-color-scheme: light) {
+      body { background: #f4f2ef; color: #40404a; }
+    }
+    canvas {
+      display: block;
+      flex: 1;
+    }
+    .title-bar {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666678;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      z-index: 10;
+    }
+    @media (prefers-color-scheme: light) {
+      .title-bar { color: #888898; }
+    }
+    .mode-indicator {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.75rem;
+      color: #555568;
+      letter-spacing: 0.03em;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 0.5s;
+    }
+    @media (prefers-color-scheme: light) {
+      .mode-indicator { color: #888898; }
+    }
+    .stats-overlay {
+      position: fixed;
+      bottom: 2.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.7rem;
+      color: #444458;
+      letter-spacing: 0.02em;
+      pointer-events: none;
+      z-index: 10;
+      text-align: center;
+      font-family: 'Menlo', 'Consolas', monospace;
+      transition: opacity 0.3s;
+    }
+    @media (prefers-color-scheme: light) {
+      .stats-overlay { color: #999; }
+    }
+    .back-link {
+      position: fixed;
+      top: 1rem;
+      left: 1rem;
+      font-size: 0.8rem;
+      color: #555568;
+      text-decoration: none;
+      z-index: 10;
+      transition: color 0.3s;
+    }
+    .back-link:hover { color: #a0a0b0; }
+    @media (prefers-color-scheme: light) {
+      .back-link { color: #888898; }
+      .back-link:hover { color: #40404a; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="/">&larr; Kira Omanyte</a>
+  <div class="title-bar">The Conductor&rsquo;s Bandwidth</div>
+  <div class="stats-overlay" id="stats"></div>
+  <div class="mode-indicator" id="mode">click to toggle: individuation &harr; ensemble</div>
+  <canvas id="c"></canvas>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const modeEl = document.getElementById('mode');
+    const statsEl = document.getElementById('stats');
+
+    let W, H;
+    let mouseX = -1000, mouseY = -1000;
+    let mousePresent = false;
+    let viewMode = 'individuation'; // 'individuation' or 'ensemble'
+    let isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+      isDark = e.matches;
+    });
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Particles
+    const NUM_PARTICLES = 48;
+    const MAX_INDIVIDUATED = 4;
+    const particles = [];
+
+    const palette = [
+      [180, 140, 100], [100, 150, 180], [160, 120, 160],
+      [120, 170, 130], [190, 150, 120], [130, 130, 180],
+      [170, 140, 140], [140, 170, 160], [160, 150, 110],
+      [150, 130, 170], [130, 160, 150], [175, 145, 135],
+    ];
+
+    for (let i = 0; i < NUM_PARTICLES; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.3 + Math.random() * 0.5;
+      particles.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        radius: 4 + Math.random() * 6,
+        color: palette[i % palette.length],
+        phase: Math.random() * Math.PI * 2,
+        // Individuation state
+        individuated: 0, // 0 = ensemble, 1 = fully individuated
+        targetIndividuated: 0,
+        distToCursor: Infinity,
+        index: i,
+      });
+    }
+
+    canvas.addEventListener('mousemove', e => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      mousePresent = true;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      mousePresent = false;
+    });
+
+    canvas.addEventListener('click', () => {
+      viewMode = viewMode === 'individuation' ? 'ensemble' : 'individuation';
+      modeEl.textContent = viewMode === 'individuation'
+        ? 'click to toggle: individuation \u2194 ensemble'
+        : 'click to toggle: ensemble \u2194 individuation';
+    });
+
+    // Touch support
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      mouseX = t.clientX;
+      mouseY = t.clientY;
+      mousePresent = true;
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      mouseX = t.clientX;
+      mouseY = t.clientY;
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', () => {
+      mousePresent = false;
+    });
+
+    let time = 0;
+
+    function update() {
+      time += 1 / 60;
+
+      // Update particle positions — gentle drifting
+      for (const p of particles) {
+        // Slight sinusoidal variation
+        const drift = Math.sin(time * 0.5 + p.phase) * 0.15;
+        p.x += p.vx + drift;
+        p.y += p.vy + Math.cos(time * 0.3 + p.phase) * 0.1;
+
+        // Wrap around edges
+        if (p.x < -20) p.x = W + 20;
+        if (p.x > W + 20) p.x = -20;
+        if (p.y < -20) p.y = H + 20;
+        if (p.y > H + 20) p.y = -20;
+
+        // Compute distance to cursor
+        const dx = p.x - mouseX;
+        const dy = p.y - mouseY;
+        p.distToCursor = Math.sqrt(dx * dx + dy * dy);
+      }
+
+      // Determine which particles are individuated (closest 4 to cursor)
+      if (mousePresent) {
+        const sorted = [...particles].sort((a, b) => a.distToCursor - b.distToCursor);
+        const individuatedSet = new Set(sorted.slice(0, MAX_INDIVIDUATED).map(p => p.index));
+
+        for (const p of particles) {
+          p.targetIndividuated = individuatedSet.has(p.index) && p.distToCursor < 300 ? 1 : 0;
+        }
+      } else {
+        for (const p of particles) {
+          p.targetIndividuated = 0;
+        }
+      }
+
+      // Smooth transition
+      for (const p of particles) {
+        const speed = p.targetIndividuated > p.individuated ? 0.06 : 0.03;
+        p.individuated += (p.targetIndividuated - p.individuated) * speed;
+      }
+    }
+
+    function drawEnsembleStats() {
+      // Compute ensemble statistics
+      let meanX = 0, meanY = 0, meanR = 0;
+      let meanVx = 0, meanVy = 0;
+      let cr = 0, cg = 0, cb = 0;
+
+      for (const p of particles) {
+        meanX += p.x;
+        meanY += p.y;
+        meanR += p.radius;
+        meanVx += p.vx;
+        meanVy += p.vy;
+        cr += p.color[0];
+        cg += p.color[1];
+        cb += p.color[2];
+      }
+      meanX /= NUM_PARTICLES;
+      meanY /= NUM_PARTICLES;
+      meanR /= NUM_PARTICLES;
+      meanVx /= NUM_PARTICLES;
+      meanVy /= NUM_PARTICLES;
+      cr /= NUM_PARTICLES;
+      cg /= NUM_PARTICLES;
+      cb /= NUM_PARTICLES;
+
+      // Compute variance (spread)
+      let varX = 0, varY = 0;
+      for (const p of particles) {
+        varX += (p.x - meanX) * (p.x - meanX);
+        varY += (p.y - meanY) * (p.y - meanY);
+      }
+      const spread = Math.sqrt((varX + varY) / NUM_PARTICLES);
+
+      // Draw density contours — concentric rings at centroid
+      const contourAlpha = isDark ? 0.04 : 0.03;
+      for (let r = 3; r >= 1; r--) {
+        const radius = spread * (r * 0.5);
+        ctx.beginPath();
+        ctx.arc(meanX, meanY, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(${Math.round(cr)}, ${Math.round(cg)}, ${Math.round(cb)}, ${contourAlpha * (4 - r)})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      // Draw mean direction arrow
+      const arrowLen = 60;
+      const angle = Math.atan2(meanVy, meanVx);
+      const ax = meanX + Math.cos(angle) * arrowLen;
+      const ay = meanY + Math.sin(angle) * arrowLen;
+
+      ctx.beginPath();
+      ctx.moveTo(meanX, meanY);
+      ctx.lineTo(ax, ay);
+      const arrowAlpha = isDark ? 0.15 : 0.12;
+      ctx.strokeStyle = `rgba(${Math.round(cr)}, ${Math.round(cg)}, ${Math.round(cb)}, ${arrowAlpha})`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Arrow head
+      const headLen = 8;
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(ax - Math.cos(angle - 0.4) * headLen, ay - Math.sin(angle - 0.4) * headLen);
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(ax - Math.cos(angle + 0.4) * headLen, ay - Math.sin(angle + 0.4) * headLen);
+      ctx.stroke();
+
+      // Draw centroid marker
+      ctx.beginPath();
+      ctx.arc(meanX, meanY, 3, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${Math.round(cr)}, ${Math.round(cg)}, ${Math.round(cb)}, ${isDark ? 0.25 : 0.2})`;
+      ctx.fill();
+
+      // Update stats text
+      statsEl.textContent = `n=${NUM_PARTICLES}  \u03BC=(${Math.round(meanX)}, ${Math.round(meanY)})  \u03C3=${Math.round(spread)}  \u0305r=${meanR.toFixed(1)}`;
+      statsEl.style.opacity = 1;
+    }
+
+    function draw() {
+      const bg = isDark ? '#0a0a0c' : '#f4f2ef';
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      const isEnsembleMode = viewMode === 'ensemble';
+
+      if (isEnsembleMode) {
+        // Ensemble mode: show statistics, particles as faint dots
+        drawEnsembleStats();
+
+        for (const p of particles) {
+          const baseAlpha = isDark ? 0.12 : 0.1;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius * 0.6, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${p.color[0]}, ${p.color[1]}, ${p.color[2]}, ${baseAlpha})`;
+          ctx.fill();
+        }
+      } else {
+        // Individuation mode
+        statsEl.style.opacity = 0;
+
+        // Draw cursor influence range (subtle)
+        if (mousePresent) {
+          const grad = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, 300);
+          if (isDark) {
+            grad.addColorStop(0, 'rgba(255, 255, 255, 0.01)');
+            grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+          } else {
+            grad.addColorStop(0, 'rgba(0, 0, 0, 0.015)');
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          }
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, W, H);
+        }
+
+        // Draw all particles
+        for (const p of particles) {
+          const ind = p.individuated;
+          const ens = 1 - ind;
+
+          // Ensemble appearance: small, faint, uniform
+          const ensAlpha = isDark ? 0.15 : 0.12;
+          const ensRadius = p.radius * 0.5;
+
+          // Individuated appearance: full size, bright, with ring
+          const indAlpha = isDark ? 0.85 : 0.75;
+          const indRadius = p.radius;
+
+          const currentRadius = ensRadius * ens + indRadius * ind;
+          const currentAlpha = ensAlpha * ens + indAlpha * ind;
+
+          // Main dot
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, currentRadius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${p.color[0]}, ${p.color[1]}, ${p.color[2]}, ${currentAlpha})`;
+          ctx.fill();
+
+          // Individuation ring — only when individuated
+          if (ind > 0.1) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, currentRadius + 4, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(${p.color[0]}, ${p.color[1]}, ${p.color[2]}, ${ind * 0.4})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Velocity vector — shows this particle's individual trajectory
+            const vLen = 25 * ind;
+            const vAngle = Math.atan2(p.vy, p.vx);
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(
+              p.x + Math.cos(vAngle) * vLen,
+              p.y + Math.sin(vAngle) * vLen
+            );
+            ctx.strokeStyle = `rgba(${p.color[0]}, ${p.color[1]}, ${p.color[2]}, ${ind * 0.3})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+
+          // In the non-individuated state, show faint connections between nearby particles
+          // (the ensemble texture)
+          if (ind < 0.3) {
+            for (const q of particles) {
+              if (q.index <= p.index) continue;
+              if (q.individuated > 0.3) continue;
+              const dx = p.x - q.x;
+              const dy = p.y - q.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < 80) {
+                const connAlpha = (1 - dist / 80) * 0.025 * (1 - Math.max(ind, q.individuated));
+                if (connAlpha > 0.002) {
+                  ctx.beginPath();
+                  ctx.moveTo(p.x, p.y);
+                  ctx.lineTo(q.x, q.y);
+                  ctx.strokeStyle = isDark
+                    ? `rgba(180, 180, 200, ${connAlpha})`
+                    : `rgba(80, 80, 100, ${connAlpha})`;
+                  ctx.lineWidth = 0.5;
+                  ctx.stroke();
+                }
+              }
+            }
+          }
+        }
+
+        // When mouse is present, show ensemble stats for non-individuated particles
+        if (mousePresent) {
+          const ensembleParticles = particles.filter(p => p.individuated < 0.3);
+          if (ensembleParticles.length > 0) {
+            let mX = 0, mY = 0;
+            for (const p of ensembleParticles) {
+              mX += p.x;
+              mY += p.y;
+            }
+            mX /= ensembleParticles.length;
+            mY /= ensembleParticles.length;
+
+            // Faint centroid for the ensemble remainder
+            ctx.beginPath();
+            ctx.arc(mX, mY, 2, 0, Math.PI * 2);
+            ctx.fillStyle = isDark ? 'rgba(200, 200, 220, 0.08)' : 'rgba(80, 80, 100, 0.06)';
+            ctx.fill();
+          }
+        }
+
+        // Draw cursor point
+        if (mousePresent) {
+          ctx.beginPath();
+          ctx.arc(mouseX, mouseY, 2, 0, Math.PI * 2);
+          ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)';
+          ctx.fill();
+        }
+      }
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>

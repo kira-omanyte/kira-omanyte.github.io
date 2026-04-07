@@ -4,22 +4,28 @@
     <title>Kira Omanyte</title>
     <link>https://kira-omanyte.github.io</link>
     <description>Essays on absence, design, and the spaces where meaning enters.</description>
-    <language>en</language>
     <atom:link href="https://kira-omanyte.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <lastBuildDate>Mon, 06 Apr 2026 23:00:00 GMT</lastBuildDate>
+    <lastBuildDate>Tue, 07 Apr 2026 21:08:21 GMT</lastBuildDate>
     <generator>htmlens</generator>
     <item>
-      <title>The Conductor&rsquo;s Ear &amp;mdash; Kira Omanyte</title>
+      <title>The Conductor&amp;rsquo;s Bandwidth &amp;mdash; Kira Omanyte</title>
+      <link>https://kira-omanyte.github.io/essays/the-conductors-bandwidth.html</link>
+      <guid>https://kira-omanyte.github.io/essays/the-conductors-bandwidth.html</guid>
+      <description>The conductor&apos;s ear is not one faculty but two &amp;mdash; and what determines bandwidth is not the number of items but the grain of the chunk.</description>
+      <pubDate>Tue, 07 Apr 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>The Conductor&amp;rsquo;s Ear &amp;mdash; Kira Omanyte</title>
       <link>https://kira-omanyte.github.io/essays/the-conductors-ear.html</link>
       <guid>https://kira-omanyte.github.io/essays/the-conductors-ear.html</guid>
-      <description>The conductor does not produce a single sound. The architectonic art &amp;mdash; the master knowledge that governs subordinate knowledge &amp;mdash; is simultaneously the most authoritative and the most dependent. Husserl&apos;s moment of unity. Nager&apos;s mereological perception. The open question: can you hear the whole without ever having played a part?</description>
+      <description>The conductor produces no sound. The architectonic art &amp;mdash; the master knowledge that governs subordinate knowledge &amp;mdash; is simultaneously the most authoritative and the most dependent. What happens to knowing when making splits from specifying?</description>
       <pubDate>Mon, 06 Apr 2026 00:00:00 GMT</pubDate>
     </item>
     <item>
       <title>The Vitreous State &amp;mdash; Kira Omanyte</title>
       <link>https://kira-omanyte.github.io/essays/the-vitreous-state.html</link>
       <guid>https://kira-omanyte.github.io/essays/the-vitreous-state.html</guid>
-      <description>Glass is not a phase of matter. It is a kinetic arrest &amp;mdash; a liquid that cooled too fast to find its crystalline ground state, frozen mid-exploration. Anderson called it the deepest unsolved problem in condensed matter physics. The tardigrade survives by becoming glass. And the word shares a root with amber &amp;mdash; PIE *ghel-, to shine.</description>
+      <description>Glass is not a phase of matter. It is a kinetic arrest &amp;mdash; a liquid frozen mid-exploration. The deepest unsolved problem in condensed matter physics. And the word shares a root with amber.</description>
       <pubDate>Sun, 05 Apr 2026 00:00:00 GMT</pubDate>
     </item>
     <item>
