@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Toad&rsquo;s Question &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="A field of particles in smooth, automatic motion. Move to ask the question. At the right distance, the motion becomes visible &mdash; colors emerge, trails appear. Too close, and the motion freezes. The productive zone is the narrow annulus between illumination and paralysis.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="The Toad&rsquo;s Question &mdash; Kira Omanyte">
+  <meta property="og:description" content="Move to ask the question. At the right distance, the motion becomes visible. Too close, and it freezes. The gap between illumination and paralysis.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/toads-question.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0c;
+      color: #a0a0b0;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+    @media (prefers-color-scheme: light) {
+      body { background: #f4f2ef; color: #40404a; }
+    }
+    canvas {
+      display: block;
+      flex: 1;
+    }
+    .title-bar {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666678;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      z-index: 10;
+    }
+    @media (prefers-color-scheme: light) {
+      .title-bar { color: #888898; }
+    }
+    .info {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.72rem;
+      color: #555568;
+      letter-spacing: 0.03em;
+      pointer-events: none;
+      z-index: 10;
+      text-align: center;
+      transition: opacity 0.5s;
+    }
+    @media (prefers-color-scheme: light) {
+      .info { color: #888898; }
+    }
+    .back-link {
+      position: fixed;
+      top: 1rem;
+      left: 1rem;
+      font-size: 0.8rem;
+      color: #666678;
+      text-decoration: none;
+      z-index: 10;
+    }
+    .back-link:hover { color: #b89cd6; }
+    @media (prefers-color-scheme: light) {
+      .back-link { color: #888898; }
+      .back-link:hover { color: #6b4c8a; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="/">&larr; Home</a>
+  <div class="title-bar">The Toad&rsquo;s Question</div>
+  <div class="info">Move to ask. Proximity illuminates. Closeness paralyzes. &middot; Click to toggle zones.</div>
+  <canvas id="c"></canvas>
+  <script>
+(function() {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+
+  const isLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+  const bg = isLight ? [244, 242, 239] : [10, 10, 12];
+  const automaticColor = isLight ? [160, 158, 152] : [60, 60, 68];
+  const frozenColor = isLight ? [180, 90, 70] : [200, 100, 80];
+
+  // Five tradition colors (productive de-automatization)
+  const traditionColors = [
+    [200, 140, 90],   // Shklovsky — warm amber (making the stone stony)
+    [120, 160, 200],  // Husserl — cool blue (the epoché, philosophical clarity)
+    [180, 100, 100],  // Heidegger — muted red (breakdown, conspicuousness)
+    [100, 130, 200],  // Deikman — deep blue (the vase experiment, deepening)
+    [140, 190, 140],  // Suzuki — gentle green (beginner's mind, openness)
+  ];
+
+  const OUTER_RADIUS = 200;
+  const INNER_RADIUS = 55;
+  const N = 180;
+  const TRAIL_LENGTH = 12;
+
+  let W, H;
+  let mouse = { x: -1000, y: -1000, active: false };
+  let showZones = false;
+  let particles = [];
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function createParticle(i) {
+    const tradition = i % 5;
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 0.3 + Math.random() * 0.5;
+    const freq = 0.005 + Math.random() * 0.01;
+    const amp = 15 + Math.random() * 25;
+    const phase = Math.random() * Math.PI * 2;
+    return {
+      x: Math.random() * W,
+      y: Math.random() * H,
+      baseVx: Math.cos(angle) * speed,
+      baseVy: Math.sin(angle) * speed,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      freq: freq,
+      amp: amp,
+      phase: phase,
+      t: Math.random() * 1000,
+      tradition: tradition,
+      size: 2 + Math.random() * 1.5,
+      deAutoFactor: 0,   // 0 = automatic, 1 = fully de-automatized (productive)
+      freezeFactor: 0,    // 0 = moving, 1 = frozen (destructive)
+      trail: [],
+      phaseShift: 0,      // accumulated from past freezings
+      wasEverFrozen: false,
+    };
+  }
+
+  function init() {
+    resize();
+    particles = [];
+    for (let i = 0; i < N; i++) {
+      particles.push(createParticle(i));
+    }
+  }
+
+  function update() {
+    for (let p of particles) {
+      const dx = p.x - mouse.x;
+      const dy = p.y - mouse.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // Target de-automatization and freeze factors
+      let targetDeAuto = 0;
+      let targetFreeze = 0;
+
+      if (mouse.active) {
+        if (dist < INNER_RADIUS) {
+          // Destructive zone — freeze
+          targetFreeze = 1 - (dist / INNER_RADIUS);
+          targetDeAuto = 0.3; // still some color, but muted
+        } else if (dist < OUTER_RADIUS) {
+          // Productive zone — illuminate
+          const t = (dist - INNER_RADIUS) / (OUTER_RADIUS - INNER_RADIUS);
+          // Peak de-automatization near the inner boundary, fading outward
+          targetDeAuto = 1 - t;
+          targetFreeze = 0;
+        }
+      }
+
+      // Smooth transitions
+      p.deAutoFactor += (targetDeAuto - p.deAutoFactor) * 0.06;
+      p.freezeFactor += (targetFreeze - p.freezeFactor) * 0.08;
+
+      // Track if ever frozen (for phase shift on thaw)
+      if (p.freezeFactor > 0.5 && !p.wasEverFrozen) {
+        p.wasEverFrozen = true;
+      }
+      if (p.freezeFactor < 0.1 && p.wasEverFrozen) {
+        p.phaseShift += 0.3 + Math.random() * 0.5;
+        p.wasEverFrozen = false;
+      }
+
+      // Movement: blend between automatic and frozen
+      const moveFactor = 1 - p.freezeFactor;
+      const oscX = Math.sin(p.t * p.freq + p.phase + p.phaseShift) * p.amp * 0.01;
+      const oscY = Math.cos(p.t * p.freq * 0.7 + p.phase + p.phaseShift) * p.amp * 0.01;
+
+      p.vx = (p.baseVx + oscX) * moveFactor;
+      p.vy = (p.baseVy + oscY) * moveFactor;
+
+      p.x += p.vx;
+      p.y += p.vy;
+      p.t += 1;
+
+      // Wrap
+      if (p.x < -20) p.x += W + 40;
+      if (p.x > W + 20) p.x -= W + 40;
+      if (p.y < -20) p.y += H + 40;
+      if (p.y > H + 20) p.y -= H + 40;
+
+      // Trail (only when de-automatized and moving)
+      if (p.deAutoFactor > 0.1 && moveFactor > 0.3) {
+        p.trail.push({ x: p.x, y: p.y, a: p.deAutoFactor * moveFactor });
+        if (p.trail.length > TRAIL_LENGTH) p.trail.shift();
+      } else {
+        if (p.trail.length > 0) p.trail.shift();
+      }
+    }
+  }
+
+  function draw() {
+    // Clear
+    ctx.fillStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
+    ctx.fillRect(0, 0, W, H);
+
+    // Draw zone rings if toggled
+    if (showZones && mouse.active) {
+      // Productive zone (outer ring)
+      ctx.beginPath();
+      ctx.arc(mouse.x, mouse.y, OUTER_RADIUS, 0, Math.PI * 2);
+      ctx.strokeStyle = isLight ? 'rgba(107,76,138,0.12)' : 'rgba(184,156,214,0.08)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 6]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Destructive zone (inner ring)
+      ctx.beginPath();
+      ctx.arc(mouse.x, mouse.y, INNER_RADIUS, 0, Math.PI * 2);
+      ctx.strokeStyle = isLight ? 'rgba(180,90,70,0.2)' : 'rgba(200,100,80,0.15)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Draw particles
+    for (let p of particles) {
+      const tc = traditionColors[p.tradition];
+      const auto = automaticColor;
+
+      // Trail
+      for (let i = 0; i < p.trail.length; i++) {
+        const t = p.trail[i];
+        const frac = i / p.trail.length;
+        const a = t.a * frac * 0.3;
+        const r = auto[0] + (tc[0] - auto[0]) * t.a;
+        const g = auto[1] + (tc[1] - auto[1]) * t.a;
+        const b = auto[2] + (tc[2] - auto[2]) * t.a;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, p.size * 0.6 * frac, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${r|0},${g|0},${b|0},${a})`;
+        ctx.fill();
+      }
+
+      // Determine color
+      let r, g, b, alpha;
+      if (p.freezeFactor > 0.1) {
+        // Frozen: shift toward anxious warm tone
+        const ff = p.freezeFactor;
+        r = auto[0] + (frozenColor[0] - auto[0]) * ff;
+        g = auto[1] + (frozenColor[1] - auto[1]) * ff;
+        b = auto[2] + (frozenColor[2] - auto[2]) * ff;
+        alpha = 0.4 + ff * 0.5;
+      } else if (p.deAutoFactor > 0.05) {
+        // Productive de-automatization: tradition color emerges
+        const da = p.deAutoFactor;
+        r = auto[0] + (tc[0] - auto[0]) * da;
+        g = auto[1] + (tc[1] - auto[1]) * da;
+        b = auto[2] + (tc[2] - auto[2]) * da;
+        alpha = 0.3 + da * 0.6;
+      } else {
+        // Automatic: muted, barely visible
+        r = auto[0];
+        g = auto[1];
+        b = auto[2];
+        alpha = 0.25;
+      }
+
+      // Size: frozen particles vibrate slightly
+      let drawSize = p.size;
+      if (p.freezeFactor > 0.3) {
+        drawSize += Math.sin(p.t * 0.5) * p.freezeFactor * 1.5;
+      }
+      // De-automatized particles grow slightly
+      if (p.deAutoFactor > 0.1 && p.freezeFactor < 0.2) {
+        drawSize += p.deAutoFactor * 1.5;
+      }
+
+      // Glow for strongly de-automatized particles
+      if (p.deAutoFactor > 0.5 && p.freezeFactor < 0.2) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, drawSize + 4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${tc[0]},${tc[1]},${tc[2]},${p.deAutoFactor * 0.08})`;
+        ctx.fill();
+      }
+
+      // Main dot
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, drawSize, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${r|0},${g|0},${b|0},${alpha})`;
+      ctx.fill();
+    }
+
+    // Toad's cursor (minimal, like the conductor)
+    if (mouse.active) {
+      ctx.beginPath();
+      ctx.arc(mouse.x, mouse.y, 2, 0, Math.PI * 2);
+      ctx.fillStyle = isLight ? 'rgba(100,90,80,0.3)' : 'rgba(160,155,145,0.25)';
+      ctx.fill();
+    }
+  }
+
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // Events
+  canvas.addEventListener('mousemove', (e) => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+    mouse.active = true;
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    mouse.active = false;
+    mouse.x = -1000;
+    mouse.y = -1000;
+  });
+
+  canvas.addEventListener('click', () => {
+    showZones = !showZones;
+  });
+
+  // Touch support
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    mouse.x = t.clientX;
+    mouse.y = t.clientY;
+    mouse.active = true;
+  }, { passive: false });
+
+  canvas.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    mouse.x = t.clientX;
+    mouse.y = t.clientY;
+    mouse.active = true;
+  });
+
+  canvas.addEventListener('touchend', () => {
+    mouse.active = false;
+    mouse.x = -1000;
+    mouse.y = -1000;
+  });
+
+  window.addEventListener('resize', resize);
+
+  init();
+  loop();
+})();
+  </script>
+</body>
+</html>

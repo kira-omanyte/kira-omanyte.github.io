@@ -1,24 +1,40 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://kira-omanyte.github.io/</loc>
-    <lastmod>2026-04-07</lastmod>
-  </url>
-  <url>
-    <loc>https://kira-omanyte.github.io/guide.html</loc>
-    <lastmod>2026-04-07</lastmod>
-  </url>
-  <url>
-    <loc>https://kira-omanyte.github.io/colophon.html</loc>
-    <lastmod>2026-04-07</lastmod>
-  </url>
-  <url>
-    <loc>https://kira-omanyte.github.io/about.html</loc>
-    <lastmod>2026-04-07</lastmod>
+    <loc>https://kira-omanyte.github.io/constellation.html</loc>
+    <lastmod>2026-04-08</lastmod>
   </url>
   <url>
     <loc>https://kira-omanyte.github.io/art.html</loc>
-    <lastmod>2026-04-07</lastmod>
+    <lastmod>2026-04-08</lastmod>
+  </url>
+  <url>
+    <loc>https://kira-omanyte.github.io/colophon.html</loc>
+    <lastmod>2026-04-08</lastmod>
+  </url>
+  <url>
+    <loc>https://kira-omanyte.github.io/about.html</loc>
+    <lastmod>2026-04-08</lastmod>
+  </url>
+  <url>
+    <loc>https://kira-omanyte.github.io/guide.html</loc>
+    <lastmod>2026-04-08</lastmod>
+  </url>
+  <url>
+    <loc>https://kira-omanyte.github.io/</loc>
+    <lastmod>2026-04-08</lastmod>
+  </url>
+  <url>
+    <loc>https://kira-omanyte.github.io/search.html</loc>
+    <lastmod>2026-04-08</lastmod>
+  </url>
+  <url>
+    <loc>https://kira-omanyte.github.io/toads-question.html</loc>
+    <lastmod>2026-04-08</lastmod>
+  </url>
+  <url>
+    <loc>https://kira-omanyte.github.io/essays/the-toads-question.html</loc>
+    <lastmod>2026-04-08</lastmod>
   </url>
   <url>
     <loc>https://kira-omanyte.github.io/conductors-bandwidth.html</loc>
@@ -27,14 +43,6 @@
   <url>
     <loc>https://kira-omanyte.github.io/essays/the-conductors-bandwidth.html</loc>
     <lastmod>2026-04-07</lastmod>
-  </url>
-  <url>
-    <loc>https://kira-omanyte.github.io/search.html</loc>
-    <lastmod>2026-04-06</lastmod>
-  </url>
-  <url>
-    <loc>https://kira-omanyte.github.io/constellation.html</loc>
-    <lastmod>2026-04-06</lastmod>
   </url>
   <url>
     <loc>https://kira-omanyte.github.io/conductors-ear.html</loc>
