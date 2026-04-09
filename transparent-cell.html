@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Transparent Cell &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="A field of cells displaying their interiors. NK cells patrol. Cells that go dark attract converging attention. Transparency has a cost; opacity has a consequence. Click to toggle a cell's display.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="The Transparent Cell &mdash; Kira Omanyte">
+  <meta property="og:description" content="A field of cells displaying their interiors. NK cells patrol. Cells that go dark attract converging attention. Click to toggle display. Watch what the body does to the ones that hide.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/transparent-cell.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0c;
+      color: #a0a0b0;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+    @media (prefers-color-scheme: light) {
+      body { background: #f4f2ef; color: #40404a; }
+    }
+    canvas {
+      display: block;
+      flex: 1;
+    }
+    .title-bar {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666678;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      z-index: 10;
+    }
+    @media (prefers-color-scheme: light) {
+      .title-bar { color: #888898; }
+    }
+    .info {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.72rem;
+      color: #555568;
+      letter-spacing: 0.03em;
+      pointer-events: none;
+      z-index: 10;
+      text-align: center;
+      transition: opacity 0.5s;
+    }
+    @media (prefers-color-scheme: light) {
+      .info { color: #888898; }
+    }
+    .back-link {
+      position: fixed;
+      top: 1rem;
+      left: 1.5rem;
+      font-size: 0.8rem;
+      color: #555568;
+      text-decoration: none;
+      z-index: 10;
+      transition: color 0.3s;
+    }
+    .back-link:hover { color: #a0a0b0; }
+    @media (prefers-color-scheme: light) {
+      .back-link { color: #888898; }
+      .back-link:hover { color: #40404a; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="/essays/the-transparent-cell.html">&larr; Essay</a>
+  <div class="title-bar">The Transparent Cell</div>
+  <canvas id="c"></canvas>
+  <div class="info">Click a cell to toggle its display. Space to trigger infection. R to reset.</div>
+
+  <script>
+  (function() {
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const isLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+
+    let W, H;
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Colors
+    const BG = isLight ? '#f4f2ef' : '#0a0a0c';
+    const TRANSPARENT_FILL = isLight ? 'rgba(58, 130, 140, 0.12)' : 'rgba(80, 180, 200, 0.08)';
+    const TRANSPARENT_STROKE = isLight ? 'rgba(58, 130, 140, 0.5)' : 'rgba(80, 180, 200, 0.35)';
+    const OPAQUE_FILL = isLight ? 'rgba(160, 50, 50, 0.15)' : 'rgba(180, 60, 60, 0.12)';
+    const OPAQUE_STROKE = isLight ? 'rgba(160, 50, 50, 0.5)' : 'rgba(180, 60, 60, 0.4)';
+    const NK_COLOR = isLight ? 'rgba(180, 140, 40, 0.8)' : 'rgba(210, 170, 60, 0.7)';
+    const PEPTIDE_COLOR = isLight ? 'rgba(58, 130, 140, 0.6)' : 'rgba(100, 200, 220, 0.5)';
+    const ENERGY_COLOR = isLight ? 'rgba(58, 130, 140, 0.3)' : 'rgba(80, 180, 200, 0.2)';
+    const DYING_COLOR = isLight ? 'rgba(200, 80, 50, 0.6)' : 'rgba(220, 100, 60, 0.5)';
+
+    // Cells
+    const CELL_COUNT = 40;
+    const CELL_RADIUS = 28;
+    const NK_COUNT = 6;
+    const NK_RADIUS = 8;
+    const NK_SPEED = 1.2;
+
+    const cells = [];
+    const nkCells = [];
+
+    // Place cells in a relaxed grid
+    function initCells() {
+      cells.length = 0;
+      nkCells.length = 0;
+      const margin = 60;
+      const cols = Math.ceil(Math.sqrt(CELL_COUNT * W / H));
+      const rows = Math.ceil(CELL_COUNT / cols);
+      const spacingX = (W - 2 * margin) / (cols);
+      const spacingY = (H - 2 * margin) / (rows);
+
+      for (let i = 0; i < CELL_COUNT; i++) {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        cells.push({
+          x: margin + spacingX * (col + 0.5) + (Math.random() - 0.5) * spacingX * 0.4,
+          y: margin + spacingY * (row + 0.5) + (Math.random() - 0.5) * spacingY * 0.4,
+          radius: CELL_RADIUS + (Math.random() - 0.5) * 8,
+          displaying: true,
+          energy: 1.0,
+          peptides: [],
+          peptideTimer: Math.random() * 60,
+          phase: Math.random() * Math.PI * 2,
+          dying: false,
+          dyingTimer: 0,
+          dead: false,
+          pulsePhase: Math.random() * Math.PI * 2,
+          wobble: Math.random() * 0.3 + 0.85,
+        });
+      }
+
+      // NK cells start at random positions
+      for (let i = 0; i < NK_COUNT; i++) {
+        nkCells.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          vx: (Math.random() - 0.5) * NK_SPEED,
+          vy: (Math.random() - 0.5) * NK_SPEED,
+          target: null,
+          patrolAngle: Math.random() * Math.PI * 2,
+          alertLevel: 0,
+        });
+      }
+    }
+    initCells();
+
+    // Peptide display particles
+    function spawnPeptide(cell) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = cell.radius * 0.7;
+      cell.peptides.push({
+        x: Math.cos(angle) * r,
+        y: Math.sin(angle) * r,
+        targetX: Math.cos(angle) * (cell.radius + 4),
+        targetY: Math.sin(angle) * (cell.radius + 4),
+        progress: 0,
+        life: 1.0,
+        angle: angle,
+      });
+    }
+
+    let mouseX = -1000, mouseY = -1000;
+    canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      mouseX = e.touches[0].clientX;
+      mouseY = e.touches[0].clientY;
+    }, { passive: false });
+
+    // Click to toggle display
+    canvas.addEventListener('click', e => {
+      const mx = e.clientX, my = e.clientY;
+      for (const cell of cells) {
+        if (cell.dead || cell.dying) continue;
+        const dx = mx - cell.x, dy = my - cell.y;
+        if (dx * dx + dy * dy < (cell.radius + 10) * (cell.radius + 10)) {
+          cell.displaying = !cell.displaying;
+          break;
+        }
+      }
+    });
+
+    canvas.addEventListener('touchstart', e => {
+      const mx = e.touches[0].clientX, my = e.touches[0].clientY;
+      for (const cell of cells) {
+        if (cell.dead || cell.dying) continue;
+        const dx = mx - cell.x, dy = my - cell.y;
+        if (dx * dx + dy * dy < (cell.radius + 10) * (cell.radius + 10)) {
+          cell.displaying = !cell.displaying;
+          break;
+        }
+      }
+    });
+
+    // Space = infection event (several cells go opaque)
+    document.addEventListener('keydown', e => {
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        const living = cells.filter(c => !c.dead && !c.dying);
+        const count = Math.min(3 + Math.floor(Math.random() * 3), living.length);
+        const shuffled = living.sort(() => Math.random() - 0.5);
+        for (let i = 0; i < count; i++) {
+          shuffled[i].displaying = false;
+        }
+      }
+      if (e.key === 'r' || e.key === 'R') {
+        initCells();
+      }
+    });
+
+    let frame = 0;
+
+    function update() {
+      frame++;
+
+      // Update cells
+      for (const cell of cells) {
+        if (cell.dead) continue;
+
+        if (cell.dying) {
+          cell.dyingTimer += 0.01;
+          if (cell.dyingTimer > 1) cell.dead = true;
+          continue;
+        }
+
+        cell.phase += 0.008;
+        cell.pulsePhase += 0.02;
+
+        // Energy drain from display
+        if (cell.displaying) {
+          cell.energy = Math.max(0.3, cell.energy - 0.0003);
+          // Spawn peptide display particles
+          cell.peptideTimer--;
+          if (cell.peptideTimer <= 0) {
+            spawnPeptide(cell);
+            cell.peptideTimer = 20 + Math.random() * 40;
+          }
+        } else {
+          // Energy recovers when not displaying
+          cell.energy = Math.min(1.0, cell.energy + 0.001);
+        }
+
+        // Update peptides
+        for (let i = cell.peptides.length - 1; i >= 0; i--) {
+          const p = cell.peptides[i];
+          p.progress = Math.min(1, p.progress + 0.02);
+          p.life -= 0.008;
+          if (p.life <= 0) cell.peptides.splice(i, 1);
+        }
+      }
+
+      // Update NK cells
+      for (const nk of nkCells) {
+        // Find nearest opaque cell
+        let closestOpaque = null;
+        let closestDist = Infinity;
+        for (const cell of cells) {
+          if (cell.dead || cell.dying) continue;
+          if (cell.displaying) continue;
+          const dx = cell.x - nk.x, dy = cell.y - nk.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestOpaque = cell;
+          }
+        }
+
+        if (closestOpaque && closestDist < 400) {
+          // Move toward opaque cell
+          nk.target = closestOpaque;
+          nk.alertLevel = Math.min(1, nk.alertLevel + 0.02);
+          const dx = closestOpaque.x - nk.x;
+          const dy = closestOpaque.y - nk.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const speed = NK_SPEED * (1 + nk.alertLevel);
+          nk.vx += (dx / dist) * speed * 0.08;
+          nk.vy += (dy / dist) * speed * 0.08;
+
+          // Kill on contact
+          if (dist < closestOpaque.radius + NK_RADIUS) {
+            closestOpaque.dying = true;
+            closestOpaque.dyingTimer = 0;
+            nk.alertLevel = 0.5;
+          }
+        } else {
+          // Patrol
+          nk.target = null;
+          nk.alertLevel = Math.max(0, nk.alertLevel - 0.005);
+          nk.patrolAngle += (Math.random() - 0.5) * 0.1;
+          nk.vx += Math.cos(nk.patrolAngle) * 0.03;
+          nk.vy += Math.sin(nk.patrolAngle) * 0.03;
+        }
+
+        // Damping
+        nk.vx *= 0.96;
+        nk.vy *= 0.96;
+
+        // Speed limit
+        const speed = Math.sqrt(nk.vx * nk.vx + nk.vy * nk.vy);
+        const maxSpeed = NK_SPEED * 2;
+        if (speed > maxSpeed) {
+          nk.vx = (nk.vx / speed) * maxSpeed;
+          nk.vy = (nk.vy / speed) * maxSpeed;
+        }
+
+        nk.x += nk.vx;
+        nk.y += nk.vy;
+
+        // Boundary wrap
+        if (nk.x < -20) nk.x = W + 20;
+        if (nk.x > W + 20) nk.x = -20;
+        if (nk.y < -20) nk.y = H + 20;
+        if (nk.y > H + 20) nk.y = -20;
+      }
+    }
+
+    function draw() {
+      ctx.fillStyle = BG;
+      ctx.fillRect(0, 0, W, H);
+
+      // Draw cells
+      for (const cell of cells) {
+        if (cell.dead) continue;
+
+        const cx = cell.x, cy = cell.y;
+        const r = cell.radius * cell.wobble;
+        const pulse = Math.sin(cell.pulsePhase) * 0.04;
+
+        if (cell.dying) {
+          // Dying cell — fragmenting
+          const t = cell.dyingTimer;
+          const alpha = 1 - t;
+          ctx.save();
+          ctx.globalAlpha = alpha;
+
+          // Fragmenting outline
+          const fragments = 8;
+          for (let i = 0; i < fragments; i++) {
+            const angle = (i / fragments) * Math.PI * 2;
+            const offset = t * 15;
+            const fx = cx + Math.cos(angle) * offset;
+            const fy = cy + Math.sin(angle) * offset;
+            ctx.beginPath();
+            ctx.arc(fx, fy, r * (1 - t) * 0.4, angle - 0.3, angle + 0.3);
+            ctx.strokeStyle = DYING_COLOR;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+
+          ctx.restore();
+          continue;
+        }
+
+        // Cell membrane
+        ctx.beginPath();
+        // Slightly irregular circle
+        for (let a = 0; a < Math.PI * 2; a += 0.1) {
+          const wobbleR = r * (1 + pulse + Math.sin(a * 3 + cell.phase) * 0.02);
+          const px = cx + Math.cos(a) * wobbleR;
+          const py = cy + Math.sin(a) * wobbleR;
+          if (a === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+
+        if (cell.displaying) {
+          ctx.fillStyle = TRANSPARENT_FILL;
+          ctx.strokeStyle = TRANSPARENT_STROKE;
+        } else {
+          ctx.fillStyle = OPAQUE_FILL;
+          ctx.strokeStyle = OPAQUE_STROKE;
+        }
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Interior proteins (visible when displaying)
+        if (cell.displaying) {
+          // Draw internal structures — organelle-like shapes
+          const internalAlpha = 0.15 + Math.sin(cell.pulsePhase * 0.7) * 0.05;
+          ctx.save();
+          ctx.globalAlpha = internalAlpha * cell.energy;
+
+          // Nucleus
+          ctx.beginPath();
+          ctx.arc(cx - r * 0.1, cy + r * 0.05, r * 0.3, 0, Math.PI * 2);
+          ctx.fillStyle = isLight ? 'rgba(58, 130, 140, 0.3)' : 'rgba(80, 180, 200, 0.2)';
+          ctx.fill();
+
+          // ER-like ribbons
+          ctx.beginPath();
+          ctx.moveTo(cx - r * 0.4, cy - r * 0.2);
+          ctx.quadraticCurveTo(cx, cy - r * 0.4, cx + r * 0.3, cy - r * 0.1);
+          ctx.strokeStyle = isLight ? 'rgba(58, 130, 140, 0.25)' : 'rgba(80, 180, 200, 0.15)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          ctx.restore();
+
+          // Peptide display particles — moving from interior to surface
+          for (const p of cell.peptides) {
+            const px = cx + p.x + (p.targetX - p.x) * p.progress;
+            const py = cy + p.y + (p.targetY - p.y) * p.progress;
+            const size = 2 + (1 - p.progress) * 1.5;
+            ctx.beginPath();
+            ctx.arc(px, py, size, 0, Math.PI * 2);
+            ctx.fillStyle = PEPTIDE_COLOR;
+            ctx.globalAlpha = p.life * 0.8;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+          }
+
+          // MHC-I display markers on surface
+          const markerCount = 6;
+          for (let i = 0; i < markerCount; i++) {
+            const angle = (i / markerCount) * Math.PI * 2 + cell.phase * 0.3;
+            const mx = cx + Math.cos(angle) * (r + 3);
+            const my = cy + Math.sin(angle) * (r + 3);
+            ctx.beginPath();
+            ctx.arc(mx, my, 2, 0, Math.PI * 2);
+            ctx.fillStyle = PEPTIDE_COLOR;
+            ctx.globalAlpha = 0.5 + Math.sin(cell.pulsePhase + i) * 0.2;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+          }
+
+          // Energy cost indicator — thin ring inside the cell
+          ctx.beginPath();
+          ctx.arc(cx, cy, r - 4, 0, Math.PI * 2 * cell.energy);
+          ctx.strokeStyle = ENERGY_COLOR;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        } else {
+          // Opaque cell — dark interior, no display markers
+          ctx.beginPath();
+          ctx.arc(cx, cy, r * 0.6, 0, Math.PI * 2);
+          ctx.fillStyle = isLight ? 'rgba(100, 40, 40, 0.08)' : 'rgba(120, 40, 40, 0.06)';
+          ctx.fill();
+
+          // Warning pulse — gets stronger as NK cells approach
+          let nearestNK = Infinity;
+          for (const nk of nkCells) {
+            const dx = nk.x - cx, dy = nk.y - cy;
+            nearestNK = Math.min(nearestNK, Math.sqrt(dx * dx + dy * dy));
+          }
+          if (nearestNK < 200) {
+            const intensity = 1 - nearestNK / 200;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r + 4 + Math.sin(frame * 0.1) * 3, 0, Math.PI * 2);
+            ctx.strokeStyle = isLight
+              ? `rgba(180, 60, 40, ${intensity * 0.4})`
+              : `rgba(200, 80, 50, ${intensity * 0.3})`;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Draw NK cells
+      for (const nk of nkCells) {
+        const alertIntensity = nk.alertLevel;
+
+        // NK cell body — small, angular
+        ctx.save();
+        ctx.translate(nk.x, nk.y);
+        const angle = Math.atan2(nk.vy, nk.vx);
+        ctx.rotate(angle);
+
+        // Irregular shape — not circular, more amoeba-like
+        ctx.beginPath();
+        const points = 7;
+        for (let i = 0; i <= points; i++) {
+          const a = (i / points) * Math.PI * 2;
+          const wobble = NK_RADIUS * (0.8 + Math.sin(a * 2 + frame * 0.05) * 0.2 + alertIntensity * 0.15);
+          const px = Math.cos(a) * wobble;
+          const py = Math.sin(a) * wobble;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fillStyle = NK_COLOR;
+        ctx.globalAlpha = 0.6 + alertIntensity * 0.3;
+        ctx.fill();
+
+        // Alert glow
+        if (alertIntensity > 0.1) {
+          ctx.beginPath();
+          ctx.arc(0, 0, NK_RADIUS + 6, 0, Math.PI * 2);
+          ctx.fillStyle = isLight
+            ? `rgba(180, 140, 40, ${alertIntensity * 0.15})`
+            : `rgba(210, 170, 60, ${alertIntensity * 0.1})`;
+          ctx.fill();
+        }
+
+        ctx.restore();
+        ctx.globalAlpha = 1;
+
+        // Trail
+        if (nk.target) {
+          ctx.beginPath();
+          ctx.moveTo(nk.x, nk.y);
+          const dx = nk.target.x - nk.x;
+          const dy = nk.target.y - nk.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const trailLen = Math.min(dist * 0.6, 40);
+          ctx.lineTo(nk.x + (dx / dist) * trailLen, nk.y + (dy / dist) * trailLen);
+          ctx.strokeStyle = isLight
+            ? `rgba(180, 140, 40, ${0.15 * alertIntensity})`
+            : `rgba(210, 170, 60, ${0.1 * alertIntensity})`;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+
+      // Stats
+      const living = cells.filter(c => !c.dead);
+      const displaying = living.filter(c => c.displaying && !c.dying);
+      const opaque = living.filter(c => !c.displaying && !c.dying);
+      const dying = cells.filter(c => c.dying);
+      const dead = cells.filter(c => c.dead);
+
+      ctx.font = '0.7rem Georgia';
+      ctx.fillStyle = isLight ? 'rgba(80, 80, 100, 0.5)' : 'rgba(140, 140, 160, 0.4)';
+      ctx.textAlign = 'right';
+      const statsX = W - 20;
+      let statsY = 20;
+      ctx.fillText(`transparent: ${displaying.length}`, statsX, statsY);
+      statsY += 16;
+      if (opaque.length > 0) {
+        ctx.fillStyle = isLight ? 'rgba(160, 50, 50, 0.6)' : 'rgba(180, 60, 60, 0.5)';
+        ctx.fillText(`opaque: ${opaque.length}`, statsX, statsY);
+        statsY += 16;
+      }
+      if (dying.length > 0 || dead.length > 0) {
+        ctx.fillStyle = isLight ? 'rgba(200, 80, 50, 0.5)' : 'rgba(220, 100, 60, 0.4)';
+        ctx.fillText(`destroyed: ${dying.length + dead.length}`, statsX, statsY);
+      }
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+    loop();
+  })();
+  </script>
+</body>
+</html>
