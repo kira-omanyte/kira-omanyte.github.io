@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Remainder &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="A spectrum of particles. Your cursor subtracts wavelengths. What survives is the color. Five modes, five mechanisms. Press Q for the quale.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="The Remainder &mdash; Kira Omanyte">
+  <meta property="og:description" content="A spectrum of particles. Your cursor subtracts. What survives is the color. Five modes reveal absorption, structure, constancy, boundary, and language. Press Q for the quale.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/remainder.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0c;
+      color: #a0a0b0;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+    @media (prefers-color-scheme: light) {
+      body { background: #f4f2ef; color: #40404a; }
+    }
+    canvas {
+      display: block;
+      flex: 1;
+    }
+    .title-bar {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666678;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      z-index: 10;
+    }
+    @media (prefers-color-scheme: light) {
+      .title-bar { color: #888898; }
+    }
+    .info {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.72rem;
+      color: #555568;
+      letter-spacing: 0.03em;
+      pointer-events: none;
+      z-index: 10;
+      text-align: center;
+      transition: opacity 0.5s;
+      max-width: 90vw;
+    }
+    @media (prefers-color-scheme: light) {
+      .info { color: #888898; }
+    }
+    .mode-label {
+      position: fixed;
+      top: 3rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.75rem;
+      color: #555568;
+      letter-spacing: 0.05em;
+      pointer-events: none;
+      z-index: 10;
+      text-align: center;
+      transition: opacity 0.4s;
+      text-transform: uppercase;
+    }
+    @media (prefers-color-scheme: light) {
+      .mode-label { color: #888898; }
+    }
+    .back-link {
+      position: fixed;
+      top: 1rem;
+      left: 1.5rem;
+      font-size: 0.8rem;
+      color: #555568;
+      text-decoration: none;
+      z-index: 10;
+      transition: color 0.3s;
+    }
+    .back-link:hover { color: #a0a0b0; }
+    @media (prefers-color-scheme: light) {
+      .back-link { color: #888898; }
+      .back-link:hover { color: #40404a; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="/essays/the-remainder.html">&larr; Essay</a>
+  <div class="title-bar">The Remainder</div>
+  <div class="mode-label" id="modeLabel">1 &middot; Absorption</div>
+  <canvas id="c"></canvas>
+  <div class="info" id="info">Move cursor to subtract wavelengths. 1&ndash;5 change mode. Q for the quale. C for cuttlefish view.</div>
+
+  <script>
+  (function() {
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const modeLabel = document.getElementById('modeLabel');
+    const info = document.getElementById('info');
+    const isLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+
+    let W, H;
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // State
+    let mode = 1; // 1-5 + 0 for quale
+    let mouseX = -999, mouseY = -999;
+    let mouseActive = false;
+    let cuttlefishView = false;
+    let qualeMode = false;
+    let qualeFade = 0;
+    let gates = []; // for mode 5
+
+    const modeNames = {
+      1: '1 \u00b7 Absorption',
+      2: '2 \u00b7 Structure',
+      3: '3 \u00b7 Constancy',
+      4: '4 \u00b7 Boundary',
+      5: '5 \u00b7 Language'
+    };
+
+    // Particles
+    const N = 600;
+    const particles = [];
+
+    function wavelengthToHue(wl) {
+      // Map 380-780nm to hue 270-0 (violet to red)
+      return 270 - ((wl - 380) / 400) * 270;
+    }
+
+    function wavelengthToRGB(wl, brightness) {
+      brightness = brightness || 1;
+      let r = 0, g = 0, b = 0;
+      if (wl >= 380 && wl < 440) {
+        r = -(wl - 440) / (440 - 380); g = 0; b = 1;
+      } else if (wl >= 440 && wl < 490) {
+        r = 0; g = (wl - 440) / (490 - 440); b = 1;
+      } else if (wl >= 490 && wl < 510) {
+        r = 0; g = 1; b = -(wl - 510) / (510 - 490);
+      } else if (wl >= 510 && wl < 580) {
+        r = (wl - 510) / (580 - 510); g = 1; b = 0;
+      } else if (wl >= 580 && wl < 645) {
+        r = 1; g = -(wl - 645) / (645 - 580); b = 0;
+      } else if (wl >= 645 && wl <= 780) {
+        r = 1; g = 0; b = 0;
+      }
+      // Intensity falls off near edges
+      let factor = 1;
+      if (wl >= 380 && wl < 420) factor = 0.3 + 0.7 * (wl - 380) / (420 - 380);
+      else if (wl > 700 && wl <= 780) factor = 0.3 + 0.7 * (780 - wl) / (780 - 700);
+
+      r = Math.round(255 * Math.pow(r * factor * brightness, 0.8));
+      g = Math.round(255 * Math.pow(g * factor * brightness, 0.8));
+      b = Math.round(255 * Math.pow(b * factor * brightness, 0.8));
+      return [r, g, b];
+    }
+
+    function toGray(r, g, b) {
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      return [Math.round(lum), Math.round(lum), Math.round(lum)];
+    }
+
+    for (let i = 0; i < N; i++) {
+      const wl = 380 + Math.random() * 400; // 380-780nm
+      particles.push({
+        x: Math.random() * 2000,
+        y: Math.random() * 2000,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4 - 0.15,
+        wl: wl,
+        rgb: wavelengthToRGB(wl),
+        size: 2 + Math.random() * 2.5,
+        phase: Math.random() * Math.PI * 2,
+        alive: true,
+        alpha: 1
+      });
+    }
+
+    // Mode 2: structural color layers
+    const layerCount = 12;
+    const layerSpacing = 100; // nm conceptual, mapped to pixels
+
+    // Mode 3: constancy patches
+    const patchSize = 60;
+
+    // Input
+    canvas.addEventListener('mousemove', function(e) {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      mouseActive = true;
+    });
+    canvas.addEventListener('mouseleave', function() {
+      mouseActive = false;
+      mouseX = -999;
+    });
+    canvas.addEventListener('touchmove', function(e) {
+      e.preventDefault();
+      mouseX = e.touches[0].clientX;
+      mouseY = e.touches[0].clientY;
+      mouseActive = true;
+    }, { passive: false });
+    canvas.addEventListener('touchend', function() {
+      mouseActive = false;
+      mouseX = -999;
+    });
+
+    canvas.addEventListener('click', function(e) {
+      if (mode === 5 && gates.length < 6) {
+        const normX = e.clientX / W;
+        const wl = 380 + normX * 400;
+        gates.push(wl);
+        gates.sort((a, b) => a - b);
+      }
+    });
+
+    document.addEventListener('keydown', function(e) {
+      const key = e.key.toLowerCase();
+      if (key >= '1' && key <= '5') {
+        mode = parseInt(key);
+        qualeMode = false;
+        qualeFade = 0;
+        modeLabel.textContent = modeNames[mode];
+        modeLabel.style.opacity = 1;
+        if (mode === 5) {
+          gates = [];
+          info.textContent = 'Click to draw gates in the spectrum. Each gate creates a named category.';
+        } else if (mode === 1) {
+          info.textContent = 'Move cursor to subtract wavelengths. What survives is the color.';
+        } else if (mode === 2) {
+          info.textContent = 'Alternating layers of substance and void. Blue emerges from gaps.';
+        } else if (mode === 3) {
+          info.textContent = 'Same color, different surround. Context creates the perception.';
+        } else if (mode === 4) {
+          info.textContent = 'Color appears at boundaries. Move cursor to move the edge.';
+        }
+      } else if (key === 'q') {
+        qualeMode = !qualeMode;
+        if (qualeMode) {
+          modeLabel.textContent = 'Q \u00b7 The Quale';
+          info.textContent = 'The remainder after all the subtracting. What structure cannot reach.';
+        } else {
+          modeLabel.textContent = modeNames[mode];
+          qualeFade = 0;
+        }
+      } else if (key === 'c') {
+        cuttlefishView = !cuttlefishView;
+        if (cuttlefishView) {
+          info.textContent = 'Cuttlefish view: brightness only. The match works. The experience doesn\u2019t.';
+        } else {
+          info.textContent = 'Move cursor to subtract wavelengths. 1\u20135 change mode. Q for the quale.';
+        }
+      }
+    });
+
+    let time = 0;
+
+    function draw() {
+      time += 0.016;
+      const bg = isLight ? '#f4f2ef' : '#0a0a0c';
+
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      if (qualeMode) {
+        drawQuale();
+        requestAnimationFrame(draw);
+        return;
+      }
+
+      // Update and draw particles based on mode
+      for (let i = 0; i < N; i++) {
+        const p = particles[i];
+
+        // Drift
+        p.x += p.vx + Math.sin(time * 0.3 + p.phase) * 0.3;
+        p.y += p.vy + Math.cos(time * 0.2 + p.phase) * 0.2;
+
+        // Wrap
+        if (p.x < -10) p.x = W + 10;
+        if (p.x > W + 10) p.x = -10;
+        if (p.y < -10) p.y = H + 10;
+        if (p.y > H + 10) p.y = -10;
+
+        let visible = true;
+        let alpha = 0.85;
+        let rgb = p.rgb;
+        let size = p.size;
+
+        if (mode === 1) {
+          // Absorption: cursor subtracts a band of wavelengths
+          if (mouseActive) {
+            const cursorWl = 380 + (mouseX / W) * 400;
+            const dist = Math.abs(p.wl - cursorWl);
+            const radius = 60; // nm bandwidth
+            if (dist < radius) {
+              const proximity = 1 - dist / radius;
+              alpha *= (1 - proximity * 0.95);
+              // Particles near cursor also get pulled down (absorbed)
+              const dx = p.x - mouseX;
+              const dy = p.y - mouseY;
+              const screenDist = Math.sqrt(dx * dx + dy * dy);
+              if (screenDist < 200) {
+                alpha *= Math.max(0.05, screenDist / 200);
+              }
+            }
+          }
+        } else if (mode === 2) {
+          // Structural color: only blue survives interference
+          // Simulate constructive interference for ~450-490nm
+          const blueCenter = 470;
+          const bandwidth = 40;
+          const dist = Math.abs(p.wl - blueCenter);
+          if (dist > bandwidth) {
+            // Destructive interference — dim
+            alpha *= 0.08;
+          } else {
+            // Constructive — bright
+            const boost = 1 - dist / bandwidth;
+            alpha = 0.6 + boost * 0.4;
+            size *= 1 + boost * 0.5;
+          }
+          // Layer visualization: horizontal bands
+          const layerY = (p.y % (H / layerCount));
+          const inGap = layerY > (H / layerCount) * 0.4 && layerY < (H / layerCount) * 0.6;
+          if (inGap && dist <= bandwidth) {
+            // Particles in the gap shimmer brighter
+            alpha = Math.min(1, alpha * 1.3);
+          }
+        } else if (mode === 3) {
+          // Constancy: two patches, same color, different surround
+          // Left half has dark surround, right half has light surround
+          const patchWl = 550; // green-yellow
+          const patchBand = 20;
+          const isPatchColor = Math.abs(p.wl - patchWl) < patchBand;
+
+          const leftPatch = p.x > W * 0.15 && p.x < W * 0.35 && p.y > H * 0.3 && p.y < H * 0.7;
+          const rightPatch = p.x > W * 0.65 && p.x < W * 0.85 && p.y > H * 0.3 && p.y < H * 0.7;
+
+          if (leftPatch || rightPatch) {
+            if (isPatchColor) {
+              alpha = 0.9;
+              size *= 1.2;
+            } else {
+              alpha = 0.03;
+            }
+          } else if (p.x < W * 0.5) {
+            // Dark surround — dim everything
+            alpha = 0.12;
+            if (p.wl > 600) alpha = 0.08; // extra dark warm
+          } else {
+            // Light surround — bright everything
+            alpha = 0.5;
+          }
+        } else if (mode === 4) {
+          // Boundary: color only at the edge
+          const boundary = mouseActive ? mouseX : W / 2;
+          const distFromBoundary = Math.abs(p.x - boundary);
+          const edgeWidth = 80;
+
+          if (distFromBoundary < edgeWidth) {
+            const proximity = 1 - distFromBoundary / edgeWidth;
+            alpha = proximity * 0.9;
+            size *= 1 + proximity * 0.5;
+          } else {
+            // Away from boundary: either white or dark
+            if (p.x < boundary) {
+              // "Light" side
+              rgb = isLight ? [200, 195, 188] : [160, 155, 148];
+              alpha = 0.15;
+            } else {
+              // "Dark" side
+              rgb = isLight ? [100, 95, 88] : [30, 28, 25];
+              alpha = 0.15;
+            }
+          }
+        } else if (mode === 5) {
+          // Language: continuous spectrum with gates drawn by clicks
+          // Color category determined by which gate region the particle is in
+          alpha = 0.7;
+
+          // Draw particles positioned by wavelength (x-axis)
+          const normWl = (p.wl - 380) / 400;
+          // Blend position toward spectral x
+          const targetX = normWl * W;
+          p.x += (targetX - p.x) * 0.01;
+          // Vertical spread
+          p.y += (H * 0.5 - p.y) * 0.005;
+
+          // If near a gate, brighten
+          for (const gateWl of gates) {
+            if (Math.abs(p.wl - gateWl) < 5) {
+              alpha = 1;
+              size *= 1.5;
+              rgb = isLight ? [40, 40, 50] : [255, 248, 230];
+            }
+          }
+        }
+
+        // Cuttlefish view: convert to grayscale
+        if (cuttlefishView) {
+          rgb = toGray(rgb[0], rgb[1], rgb[2]);
+        }
+
+        if (alpha > 0.01) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+          ctx.fill();
+        }
+      }
+
+      // Mode-specific overlays
+      if (mode === 2) {
+        // Draw thin horizontal layer lines
+        ctx.strokeStyle = isLight ? 'rgba(60,60,80,0.08)' : 'rgba(200,200,220,0.04)';
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i < layerCount; i++) {
+          const y = (i / layerCount) * H;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(W, y);
+          ctx.stroke();
+        }
+        // Label
+        ctx.fillStyle = isLight ? 'rgba(60,60,80,0.2)' : 'rgba(200,200,220,0.15)';
+        ctx.font = '11px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText('chitin', W * 0.08, H * 0.12);
+        ctx.fillText('air', W * 0.08, H * 0.12 + H / layerCount * 0.5);
+        ctx.fillText('chitin', W * 0.08, H * 0.12 + H / layerCount);
+      }
+
+      if (mode === 3) {
+        // Draw surround labels
+        ctx.fillStyle = isLight ? 'rgba(60,60,80,0.25)' : 'rgba(200,200,220,0.2)';
+        ctx.font = '11px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText('dark surround', W * 0.25, H * 0.22);
+        ctx.fillText('light surround', W * 0.75, H * 0.22);
+        ctx.fillText('same color', W * 0.5, H * 0.92);
+      }
+
+      if (mode === 4 && mouseActive) {
+        // Draw boundary line
+        ctx.strokeStyle = isLight ? 'rgba(60,60,80,0.15)' : 'rgba(200,200,220,0.1)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 8]);
+        ctx.beginPath();
+        ctx.moveTo(mouseX, 0);
+        ctx.lineTo(mouseX, H);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      if (mode === 5 && gates.length > 0) {
+        // Draw gate lines
+        for (const gateWl of gates) {
+          const x = ((gateWl - 380) / 400) * W;
+          ctx.strokeStyle = isLight ? 'rgba(40,40,50,0.3)' : 'rgba(255,248,230,0.25)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 6]);
+          ctx.beginPath();
+          ctx.moveTo(x, H * 0.15);
+          ctx.lineTo(x, H * 0.85);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // Category labels
+        const allBounds = [380, ...gates, 780];
+        const categoryNames = ['', 'red', 'orange', 'yellow', 'green', 'blue', 'violet', ''];
+        ctx.fillStyle = isLight ? 'rgba(60,60,80,0.2)' : 'rgba(200,200,220,0.15)';
+        ctx.font = '10px Georgia';
+        ctx.textAlign = 'center';
+        for (let i = 0; i < allBounds.length - 1; i++) {
+          const midWl = (allBounds[i] + allBounds[i + 1]) / 2;
+          const x = ((midWl - 380) / 400) * W;
+          if (i < gates.length + 1) {
+            ctx.fillText('category ' + (i + 1), x, H * 0.14);
+          }
+        }
+      }
+
+      // Absorption cursor indicator
+      if (mode === 1 && mouseActive) {
+        const cursorWl = 380 + (mouseX / W) * 400;
+        const cursorRGB = wavelengthToRGB(cursorWl, 0.3);
+        ctx.beginPath();
+        ctx.arc(mouseX, mouseY, 50, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(${cursorRGB[0]},${cursorRGB[1]},${cursorRGB[2]},0.2)`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        // Small label
+        ctx.fillStyle = isLight ? 'rgba(60,60,80,0.3)' : 'rgba(200,200,220,0.2)';
+        ctx.font = '10px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText(Math.round(cursorWl) + ' nm', mouseX, mouseY - 60);
+        ctx.fillText('absorbed', mouseX, mouseY - 48);
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    function drawQuale() {
+      qualeFade = Math.min(1, qualeFade + 0.008);
+
+      // Dark field with a single warm glow at center
+      const bg = isLight ? '#f4f2ef' : '#0a0a0c';
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Central warm glow — the remainder
+      const cx = W / 2;
+      const cy = H / 2;
+      const maxRadius = Math.min(W, H) * 0.35;
+
+      // Pulsing
+      const pulse = 1 + Math.sin(time * 0.5) * 0.08;
+      const radius = maxRadius * qualeFade * pulse;
+
+      // Radial gradient — warm amber/rose
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+      if (isLight) {
+        grad.addColorStop(0, `rgba(180, 100, 60, ${0.15 * qualeFade})`);
+        grad.addColorStop(0.3, `rgba(160, 80, 50, ${0.08 * qualeFade})`);
+        grad.addColorStop(0.7, `rgba(140, 70, 40, ${0.03 * qualeFade})`);
+        grad.addColorStop(1, 'rgba(140, 70, 40, 0)');
+      } else {
+        grad.addColorStop(0, `rgba(255, 180, 120, ${0.12 * qualeFade})`);
+        grad.addColorStop(0.3, `rgba(220, 140, 80, ${0.06 * qualeFade})`);
+        grad.addColorStop(0.7, `rgba(180, 100, 60, ${0.02 * qualeFade})`);
+        grad.addColorStop(1, 'rgba(180, 100, 60, 0)');
+      }
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+
+      // A few faint particles drifting — the remnants
+      for (let i = 0; i < 30; i++) {
+        const p = particles[i];
+        p.x += Math.sin(time * 0.1 + p.phase) * 0.2;
+        p.y += Math.cos(time * 0.08 + p.phase) * 0.15;
+
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const maxDist = radius * 1.2;
+
+        if (dist < maxDist) {
+          const fadeDist = 1 - dist / maxDist;
+          const a = fadeDist * 0.15 * qualeFade;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * 0.6, 0, Math.PI * 2);
+          if (isLight) {
+            ctx.fillStyle = `rgba(160, 90, 50, ${a})`;
+          } else {
+            ctx.fillStyle = `rgba(255, 190, 130, ${a})`;
+          }
+          ctx.fill();
+        }
+      }
+
+      // Caption that fades in
+      if (qualeFade > 0.5) {
+        const textAlpha = (qualeFade - 0.5) * 2 * 0.4;
+        ctx.fillStyle = isLight ? `rgba(100, 80, 60, ${textAlpha})` : `rgba(200, 180, 150, ${textAlpha})`;
+        ctx.font = '12px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText('what remains after all the subtracting', cx, cy + radius + 40);
+      }
+    }
+
+    draw();
+  })();
+  </script>
+</body>
+</html>
