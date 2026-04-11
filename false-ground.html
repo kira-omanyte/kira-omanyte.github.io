@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The False Ground &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="A supersaturated field of particles in arrested instability. Click to drop a seed crystal and watch transduction propagate. Each crystallization depletes the potential. Press K for Kelso&rsquo;s metastable brain.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="The False Ground &mdash; Kira Omanyte">
+  <meta property="og:description" content="A supersaturated field. Click to crystallize. Watch the potential deplete. Press K for the metastable brain &mdash; dwells and escapes, the regime between seizure and chaos.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/false-ground.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0c;
+      color: #a0a0b0;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+    @media (prefers-color-scheme: light) {
+      body { background: #f4f2ef; color: #40404a; }
+    }
+    canvas {
+      display: block;
+      flex: 1;
+    }
+    .title-bar {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666678;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      z-index: 10;
+    }
+    @media (prefers-color-scheme: light) {
+      .title-bar { color: #888898; }
+    }
+    .info {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.72rem;
+      color: #555568;
+      letter-spacing: 0.03em;
+      pointer-events: none;
+      z-index: 10;
+      text-align: center;
+      transition: opacity 0.5s;
+      max-width: 90vw;
+    }
+    @media (prefers-color-scheme: light) {
+      .info { color: #888898; }
+    }
+    .mode-label {
+      position: fixed;
+      top: 3rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.75rem;
+      color: #555568;
+      letter-spacing: 0.05em;
+      pointer-events: none;
+      z-index: 10;
+      text-align: center;
+      transition: opacity 0.4s;
+      text-transform: uppercase;
+    }
+    @media (prefers-color-scheme: light) {
+      .mode-label { color: #888898; }
+    }
+    .potential-bar {
+      position: fixed;
+      top: 50%;
+      right: 1.5rem;
+      transform: translateY(-50%);
+      width: 4px;
+      height: 200px;
+      background: rgba(80, 80, 100, 0.3);
+      border-radius: 2px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .potential-fill {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      border-radius: 2px;
+      transition: height 0.5s, background 0.5s;
+    }
+    .potential-label {
+      position: fixed;
+      top: calc(50% + 110px);
+      right: 0.8rem;
+      font-size: 0.6rem;
+      color: #555568;
+      letter-spacing: 0.03em;
+      pointer-events: none;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div class="title-bar">The False Ground</div>
+  <div class="mode-label" id="mode-label">supersaturated field</div>
+  <canvas id="c"></canvas>
+  <div class="potential-bar"><div class="potential-fill" id="potential-fill"></div></div>
+  <div class="potential-label">potential</div>
+  <div class="info" id="info">Click to drop a seed crystal &middot; K: Kelso&rsquo;s metastable brain &middot; R: re-supersaturate &middot; <a href="essays/the-false-ground.html" style="color:inherit">Essay</a></div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const modeLabel = document.getElementById('mode-label');
+    const potentialFill = document.getElementById('potential-fill');
+    const isLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+
+    let W, H;
+    const PARTICLE_COUNT = 400;
+    const CRYSTAL_SPEED = 2.5;
+    const KELSO_DWELL_MS = 3000;
+    const KELSO_ESCAPE_MS = 1500;
+
+    // Colors
+    const BG = isLight ? '#f4f2ef' : '#0a0a0c';
+    const metaColor = isLight ? [90, 70, 140] : [140, 120, 200];
+    const crystalColor = isLight ? [180, 140, 60] : [210, 175, 90];
+    const deadColor = isLight ? [160, 155, 148] : [70, 68, 65];
+    const kelsoSyncColor = isLight ? [60, 100, 160] : [100, 150, 220];
+    const kelsoEscapeColor = isLight ? [160, 60, 80] : [220, 100, 130];
+
+    let particles = [];
+    let crystalSeeds = [];
+    let mode = 'field'; // 'field', 'kelso'
+    let kelsoPhase = 'dwell'; // 'dwell', 'escape'
+    let kelsoTimer = 0;
+    let potential = 1.0;
+    let time = 0;
+
+    class Particle {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.baseX = x;
+        this.baseY = y;
+        this.vx = 0;
+        this.vy = 0;
+        this.radius = 2.5 + Math.random() * 2;
+        this.phase = Math.random() * Math.PI * 2;
+        this.freq = 0.3 + Math.random() * 0.5;
+        this.amp = 1.5 + Math.random() * 3;
+        this.state = 'meta'; // 'meta', 'crystallizing', 'crystal', 'dead'
+        this.crystalProgress = 0;
+        this.energy = 0.5 + Math.random() * 0.5;
+        // Kelso
+        this.kelsoAngle = Math.random() * Math.PI * 2;
+        this.kelsoFreq = 0.5 + Math.random() * 1.5;
+        this.kelsoPhaseOffset = Math.random() * Math.PI * 2;
+      }
+    }
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+
+    function init() {
+      resize();
+      particles = [];
+      crystalSeeds = [];
+      potential = 1.0;
+      mode = 'field';
+      kelsoPhase = 'dwell';
+      modeLabel.textContent = 'supersaturated field';
+
+      // Place particles in a relaxed grid with jitter
+      const cols = Math.ceil(Math.sqrt(PARTICLE_COUNT * W / H));
+      const rows = Math.ceil(PARTICLE_COUNT / cols);
+      const cellW = W / cols;
+      const cellH = H / rows;
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const x = (col + 0.5) * cellW + (Math.random() - 0.5) * cellW * 0.6;
+        const y = (row + 0.5) * cellH + (Math.random() - 0.5) * cellH * 0.6;
+        particles.push(new Particle(x, y));
+      }
+    }
+
+    function dropSeed(mx, my) {
+      if (mode !== 'field') return;
+      crystalSeeds.push({ x: mx, y: my, radius: 0, speed: CRYSTAL_SPEED });
+    }
+
+    function reSuperSaturate() {
+      // Re-energize dead/crystal particles
+      let count = 0;
+      for (const p of particles) {
+        if (p.state === 'crystal' || p.state === 'dead') {
+          if (Math.random() < 0.6) {
+            p.state = 'meta';
+            p.energy = 0.3 + Math.random() * 0.7;
+            p.crystalProgress = 0;
+            // Inject new disparation — shift base position
+            p.baseX += (Math.random() - 0.5) * 60;
+            p.baseY += (Math.random() - 0.5) * 60;
+            p.freq = 0.3 + Math.random() * 0.5;
+            p.amp = 2 + Math.random() * 4;
+            count++;
+          }
+        }
+      }
+      if (count > 0) {
+        potential = Math.min(1, potential + count / PARTICLE_COUNT);
+        modeLabel.textContent = 're-supersaturated';
+        setTimeout(() => {
+          if (mode === 'field') modeLabel.textContent = 'supersaturated field';
+        }, 2000);
+      }
+    }
+
+    function updateField(dt) {
+      // Expand crystal seeds
+      for (const seed of crystalSeeds) {
+        seed.radius += seed.speed * dt * 60;
+      }
+
+      // Update particles
+      let metaCount = 0;
+      let crystalCount = 0;
+      for (const p of particles) {
+        if (p.state === 'meta') {
+          metaCount++;
+          // Oscillate — the visible sign of stored energy
+          const osc = Math.sin(time * p.freq + p.phase) * p.amp * p.energy * potential;
+          const oscY = Math.cos(time * p.freq * 0.7 + p.phase * 1.3) * p.amp * 0.6 * p.energy * potential;
+          p.x = p.baseX + osc;
+          p.y = p.baseY + oscY;
+
+          // Check if hit by crystal seed
+          for (const seed of crystalSeeds) {
+            const dx = p.baseX - seed.x;
+            const dy = p.baseY - seed.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < seed.radius && dist > seed.radius - 30) {
+              p.state = 'crystallizing';
+              p.crystalProgress = 0;
+              break;
+            }
+          }
+        } else if (p.state === 'crystallizing') {
+          p.crystalProgress += dt * 1.2;
+          // Settle toward grid position
+          const settle = Math.min(1, p.crystalProgress);
+          const osc = Math.sin(time * p.freq + p.phase) * p.amp * (1 - settle) * p.energy;
+          p.x = p.baseX + osc * (1 - settle);
+          p.y = p.baseY + Math.cos(time * p.freq * 0.7 + p.phase) * p.amp * 0.3 * (1 - settle);
+          if (p.crystalProgress >= 1) {
+            p.state = 'crystal';
+            p.x = p.baseX;
+            p.y = p.baseY;
+            potential = Math.max(0, potential - 1 / PARTICLE_COUNT);
+          }
+        } else if (p.state === 'crystal') {
+          crystalCount++;
+          // Still — no oscillation
+          p.x = p.baseX;
+          p.y = p.baseY;
+          // Slowly die
+          p.energy = Math.max(0, p.energy - dt * 0.02);
+          if (p.energy <= 0) {
+            p.state = 'dead';
+          }
+        }
+        // dead particles just sit
+      }
+    }
+
+    function updateKelso(dt) {
+      kelsoTimer += dt * 1000;
+      const threshold = kelsoPhase === 'dwell' ? KELSO_DWELL_MS : KELSO_ESCAPE_MS;
+      if (kelsoTimer > threshold) {
+        kelsoTimer = 0;
+        kelsoPhase = kelsoPhase === 'dwell' ? 'escape' : 'dwell';
+        modeLabel.textContent = kelsoPhase === 'dwell' ? 'dwell — integration' : 'escape — divergence';
+      }
+
+      const transitionProgress = Math.min(1, kelsoTimer / 500); // 500ms transition
+
+      for (const p of particles) {
+        if (kelsoPhase === 'dwell') {
+          // Synchronize toward a shared frequency
+          const targetFreq = 1.0;
+          p.kelsoFreq += (targetFreq - p.kelsoFreq) * dt * 2;
+          const angle = time * p.kelsoFreq + p.kelsoPhaseOffset * (1 - transitionProgress * 0.7);
+          p.x = p.baseX + Math.cos(angle) * 8 * p.energy;
+          p.y = p.baseY + Math.sin(angle) * 8 * p.energy;
+        } else {
+          // Desynchronize — restore individual frequencies
+          const origFreq = 0.5 + (p.kelsoPhaseOffset / Math.PI) * 1.5;
+          p.kelsoFreq += (origFreq - p.kelsoFreq) * dt * 3;
+          const angle = time * p.kelsoFreq + p.kelsoPhaseOffset;
+          const amp = 5 + p.amp * 2;
+          p.x = p.baseX + Math.cos(angle) * amp * p.energy;
+          p.y = p.baseY + Math.sin(angle * 1.3 + p.phase) * amp * 0.7 * p.energy;
+        }
+        // Re-energize for kelso mode
+        p.energy = Math.min(1, p.energy + dt * 0.5);
+        p.state = 'meta';
+      }
+    }
+
+    function draw() {
+      ctx.fillStyle = BG;
+      ctx.fillRect(0, 0, W, H);
+
+      for (const p of particles) {
+        let color;
+        let alpha = 1;
+        let r = p.radius;
+
+        if (mode === 'kelso') {
+          const c = kelsoPhase === 'dwell' ? kelsoSyncColor : kelsoEscapeColor;
+          const osc = 0.5 + 0.5 * Math.sin(time * p.kelsoFreq + p.kelsoPhaseOffset);
+          alpha = 0.4 + 0.6 * osc;
+          color = c;
+          r = p.radius * (0.8 + 0.4 * osc);
+        } else {
+          switch (p.state) {
+            case 'meta':
+              color = metaColor;
+              alpha = 0.3 + 0.7 * p.energy * potential;
+              // Subtle pulse
+              r = p.radius * (0.9 + 0.2 * Math.sin(time * p.freq * 2 + p.phase));
+              break;
+            case 'crystallizing':
+              const t = p.crystalProgress;
+              color = [
+                metaColor[0] + (crystalColor[0] - metaColor[0]) * t,
+                metaColor[1] + (crystalColor[1] - metaColor[1]) * t,
+                metaColor[2] + (crystalColor[2] - metaColor[2]) * t
+              ];
+              alpha = 0.6 + 0.4 * t;
+              r = p.radius * (1 + 0.3 * (1 - t));
+              break;
+            case 'crystal':
+              const fade = p.energy;
+              color = [
+                crystalColor[0] + (deadColor[0] - crystalColor[0]) * (1 - fade),
+                crystalColor[1] + (deadColor[1] - crystalColor[1]) * (1 - fade),
+                crystalColor[2] + (deadColor[2] - crystalColor[2]) * (1 - fade)
+              ];
+              alpha = 0.3 + 0.7 * fade;
+              break;
+            case 'dead':
+              color = deadColor;
+              alpha = 0.15;
+              break;
+          }
+        }
+
+        // Draw particle
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${Math.round(color[0])}, ${Math.round(color[1])}, ${Math.round(color[2])}, ${alpha})`;
+        ctx.fill();
+
+        // Glow for meta particles
+        if ((p.state === 'meta' && mode === 'field' && potential > 0.3) || mode === 'kelso') {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r * 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${Math.round(color[0])}, ${Math.round(color[1])}, ${Math.round(color[2])}, ${alpha * 0.08})`;
+          ctx.fill();
+        }
+      }
+
+      // Draw crystal wavefronts
+      if (mode === 'field') {
+        for (const seed of crystalSeeds) {
+          if (seed.radius < Math.max(W, H) * 1.5) {
+            ctx.beginPath();
+            ctx.arc(seed.x, seed.y, seed.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(${crystalColor[0]}, ${crystalColor[1]}, ${crystalColor[2]}, ${Math.max(0, 0.15 - seed.radius * 0.0002)})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Draw connections in kelso dwell mode
+      if (mode === 'kelso' && kelsoPhase === 'dwell') {
+        ctx.strokeStyle = `rgba(${kelsoSyncColor[0]}, ${kelsoSyncColor[1]}, ${kelsoSyncColor[2]}, 0.04)`;
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i < particles.length; i += 3) {
+          for (let j = i + 3; j < particles.length; j += 5) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const dist = dx * dx + dy * dy;
+            if (dist < 8000) {
+              ctx.beginPath();
+              ctx.moveTo(particles[i].x, particles[i].y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.stroke();
+            }
+          }
+        }
+      }
+
+      // Update potential bar
+      const pct = Math.round(potential * 100);
+      potentialFill.style.height = `${pct}%`;
+      if (potential > 0.6) {
+        potentialFill.style.background = `rgba(${metaColor[0]}, ${metaColor[1]}, ${metaColor[2]}, 0.7)`;
+      } else if (potential > 0.3) {
+        potentialFill.style.background = `rgba(${crystalColor[0]}, ${crystalColor[1]}, ${crystalColor[2]}, 0.6)`;
+      } else {
+        potentialFill.style.background = `rgba(${deadColor[0]}, ${deadColor[1]}, ${deadColor[2]}, 0.5)`;
+      }
+    }
+
+    let lastTime = 0;
+    function loop(ts) {
+      const dt = Math.min(0.05, (ts - lastTime) / 1000);
+      lastTime = ts;
+      time += dt;
+
+      if (mode === 'field') {
+        updateField(dt);
+      } else {
+        updateKelso(dt);
+      }
+
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // Input
+    canvas.addEventListener('click', (e) => {
+      dropSeed(e.clientX, e.clientY);
+    });
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      dropSeed(touch.clientX, touch.clientY);
+    }, { passive: false });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'k' || e.key === 'K') {
+        if (mode === 'kelso') {
+          mode = 'field';
+          modeLabel.textContent = 'supersaturated field';
+          // Restore states
+          for (const p of particles) {
+            if (p.state === 'meta') {
+              p.energy = 0.5 + Math.random() * 0.5;
+            }
+          }
+        } else {
+          mode = 'kelso';
+          kelsoPhase = 'dwell';
+          kelsoTimer = 0;
+          modeLabel.textContent = 'dwell — integration';
+          // Reset all particles for kelso
+          for (const p of particles) {
+            p.state = 'meta';
+            p.energy = 0.5 + Math.random() * 0.5;
+            p.kelsoFreq = 0.5 + Math.random() * 1.5;
+          }
+        }
+      } else if (e.key === 'r' || e.key === 'R') {
+        if (mode === 'field') {
+          reSuperSaturate();
+        } else {
+          init();
+        }
+      }
+    });
+
+    window.addEventListener('resize', resize);
+
+    init();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
