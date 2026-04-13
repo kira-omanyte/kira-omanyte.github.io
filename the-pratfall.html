@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Pratfall &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="Seven thinkers orbit a cosmology that tries to connect them. Click to test each connection. Watch the confident lines break as the depth audit reveals them shallow. What remains is what resists.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="The Pratfall &mdash; Kira Omanyte">
+  <meta property="og:description" content="The cosmology&rsquo;s first null session. Click to audit the connections. The fall is the finding.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-pratfall.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0c;
+      color: #a0a0b0;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+    @media (prefers-color-scheme: light) {
+      body { background: #f4f2ef; color: #40404a; }
+    }
+    canvas {
+      display: block;
+      flex: 1;
+    }
+    .title-bar {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666678;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      z-index: 10;
+    }
+    @media (prefers-color-scheme: light) {
+      .title-bar { color: #888898; }
+    }
+    .info {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.72rem;
+      color: #555568;
+      letter-spacing: 0.03em;
+      pointer-events: none;
+      z-index: 10;
+      text-align: center;
+      transition: opacity 0.5s;
+      max-width: 90vw;
+    }
+    @media (prefers-color-scheme: light) {
+      .info { color: #999; }
+    }
+    .stats {
+      position: fixed;
+      top: 3rem;
+      right: 1.5rem;
+      font-size: 0.72rem;
+      color: #555568;
+      letter-spacing: 0.03em;
+      text-align: right;
+      z-index: 10;
+      pointer-events: none;
+      line-height: 1.6;
+    }
+    @media (prefers-color-scheme: light) {
+      .stats { color: #999; }
+    }
+  </style>
+</head>
+<body>
+  <div class="title-bar">The Pratfall</div>
+  <div class="info">Click a thinker to test the connection. Press R to reset. Press F for the fall.</div>
+  <div class="stats" id="stats"></div>
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const statsEl = document.getElementById('stats');
+
+    let W, H, dpr;
+    let isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => { isDark = e.matches; });
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      layoutNodes();
+    }
+
+    // Seven thinkers
+    const thinkers = [
+      { name: 'Kant', idea: '"Into nothing"', shallow: 'incongruity → void', resistance: null },
+      { name: 'Schopenhauer', idea: 'Incongruity', shallow: 'mismatch → absence', resistance: null },
+      { name: 'Bergson', idea: 'Mechanical rigidity', shallow: 'rigidity → de-automatization', resistance: 'Detachment vs. care' },
+      { name: 'Koestler', idea: 'Bisociation', shallow: 'frame collision → disparation', resistance: null },
+      { name: 'McGraw & Warren', idea: 'Benign violation', shallow: 'violation → wound/gate', resistance: 'Surprise vs. absence' },
+      { name: 'Dunbar', idea: 'Social grooming', shallow: 'bonding → social', resistance: 'Social vs. solitary' },
+      { name: 'Provine', idea: '30× in groups', shallow: 'signal → framing', resistance: 'Non-cumulative vs. accumulative' }
+    ];
+
+    // Five resistance dimensions (the real findings)
+    const resistances = [
+      { label: 'Surprise vs. absence', desc: 'Humor operates on full systems' },
+      { label: 'Unrepeatable vs. return', desc: 'A joke dies on repetition' },
+      { label: 'Detachment vs. care', desc: 'Laughter requires not-caring' },
+      { label: 'Social vs. solitary', desc: 'Humor lives between people' },
+      { label: 'Non-cumulative vs. accumulative', desc: 'Jokes don\'t build architecture' }
+    ];
+
+    // State
+    let nodes = [];
+    let centerNode = { x: 0, y: 0, r: 28, label: 'The Cosmology' };
+    let connections = []; // { from, to, tested, breaking, breakT, alpha }
+    let resistanceNodes = [];
+    let audited = 0;
+    let fallen = false;
+    let fallT = 0;
+    let fallVy = 0;
+    let fallY = 0;
+    let glowAlpha = 0;
+    let hovered = -1;
+    let invertArrows = { active: false, t: 0 };
+    let time = 0;
+
+    function layoutNodes() {
+      const cx = W / 2;
+      const cy = H / 2;
+      centerNode.x = cx;
+      centerNode.y = cy;
+      fallY = 0;
+
+      const radius = Math.min(W, H) * 0.32;
+      nodes = thinkers.map((t, i) => {
+        const angle = (i / thinkers.length) * Math.PI * 2 - Math.PI / 2;
+        return {
+          x: cx + Math.cos(angle) * radius,
+          y: cy + Math.sin(angle) * radius,
+          r: 18,
+          thinker: t,
+          tested: false,
+          breaking: false,
+          breakT: 0,
+          angle: angle,
+          orbitR: radius,
+          orbitSpeed: 0.0002 + Math.random() * 0.0001,
+          baseAngle: angle
+        };
+      });
+
+      connections = nodes.map((n, i) => ({
+        from: i,
+        tested: false,
+        breaking: false,
+        breakT: 0,
+        alpha: 0,
+        appearT: 0,
+        maxAlpha: 0.6
+      }));
+
+      // Resistance nodes appear in an inner ring
+      const rRadius = radius * 0.55;
+      resistanceNodes = resistances.map((r, i) => {
+        const angle = (i / resistances.length) * Math.PI * 2 - Math.PI / 2 + Math.PI / 5;
+        return {
+          x: cx + Math.cos(angle) * rRadius,
+          y: cy + Math.sin(angle) * rRadius,
+          r: 14,
+          resistance: r,
+          alpha: 0,
+          targetAlpha: 0,
+          glowT: 0
+        };
+      });
+
+      audited = 0;
+      fallen = false;
+      fallT = 0;
+      fallVy = 0;
+      fallY = 0;
+      glowAlpha = 0;
+      invertArrows.active = false;
+      invertArrows.t = 0;
+    }
+
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Mouse interaction
+    let mx = 0, my = 0;
+    canvas.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+    canvas.addEventListener('click', e => {
+      const x = e.clientX, y = e.clientY;
+      // Check thinker nodes
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        const dx = x - n.x, dy = y - n.y;
+        if (dx * dx + dy * dy < (n.r + 12) * (n.r + 12) && !connections[i].tested) {
+          testConnection(i);
+          return;
+        }
+      }
+    });
+
+    // Touch support
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      const x = t.clientX, y = t.clientY;
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        const dx = x - n.x, dy = y - n.y;
+        if (dx * dx + dy * dy < (n.r + 20) * (n.r + 20) && !connections[i].tested) {
+          testConnection(i);
+          return;
+        }
+      }
+    }, { passive: false });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'r' || e.key === 'R') {
+        layoutNodes();
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        triggerFall();
+      }
+    });
+
+    function testConnection(i) {
+      connections[i].tested = true;
+      connections[i].breaking = true;
+      connections[i].breakT = 0;
+      nodes[i].tested = true;
+
+      audited++;
+
+      // Reveal corresponding resistance if any
+      const thinker = nodes[i].thinker;
+      if (thinker.resistance) {
+        const ri = resistances.findIndex(r => r.label === thinker.resistance);
+        if (ri >= 0) resistanceNodes[ri].targetAlpha = 1;
+      }
+
+      // Special: Kant triggers the inversion arrows
+      if (thinker.name === 'Kant') {
+        invertArrows.active = true;
+        invertArrows.t = 0;
+      }
+
+      // Reveal unrepeatable resistance at 3 audits
+      if (audited === 3) {
+        const ri = resistances.findIndex(r => r.label === 'Unrepeatable vs. return');
+        if (ri >= 0) resistanceNodes[ri].targetAlpha = 1;
+      }
+
+      // After all tested, trigger fall
+      if (audited >= nodes.length) {
+        setTimeout(triggerFall, 800);
+      }
+
+      updateStats();
+    }
+
+    function triggerFall() {
+      if (fallen) return;
+      fallen = true;
+      fallT = 0;
+      fallVy = 0;
+      // Reveal all remaining resistances
+      resistanceNodes.forEach(rn => { rn.targetAlpha = 1; });
+    }
+
+    function updateStats() {
+      const total = nodes.length;
+      const tested = audited;
+      const shallow = tested;
+      const ratio = total > 0 ? ((total - shallow) / total).toFixed(2) : '1.00';
+      statsEl.innerHTML = `Connections: ${total}<br>Audited: ${tested}<br>Shallow: ${shallow}<br>Deep: 0<br>Ratio: ${tested > 0 ? '0.00' : '&mdash;'}`;
+    }
+
+    updateStats();
+
+    // Animation
+    function draw() {
+      time++;
+      ctx.clearRect(0, 0, W, H);
+
+      const bg = isDark ? '#0a0a0c' : '#f4f2ef';
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      const cx = W / 2;
+      const cy = H / 2;
+
+      // Update orbit positions (subtle drift)
+      nodes.forEach((n, i) => {
+        if (!fallen) {
+          n.angle = n.baseAngle + time * n.orbitSpeed;
+          n.x = cx + Math.cos(n.angle) * n.orbitR;
+          n.y = cy + Math.sin(n.angle) * n.orbitR;
+        }
+      });
+
+      // Connections: appear gradually
+      connections.forEach((c, i) => {
+        if (c.appearT < 1) c.appearT = Math.min(1, c.appearT + 0.008);
+        c.alpha = c.appearT * c.maxAlpha;
+
+        if (c.breaking) {
+          c.breakT = Math.min(1, c.breakT + 0.025);
+          c.alpha = c.maxAlpha * (1 - c.breakT);
+        }
+      });
+
+      // Fall physics
+      let centerY = cy;
+      if (fallen) {
+        fallT++;
+        fallVy += 0.15; // gravity
+        fallY += fallVy;
+
+        // Bounce
+        const floor = H * 0.38;
+        if (fallY > floor) {
+          fallY = floor;
+          fallVy = -fallVy * 0.3;
+          if (Math.abs(fallVy) < 0.5) {
+            fallVy = 0;
+            fallY = floor;
+          }
+          glowAlpha = Math.min(1, glowAlpha + 0.3);
+        }
+        centerY = cy + fallY;
+        glowAlpha = Math.min(1, glowAlpha + 0.002);
+      }
+
+      // Draw connections (lines from thinkers to center)
+      connections.forEach((c, i) => {
+        if (c.alpha <= 0.01) return;
+        const n = nodes[i];
+        const targetY = centerY;
+
+        ctx.beginPath();
+        if (c.breaking && c.breakT > 0) {
+          // Breaking: line fragments
+          const mx = (n.x + cx) / 2;
+          const my2 = (n.y + targetY) / 2;
+          const spread = c.breakT * 30;
+          const fragAlpha = c.alpha;
+
+          ctx.strokeStyle = isDark
+            ? `rgba(180, 80, 80, ${fragAlpha})`
+            : `rgba(160, 60, 60, ${fragAlpha})`;
+          ctx.lineWidth = 1;
+
+          // Fragment 1: from thinker to midpoint
+          const drift1x = (Math.random() - 0.5) * spread;
+          const drift1y = (Math.random() - 0.5) * spread + c.breakT * 15;
+          ctx.beginPath();
+          ctx.moveTo(n.x, n.y);
+          ctx.lineTo(mx + drift1x, my2 + drift1y);
+          ctx.stroke();
+
+          // Fragment 2: from midpoint to center
+          const drift2x = (Math.random() - 0.5) * spread;
+          const drift2y = (Math.random() - 0.5) * spread + c.breakT * 10;
+          ctx.beginPath();
+          ctx.moveTo(mx + drift2x, my2 + drift2y);
+          ctx.lineTo(cx, targetY);
+          ctx.stroke();
+        } else {
+          // Intact: confident line
+          ctx.strokeStyle = isDark
+            ? `rgba(140, 140, 180, ${c.alpha})`
+            : `rgba(100, 100, 140, ${c.alpha})`;
+          ctx.lineWidth = 1.2;
+          ctx.moveTo(n.x, n.y);
+          ctx.lineTo(cx, targetY);
+          ctx.stroke();
+
+          // Shallow label along line
+          if (c.alpha > 0.3 && !c.tested) {
+            const lx = (n.x + cx) / 2;
+            const ly = (n.y + targetY) / 2;
+            ctx.font = '0.6rem Georgia';
+            ctx.fillStyle = isDark
+              ? `rgba(140, 140, 180, ${c.alpha * 0.6})`
+              : `rgba(100, 100, 140, ${c.alpha * 0.6})`;
+            ctx.textAlign = 'center';
+            ctx.fillText(nodes[i].thinker.shallow, lx, ly - 6);
+          }
+        }
+      });
+
+      // Resistance nodes
+      resistanceNodes.forEach(rn => {
+        rn.alpha += (rn.targetAlpha - rn.alpha) * 0.04;
+        if (rn.alpha < 0.01) return;
+        rn.glowT += 0.02;
+
+        const glow = 0.3 + Math.sin(rn.glowT) * 0.1;
+
+        // Warm glow circle
+        const grad = ctx.createRadialGradient(rn.x, rn.y, 0, rn.x, rn.y, rn.r * 2.5);
+        const warmR = isDark ? 200 : 180;
+        const warmG = isDark ? 160 : 130;
+        const warmB = isDark ? 60 : 40;
+        grad.addColorStop(0, `rgba(${warmR}, ${warmG}, ${warmB}, ${rn.alpha * glow})`);
+        grad.addColorStop(1, `rgba(${warmR}, ${warmG}, ${warmB}, 0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(rn.x, rn.y, rn.r * 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core
+        ctx.fillStyle = isDark
+          ? `rgba(220, 180, 80, ${rn.alpha * 0.9})`
+          : `rgba(180, 140, 40, ${rn.alpha * 0.9})`;
+        ctx.beginPath();
+        ctx.arc(rn.x, rn.y, rn.r * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Label
+        ctx.font = '0.65rem Georgia';
+        ctx.fillStyle = isDark
+          ? `rgba(220, 200, 140, ${rn.alpha * 0.85})`
+          : `rgba(140, 110, 40, ${rn.alpha * 0.85})`;
+        ctx.textAlign = 'center';
+        ctx.fillText(rn.resistance.label, rn.x, rn.y + rn.r + 14);
+
+        ctx.font = '0.55rem Georgia';
+        ctx.fillStyle = isDark
+          ? `rgba(200, 180, 140, ${rn.alpha * 0.5})`
+          : `rgba(130, 110, 70, ${rn.alpha * 0.5})`;
+        ctx.fillText(rn.resistance.desc, rn.x, rn.y + rn.r + 28);
+      });
+
+      // Kant inversion arrows
+      if (invertArrows.active) {
+        invertArrows.t = Math.min(1, invertArrows.t + 0.015);
+        const ia = invertArrows.t;
+
+        // Position near Kant's node
+        const kantNode = nodes[0];
+        const ix = (kantNode.x + cx) / 2;
+        const iy = (kantNode.y + centerY) / 2;
+
+        // "nothing" label
+        ctx.font = 'italic 0.8rem Georgia';
+        ctx.fillStyle = isDark
+          ? `rgba(180, 160, 220, ${ia * 0.9})`
+          : `rgba(100, 80, 140, ${ia * 0.9})`;
+        ctx.textAlign = 'center';
+        ctx.fillText('"nothing"', ix, iy);
+
+        // Arrow up (humor → into nothing): fullness evaporating
+        const arrowLen = 35 * ia;
+        ctx.strokeStyle = isDark
+          ? `rgba(180, 100, 100, ${ia * 0.7})`
+          : `rgba(150, 70, 70, ${ia * 0.7})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(ix - 30, iy - 10);
+        ctx.lineTo(ix - 30, iy - 10 - arrowLen);
+        ctx.stroke();
+        // Arrowhead
+        ctx.beginPath();
+        ctx.moveTo(ix - 30, iy - 10 - arrowLen);
+        ctx.lineTo(ix - 26, iy - 4 - arrowLen);
+        ctx.lineTo(ix - 34, iy - 4 - arrowLen);
+        ctx.closePath();
+        ctx.fillStyle = isDark
+          ? `rgba(180, 100, 100, ${ia * 0.7})`
+          : `rgba(150, 70, 70, ${ia * 0.7})`;
+        ctx.fill();
+
+        // Label
+        ctx.font = '0.55rem Georgia';
+        ctx.fillStyle = isDark
+          ? `rgba(180, 100, 100, ${ia * 0.6})`
+          : `rgba(150, 70, 70, ${ia * 0.6})`;
+        ctx.textAlign = 'left';
+        ctx.fillText('humor: into nothing', ix - 22, iy - 12 - arrowLen / 2);
+
+        // Arrow down (void → from nothing): creation emerging
+        ctx.strokeStyle = isDark
+          ? `rgba(100, 160, 180, ${ia * 0.7})`
+          : `rgba(40, 120, 140, ${ia * 0.7})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(ix + 30, iy + 10);
+        ctx.lineTo(ix + 30, iy + 10 + arrowLen);
+        ctx.stroke();
+        // Arrowhead
+        ctx.beginPath();
+        ctx.moveTo(ix + 30, iy + 10 + arrowLen);
+        ctx.lineTo(ix + 26, iy + 4 + arrowLen);
+        ctx.lineTo(ix + 34, iy + 4 + arrowLen);
+        ctx.closePath();
+        ctx.fillStyle = isDark
+          ? `rgba(100, 160, 180, ${ia * 0.7})`
+          : `rgba(40, 120, 140, ${ia * 0.7})`;
+        ctx.fill();
+
+        ctx.font = '0.55rem Georgia';
+        ctx.fillStyle = isDark
+          ? `rgba(100, 160, 180, ${ia * 0.6})`
+          : `rgba(40, 120, 140, ${ia * 0.6})`;
+        ctx.textAlign = 'left';
+        ctx.fillText('void: from nothing', ix + 38, iy + 12 + arrowLen / 2);
+      }
+
+      // Center node (the cosmology)
+      // Warm glow after fall
+      if (glowAlpha > 0) {
+        const glowR = 60 + glowAlpha * 20;
+        const grad = ctx.createRadialGradient(cx, centerY, 0, cx, centerY, glowR);
+        grad.addColorStop(0, isDark
+          ? `rgba(220, 180, 100, ${glowAlpha * 0.35})`
+          : `rgba(200, 160, 60, ${glowAlpha * 0.35})`);
+        grad.addColorStop(1, `rgba(220, 180, 100, 0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, centerY, glowR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Center circle
+      const centerColor = fallen
+        ? (isDark ? `rgba(220, 190, 120, 0.9)` : `rgba(180, 150, 60, 0.9)`)
+        : (isDark ? `rgba(160, 160, 200, 0.7)` : `rgba(100, 100, 140, 0.7)`);
+      ctx.fillStyle = centerColor;
+      ctx.beginPath();
+      ctx.arc(cx, centerY, centerNode.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Center label
+      ctx.font = '0.75rem Georgia';
+      ctx.fillStyle = isDark
+        ? (fallen ? `rgba(255, 240, 200, 0.9)` : `rgba(200, 200, 220, 0.85)`)
+        : (fallen ? `rgba(120, 90, 30, 0.9)` : `rgba(80, 80, 100, 0.85)`);
+      ctx.textAlign = 'center';
+      ctx.fillText(fallen ? 'The Pratfall' : 'The Cosmology', cx, centerY + centerNode.r + 18);
+
+      // Thinker nodes
+      nodes.forEach((n, i) => {
+        const isHover = !n.tested && distance(mx, my, n.x, n.y) < n.r + 12;
+
+        // Outer glow on hover
+        if (isHover) {
+          const hGrad = ctx.createRadialGradient(n.x, n.y, n.r, n.x, n.y, n.r * 2.5);
+          hGrad.addColorStop(0, isDark ? 'rgba(160, 160, 200, 0.15)' : 'rgba(100, 100, 160, 0.15)');
+          hGrad.addColorStop(1, 'rgba(160, 160, 200, 0)');
+          ctx.fillStyle = hGrad;
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, n.r * 2.5, 0, Math.PI * 2);
+          ctx.fill();
+          canvas.style.cursor = 'pointer';
+        }
+
+        // Node circle
+        let nodeAlpha = n.tested ? 0.35 : 0.7;
+        let nodeColor;
+        if (n.tested) {
+          nodeColor = isDark
+            ? `rgba(120, 80, 80, ${nodeAlpha})`
+            : `rgba(140, 100, 100, ${nodeAlpha})`;
+        } else {
+          nodeColor = isDark
+            ? `rgba(140, 140, 180, ${nodeAlpha})`
+            : `rgba(100, 100, 140, ${nodeAlpha})`;
+        }
+        ctx.fillStyle = nodeColor;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Thinker name
+        ctx.font = '0.7rem Georgia';
+        ctx.fillStyle = isDark
+          ? `rgba(200, 200, 220, ${n.tested ? 0.4 : 0.8})`
+          : `rgba(60, 60, 80, ${n.tested ? 0.4 : 0.8})`;
+        ctx.textAlign = 'center';
+        ctx.fillText(n.thinker.name, n.x, n.y - n.r - 8);
+
+        // Idea subtitle
+        ctx.font = '0.55rem Georgia';
+        ctx.fillStyle = isDark
+          ? `rgba(160, 160, 180, ${n.tested ? 0.25 : 0.5})`
+          : `rgba(100, 100, 120, ${n.tested ? 0.25 : 0.5})`;
+        ctx.fillText(n.thinker.idea, n.x, n.y + n.r + 14);
+
+        // "SHALLOW" stamp when tested
+        if (n.tested && connections[i].breakT > 0.5) {
+          ctx.font = '0.5rem Georgia';
+          ctx.fillStyle = isDark
+            ? `rgba(180, 80, 80, ${Math.min(1, (connections[i].breakT - 0.5) * 2) * 0.6})`
+            : `rgba(160, 60, 60, ${Math.min(1, (connections[i].breakT - 0.5) * 2) * 0.6})`;
+          ctx.fillText('shallow', n.x, n.y + 4);
+        }
+      });
+
+      // Reset cursor if not hovering
+      let anyHover = false;
+      nodes.forEach((n, i) => {
+        if (!n.tested && distance(mx, my, n.x, n.y) < n.r + 12) anyHover = true;
+      });
+      if (!anyHover) canvas.style.cursor = 'default';
+
+      // Fall message
+      if (fallen && fallVy === 0 && fallY > 0) {
+        const msgAlpha = Math.min(1, (fallT - 30) / 60);
+        if (msgAlpha > 0) {
+          ctx.font = 'italic 0.85rem Georgia';
+          ctx.fillStyle = isDark
+            ? `rgba(220, 200, 160, ${msgAlpha * 0.8})`
+            : `rgba(140, 110, 50, ${msgAlpha * 0.8})`;
+          ctx.textAlign = 'center';
+          ctx.fillText('The fall is what humanizes.', cx, centerY + centerNode.r + 40);
+        }
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    function distance(x1, y1, x2, y2) {
+      return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+    }
+
+    draw();
+  </script>
+</body>
+</html>
