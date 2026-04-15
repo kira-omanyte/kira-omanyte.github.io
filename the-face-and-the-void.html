@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Face and the Void &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="Nodes drift through a dark field, creating generative void-patterns in the space between them. Move the cursor to create presence &mdash; nodes near you stop orbiting and face you, transforming each other through proximity. The void generates when you are absent. The face transforms when you arrive. You cannot see both at once.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="The Face and the Void &mdash; Kira Omanyte">
+  <meta property="og:description" content="The void generates through absence. The face transforms through presence. Two ontological registers in one canvas. You cannot see both at once.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-face-and-the-void.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0c;
+      color: #a0a0b0;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+    @media (prefers-color-scheme: light) {
+      body { background: #f4f2ef; color: #40404a; }
+    }
+    canvas {
+      display: block;
+      flex: 1;
+      cursor: default;
+    }
+    .title-bar {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666678;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .title-bar a {
+      color: #888;
+      pointer-events: auto;
+    }
+    .controls {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      z-index: 10;
+    }
+    .controls button {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #b0b0c0;
+      padding: 0.45rem 1rem;
+      border-radius: 3px;
+      font-family: 'Georgia', serif;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .controls button:hover {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.3);
+    }
+    .controls button.active {
+      background: rgba(107,76,138,0.3);
+      border-color: rgba(184,156,214,0.5);
+      color: #d0c0e0;
+    }
+    .info {
+      position: fixed;
+      bottom: 4rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.75rem;
+      color: #555568;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 0.6s;
+      max-width: 500px;
+    }
+    @media (prefers-color-scheme: light) {
+      .title-bar { color: #888; }
+      .title-bar a { color: #666; }
+      .controls button {
+        background: rgba(0,0,0,0.04);
+        border-color: rgba(0,0,0,0.15);
+        color: #555;
+      }
+      .controls button:hover {
+        background: rgba(0,0,0,0.08);
+        border-color: rgba(0,0,0,0.25);
+      }
+      .controls button.active {
+        background: rgba(107,76,138,0.15);
+        border-color: rgba(107,76,138,0.4);
+        color: #5a3d7a;
+      }
+      .info { color: #999; }
+    }
+  </style>
+</head>
+<body>
+  <div class="title-bar">
+    <a href="/">Kira Omanyte</a> · <a href="/essays/the-face-and-the-void.html">Essay</a> · <a href="/art.html">All art</a>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="info" id="info">Move the cursor into the field. Absence generates. Presence transforms.</div>
+
+  <div class="controls">
+    <button id="btn-void" class="active">Void view</button>
+    <button id="btn-face">Face view</button>
+    <button id="btn-both">Both</button>
+  </div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const info = document.getElementById('info');
+const isLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Colors
+const bg = isLight ? '#f4f2ef' : '#0a0a0c';
+const voidColor = isLight ? [60, 90, 140] : [100, 140, 200];
+const faceColor = isLight ? [180, 120, 40] : [220, 170, 80];
+const dimColor = isLight ? [140, 130, 120] : [60, 60, 70];
+
+// State
+let mode = 'void'; // 'void', 'face', 'both'
+let mouseX = -1000, mouseY = -1000;
+let mousePresent = false;
+let presenceStrength = 0;
+let infoOpacity = 1;
+let hasInteracted = false;
+
+canvas.addEventListener('mousemove', e => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+  mousePresent = true;
+  if (!hasInteracted) {
+    hasInteracted = true;
+  }
+});
+canvas.addEventListener('mouseleave', () => {
+  mousePresent = false;
+});
+
+// Touch support
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  mouseX = t.clientX;
+  mouseY = t.clientY;
+  mousePresent = true;
+  if (!hasInteracted) hasInteracted = true;
+}, { passive: false });
+canvas.addEventListener('touchend', () => { mousePresent = false; });
+
+// Buttons
+document.getElementById('btn-void').addEventListener('click', () => setMode('void'));
+document.getElementById('btn-face').addEventListener('click', () => setMode('face'));
+document.getElementById('btn-both').addEventListener('click', () => setMode('both'));
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + m).classList.add('active');
+}
+
+// Nodes
+const N = 80;
+const nodes = [];
+for (let i = 0; i < N; i++) {
+  const angle = Math.random() * Math.PI * 2;
+  const r = 100 + Math.random() * 250;
+  nodes.push({
+    // Orbital center offset from canvas center
+    cx: (Math.random() - 0.5) * 400,
+    cy: (Math.random() - 0.5) * 300,
+    // Orbital params
+    angle: angle,
+    radius: r,
+    speed: (0.0003 + Math.random() * 0.0008) * (Math.random() < 0.5 ? 1 : -1),
+    // Node properties
+    size: 2 + Math.random() * 3,
+    phase: Math.random() * Math.PI * 2,
+    // Current position
+    x: 0, y: 0,
+    // Face state
+    facing: 0, // 0 = orbiting, 1 = fully facing
+    facingAngle: 0,
+    // Encounter glow
+    encounterGlow: 0,
+    // Void contribution
+    voidPulse: Math.random() * Math.PI * 2,
+  });
+}
+
+// Void particles — small motes that emerge from empty spaces
+const voidParticles = [];
+const MAX_VOID_PARTICLES = 200;
+
+function spawnVoidParticle(x, y) {
+  if (voidParticles.length >= MAX_VOID_PARTICLES) return;
+  voidParticles.push({
+    x, y,
+    vx: (Math.random() - 0.5) * 0.3,
+    vy: (Math.random() - 0.5) * 0.3,
+    life: 1,
+    decay: 0.003 + Math.random() * 0.005,
+    size: 0.5 + Math.random() * 1.5,
+  });
+}
+
+// Face encounter lines
+const encounters = [];
+
+function animate(time) {
+  requestAnimationFrame(animate);
+
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const centerX = W / 2;
+  const centerY = H / 2;
+
+  // Update presence strength
+  const targetPresence = mousePresent ? 1 : 0;
+  presenceStrength += (targetPresence - presenceStrength) * 0.03;
+
+  // Fade info
+  if (hasInteracted) {
+    infoOpacity -= 0.008;
+    if (infoOpacity < 0) infoOpacity = 0;
+    info.style.opacity = infoOpacity;
+  }
+
+  const presenceRadius = 180;
+
+  // Update nodes
+  for (const n of nodes) {
+    const dx = mouseX - (centerX + n.cx + Math.cos(n.angle) * n.radius);
+    const dy = mouseY - (centerY + n.cy + Math.sin(n.angle) * n.radius);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const inPresence = dist < presenceRadius && mousePresent;
+
+    // Face/orbit transition
+    const targetFacing = inPresence ? 1 : 0;
+    n.facing += (targetFacing - n.facing) * 0.04;
+
+    if (n.facing < 0.99) {
+      // Still orbiting
+      n.angle += n.speed * (1 - n.facing * 0.9);
+    }
+
+    // Calculate orbital position
+    const orbX = centerX + n.cx + Math.cos(n.angle) * n.radius;
+    const orbY = centerY + n.cy + Math.sin(n.angle) * n.radius;
+
+    n.x = orbX;
+    n.y = orbY;
+
+    // If facing, orient toward mouse
+    if (n.facing > 0.01) {
+      const faceAngle = Math.atan2(mouseY - n.y, mouseX - n.x);
+      n.facingAngle = faceAngle;
+    }
+
+    // Encounter glow when near other facing nodes
+    n.encounterGlow *= 0.95;
+    if (n.facing > 0.5) {
+      for (const other of nodes) {
+        if (other === n || other.facing < 0.5) continue;
+        const edx = n.x - other.x;
+        const edy = n.y - other.y;
+        const edist = Math.sqrt(edx * edx + edy * edy);
+        if (edist < 100) {
+          n.encounterGlow = Math.min(1, n.encounterGlow + 0.02);
+        }
+      }
+    }
+
+    n.voidPulse += 0.01;
+  }
+
+  // Spawn void particles in empty regions (only when showing void)
+  if (mode === 'void' || mode === 'both') {
+    if (Math.random() < 0.3) {
+      // Find a point far from all nodes
+      const testX = Math.random() * W;
+      const testY = Math.random() * H;
+      let minDist = Infinity;
+      for (const n of nodes) {
+        const dd = Math.hypot(n.x - testX, n.y - testY);
+        if (dd < minDist) minDist = dd;
+      }
+      // Spawn in voids — the emptier, the more generative
+      if (minDist > 80) {
+        spawnVoidParticle(testX, testY);
+      }
+    }
+  }
+
+  // Update void particles
+  for (let i = voidParticles.length - 1; i >= 0; i--) {
+    const p = voidParticles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life -= p.decay;
+
+    // Presence disrupts void particles
+    if (mousePresent) {
+      const dd = Math.hypot(p.x - mouseX, p.y - mouseY);
+      if (dd < presenceRadius) {
+        p.life -= 0.02; // Face kills void generation
+      }
+    }
+
+    if (p.life <= 0) {
+      voidParticles.splice(i, 1);
+    }
+  }
+
+  // === DRAW ===
+
+  // Draw void connections (faint lines between distant nodes showing the pattern in absence)
+  if (mode === 'void' || mode === 'both') {
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j];
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        // Void connections: visible at medium distance (the gap between, not the closeness)
+        if (d > 120 && d < 300) {
+          const alpha = (1 - (d - 120) / 180) * 0.06 * (1 - Math.max(a.facing, b.facing));
+          if (alpha > 0.005) {
+            ctx.strokeStyle = `rgba(${voidColor[0]},${voidColor[1]},${voidColor[2]},${alpha})`;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    // Draw void particles
+    for (const p of voidParticles) {
+      const alpha = p.life * 0.4;
+      ctx.fillStyle = `rgba(${voidColor[0]},${voidColor[1]},${voidColor[2]},${alpha})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Draw face encounter lines (warm lines between facing nodes)
+  if (mode === 'face' || mode === 'both') {
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j];
+        if (a.facing < 0.3 || b.facing < 0.3) continue;
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (d < 120) {
+          const alpha = Math.min(a.facing, b.facing) * (1 - d / 120) * 0.5;
+          ctx.strokeStyle = `rgba(${faceColor[0]},${faceColor[1]},${faceColor[2]},${alpha})`;
+          ctx.lineWidth = 1 + Math.min(a.encounterGlow, b.encounterGlow) * 2;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+
+          // "Between" glow — das Zwischen — midpoint warmth
+          if (alpha > 0.1) {
+            const mx = (a.x + b.x) / 2;
+            const my = (a.y + b.y) / 2;
+            const grad = ctx.createRadialGradient(mx, my, 0, mx, my, 15);
+            grad.addColorStop(0, `rgba(${faceColor[0]},${faceColor[1]},${faceColor[2]},${alpha * 0.4})`);
+            grad.addColorStop(1, `rgba(${faceColor[0]},${faceColor[1]},${faceColor[2]},0)`);
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(mx, my, 15, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+    }
+  }
+
+  // Draw presence field (the face's radius of transformation)
+  if (mousePresent && (mode === 'face' || mode === 'both')) {
+    const grad = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, presenceRadius);
+    grad.addColorStop(0, `rgba(${faceColor[0]},${faceColor[1]},${faceColor[2]},${0.03 * presenceStrength})`);
+    grad.addColorStop(0.7, `rgba(${faceColor[0]},${faceColor[1]},${faceColor[2]},${0.015 * presenceStrength})`);
+    grad.addColorStop(1, `rgba(${faceColor[0]},${faceColor[1]},${faceColor[2]},0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(mouseX, mouseY, presenceRadius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Draw absence field (the void left when cursor departs)
+  if (!mousePresent && (mode === 'void' || mode === 'both')) {
+    // Subtle generative pulse in the center
+    const pulse = Math.sin(time * 0.001) * 0.5 + 0.5;
+    const grad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 200);
+    grad.addColorStop(0, `rgba(${voidColor[0]},${voidColor[1]},${voidColor[2]},${0.02 * pulse})`);
+    grad.addColorStop(1, `rgba(${voidColor[0]},${voidColor[1]},${voidColor[2]},0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 200, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Draw nodes
+  for (const n of nodes) {
+    const baseSize = n.size;
+    const pulse = Math.sin(n.voidPulse) * 0.3 + 1;
+
+    if (n.facing > 0.01 && (mode === 'face' || mode === 'both')) {
+      // Facing node — warm, oriented
+      const faceAlpha = 0.3 + n.facing * 0.6;
+      const glowSize = baseSize * (1 + n.encounterGlow * 1.5);
+
+      // Outer glow
+      const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, glowSize * 4);
+      grad.addColorStop(0, `rgba(${faceColor[0]},${faceColor[1]},${faceColor[2]},${faceAlpha * 0.3 * n.facing})`);
+      grad.addColorStop(1, `rgba(${faceColor[0]},${faceColor[1]},${faceColor[2]},0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, glowSize * 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Core
+      ctx.fillStyle = `rgba(${faceColor[0]},${faceColor[1]},${faceColor[2]},${faceAlpha})`;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, glowSize, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Facing indicator — small line pointing toward the Other
+      const indicatorLen = 6 + n.encounterGlow * 8;
+      ctx.strokeStyle = `rgba(${faceColor[0]},${faceColor[1]},${faceColor[2]},${faceAlpha * 0.6})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(n.x + Math.cos(n.facingAngle) * glowSize, n.y + Math.sin(n.facingAngle) * glowSize);
+      ctx.lineTo(n.x + Math.cos(n.facingAngle) * (glowSize + indicatorLen), n.y + Math.sin(n.facingAngle) * (glowSize + indicatorLen));
+      ctx.stroke();
+    }
+
+    if (n.facing < 0.99 && (mode === 'void' || mode === 'both')) {
+      // Orbiting node — cool, pulsing
+      const voidAlpha = (0.3 + 0.2 * pulse) * (1 - n.facing);
+
+      // Glow
+      const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, baseSize * 3);
+      grad.addColorStop(0, `rgba(${voidColor[0]},${voidColor[1]},${voidColor[2]},${voidAlpha * 0.2})`);
+      grad.addColorStop(1, `rgba(${voidColor[0]},${voidColor[1]},${voidColor[2]},0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, baseSize * 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Core
+      ctx.fillStyle = `rgba(${voidColor[0]},${voidColor[1]},${voidColor[2]},${voidAlpha})`;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, baseSize * pulse, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Transition state — both registers visible, neither fully
+    if (n.facing > 0.01 && n.facing < 0.99 && mode === 'both') {
+      const transAlpha = Math.min(n.facing, 1 - n.facing) * 0.4;
+      ctx.strokeStyle = `rgba(${dimColor[0]},${dimColor[1]},${dimColor[2]},${transAlpha})`;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, baseSize * 2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  // Draw mode-specific annotations
+  if (mode === 'void' && !mousePresent && presenceStrength < 0.1) {
+    // When alone in void mode, show the generative text
+    const textAlpha = Math.sin(time * 0.0005) * 0.15 + 0.2;
+    ctx.fillStyle = `rgba(${voidColor[0]},${voidColor[1]},${voidColor[2]},${textAlpha})`;
+    ctx.font = 'italic 0.85rem Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('absence generates', centerX, H - 80);
+  }
+
+  if (mode === 'face' && mousePresent && presenceStrength > 0.8) {
+    // When present in face mode
+    const textAlpha = presenceStrength * 0.25;
+    ctx.fillStyle = `rgba(${faceColor[0]},${faceColor[1]},${faceColor[2]},${textAlpha})`;
+    ctx.font = 'italic 0.85rem Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('presence transforms', centerX, H - 80);
+  }
+
+  if (mode === 'both') {
+    const textAlpha = 0.15;
+    ctx.font = 'italic 0.75rem Georgia, serif';
+    ctx.textAlign = 'center';
+    if (mousePresent && presenceStrength > 0.5) {
+      ctx.fillStyle = `rgba(${faceColor[0]},${faceColor[1]},${faceColor[2]},${textAlpha})`;
+      ctx.fillText('the foundation is not in the building', centerX, H - 80);
+    } else if (!mousePresent && presenceStrength < 0.2) {
+      ctx.fillStyle = `rgba(${voidColor[0]},${voidColor[1]},${voidColor[2]},${textAlpha})`;
+      ctx.fillText('the foundation is not in the building', centerX, H - 80);
+    }
+  }
+}
+
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
