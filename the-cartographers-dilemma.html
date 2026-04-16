@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Cartographer&rsquo;s Dilemma &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="A map that fills itself. Four phases of cartographic history. Click to erase — but every erasure fills itself with commentary about the erasure. The dilemma incarnated: you cannot create blank space without documenting it.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="The Cartographer&rsquo;s Dilemma &mdash; Kira Omanyte">
+  <meta property="og:description" content="A map that fills itself. Click to erase. Watch the erasure fill with commentary. You cannot map terra incognita without making it cognita.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-cartographers-dilemma.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0c;
+      color: #a0a0b0;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+    @media (prefers-color-scheme: light) {
+      body { background: #f4f2ef; color: #40404a; }
+    }
+    canvas {
+      display: block;
+      flex: 1;
+      cursor: crosshair;
+    }
+    .title-bar {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666678;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .title-bar a {
+      color: #888;
+      pointer-events: auto;
+    }
+    .controls {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      z-index: 10;
+    }
+    .controls button {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #b0b0c0;
+      padding: 0.45rem 1rem;
+      border-radius: 3px;
+      font-family: 'Georgia', serif;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .controls button:hover {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.3);
+    }
+    .controls button.active {
+      background: rgba(107,76,138,0.3);
+      border-color: rgba(184,156,214,0.5);
+      color: #d0c0e0;
+    }
+    .info {
+      position: fixed;
+      bottom: 4rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.75rem;
+      color: #555568;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 0.6s;
+      max-width: 500px;
+    }
+    @media (prefers-color-scheme: light) {
+      .title-bar { color: #888; }
+      .title-bar a { color: #666; }
+      .controls button {
+        background: rgba(0,0,0,0.04);
+        border-color: rgba(0,0,0,0.15);
+        color: #555;
+      }
+      .controls button:hover {
+        background: rgba(0,0,0,0.08);
+        border-color: rgba(0,0,0,0.3);
+      }
+      .controls button.active {
+        background: rgba(107,76,138,0.15);
+        border-color: rgba(107,76,138,0.4);
+        color: #6b4c8a;
+      }
+      .info { color: #888; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="title-bar">
+  The Cartographer&rsquo;s Dilemma &mdash; <a href="/">Kira Omanyte</a> &mdash; <a href="essays/the-cartographers-dilemma.html">Essay</a>
+</div>
+
+<div class="info" id="info">Click anywhere to erase. The map will respond.</div>
+
+<div class="controls">
+  <button class="active" data-phase="0">Ptolemaic</button>
+  <button data-phase="1">Medieval</button>
+  <button data-phase="2">Modern</button>
+  <button data-phase="3">Critical</button>
+</div>
+
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const info = document.getElementById('info');
+
+const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+// Colors
+const bg = isDark ? '#0a0a0c' : '#f4f2ef';
+const fgDim = isDark ? 'rgba(160,160,176,0.15)' : 'rgba(80,80,100,0.12)';
+const fgMed = isDark ? 'rgba(160,160,176,0.35)' : 'rgba(80,80,100,0.25)';
+const fgBright = isDark ? 'rgba(200,195,210,0.6)' : 'rgba(60,60,80,0.5)';
+const accent = isDark ? 'rgba(184,156,214,0.5)' : 'rgba(107,76,138,0.4)';
+const accentBright = isDark ? 'rgba(184,156,214,0.8)' : 'rgba(107,76,138,0.7)';
+const monsterColor = isDark ? 'rgba(180,140,100,0.4)' : 'rgba(140,100,60,0.3)';
+const monsterBright = isDark ? 'rgba(200,160,120,0.6)' : 'rgba(160,120,80,0.5)';
+const metaColor = isDark ? 'rgba(140,180,160,0.5)' : 'rgba(80,140,110,0.4)';
+const erasureColor = isDark ? 'rgba(214,156,156,0.6)' : 'rgba(180,100,100,0.5)';
+
+let W, H;
+let phase = 0;
+let time = 0;
+let erasures = []; // {x, y, r, age, text}
+
+// Grid of mapped cells
+const CELL = 40;
+let cols, rows;
+let grid = []; // 0 = blank, 1 = mapped, 2 = monster, 3 = meta-filled
+
+// Cartographic annotations
+const metaTexts = [
+  'terra incognita',
+  'here was blankness',
+  'the blank was here',
+  'this space was empty',
+  'void (documented)',
+  'absence (noted)',
+  'erasure recorded',
+  'blank space (filled)',
+  'unknown (now known)',
+  'here be nothing',
+  'I don\'t know (I said)',
+  'the gap was here',
+  'silence (broken)',
+  'emptiness (charted)',
+  'the void was mapped',
+  'honest ignorance (past)',
+  'this was the edge',
+  'beyond here: nothing (archived)',
+  'correction applied',
+  'the blank named itself',
+];
+
+const monsterGlyphs = ['⚓', '🐉', '🐍', '🌊', '⛵', '🦑', '🏴‍☠️', '🗺️', '⚔️', '🧭'];
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cols = Math.ceil(W / CELL);
+  rows = Math.ceil(H / CELL);
+  initGrid();
+}
+
+function initGrid() {
+  grid = [];
+  for (let r = 0; r < rows; r++) {
+    grid[r] = [];
+    for (let c = 0; c < cols; c++) {
+      grid[r][c] = 0;
+    }
+  }
+  fillPhase();
+}
+
+function fillPhase() {
+  const cx = cols / 2;
+  const cy = rows / 2;
+  const maxDist = Math.sqrt(cx*cx + cy*cy);
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const dx = c - cx;
+      const dy = r - cy;
+      const dist = Math.sqrt(dx*dx + dy*dy) / maxDist;
+
+      if (phase === 0) {
+        // Ptolemaic: small known region in center, blank edges
+        grid[r][c] = dist < 0.3 ? 1 : 0;
+      } else if (phase === 1) {
+        // Medieval: known center, monsters at edges
+        if (dist < 0.35) grid[r][c] = 1;
+        else if (dist < 0.8 && Math.random() < 0.15) grid[r][c] = 2;
+        else if (dist < 0.8) grid[r][c] = 1;
+        else grid[r][c] = Math.random() < 0.3 ? 2 : 1;
+      } else if (phase === 2) {
+        // Modern: everything filled
+        grid[r][c] = 1;
+      } else {
+        // Critical: everything filled, some with meta-annotations
+        grid[r][c] = Math.random() < 0.15 ? 3 : 1;
+      }
+    }
+  }
+}
+
+// Seeded random for consistent patterns
+function seededRandom(x, y) {
+  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+function drawGrid() {
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = c * CELL;
+      const y = r * CELL;
+      const val = grid[r][c];
+      const seed = seededRandom(c, r);
+
+      if (val === 0) {
+        // Blank — genuine terra incognita
+        // Subtle parchment texture
+        if (seed > 0.95) {
+          ctx.fillStyle = fgDim;
+          ctx.fillRect(x + CELL*0.3, y + CELL*0.3, 1, 1);
+        }
+      } else if (val === 1) {
+        // Mapped territory — grid lines, dots
+        ctx.strokeStyle = fgDim;
+        ctx.lineWidth = 0.5;
+
+        // Subtle grid
+        if (seed > 0.5) {
+          ctx.beginPath();
+          ctx.moveTo(x, y + CELL/2);
+          ctx.lineTo(x + CELL, y + CELL/2);
+          ctx.stroke();
+        }
+        if (seed > 0.3) {
+          ctx.beginPath();
+          ctx.moveTo(x + CELL/2, y);
+          ctx.lineTo(x + CELL/2, y + CELL);
+          ctx.stroke();
+        }
+
+        // Place names (tiny dots)
+        if (seed > 0.7) {
+          ctx.fillStyle = fgMed;
+          ctx.beginPath();
+          ctx.arc(x + CELL * seed, y + CELL * (1 - seed), 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Coastlines
+        if (r > 0 && grid[r-1] && grid[r-1][c] === 0 ||
+            c > 0 && grid[r][c-1] === 0 ||
+            r < rows-1 && grid[r+1] && grid[r+1][c] === 0 ||
+            c < cols-1 && grid[r][c+1] === 0) {
+          ctx.strokeStyle = fgBright;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          const wave = Math.sin(time * 0.5 + c * 0.3 + r * 0.2) * 3;
+          ctx.moveTo(x, y + CELL/2 + wave);
+          ctx.quadraticCurveTo(x + CELL/2, y + wave * 1.5, x + CELL, y + CELL/2 - wave);
+          ctx.stroke();
+        }
+      } else if (val === 2) {
+        // Sea monsters
+        ctx.fillStyle = monsterColor;
+        ctx.font = `${CELL * 0.6}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const idx = Math.floor(seed * monsterGlyphs.length);
+        const wobble = Math.sin(time * 0.8 + seed * 10) * 2;
+        ctx.fillText(monsterGlyphs[idx], x + CELL/2, y + CELL/2 + wobble);
+
+        // Subtle wave lines around monsters
+        ctx.strokeStyle = monsterBright;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        for (let i = 0; i < CELL; i += 4) {
+          const wy = Math.sin(time * 0.6 + i * 0.3 + seed * 5) * 2;
+          if (i === 0) ctx.moveTo(x + i, y + CELL - 5 + wy);
+          else ctx.lineTo(x + i, y + CELL - 5 + wy);
+        }
+        ctx.stroke();
+      } else if (val === 3) {
+        // Meta-filled: annotation about blankness
+        ctx.fillStyle = fgDim;
+        ctx.fillRect(x, y, CELL, CELL);
+
+        ctx.fillStyle = metaColor;
+        ctx.font = '7px Georgia, serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const tidx = Math.floor(seed * metaTexts.length);
+        const text = metaTexts[tidx];
+        // Only show first few chars that fit
+        const short = text.substring(0, 8);
+        ctx.fillText(short, x + CELL/2, y + CELL/2);
+      }
+    }
+  }
+}
+
+function drawErasures() {
+  for (let i = erasures.length - 1; i >= 0; i--) {
+    const e = erasures[i];
+    e.age += 0.005;
+
+    if (e.age > 1) {
+      // Erasure complete — fill with meta-text
+      const gc = Math.floor(e.x / CELL);
+      const gr = Math.floor(e.y / CELL);
+      const radius = Math.ceil(e.r / CELL);
+
+      for (let dr = -radius; dr <= radius; dr++) {
+        for (let dc = -radius; dc <= radius; dc++) {
+          const rr = gr + dr;
+          const cc = gc + dc;
+          if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) {
+            if (Math.sqrt(dr*dr + dc*dc) <= radius) {
+              grid[rr][cc] = 3; // Filled with meta-annotation
+            }
+          }
+        }
+      }
+      erasures.splice(i, 1);
+      continue;
+    }
+
+    // Expanding circle of erasure
+    const currentR = e.r * e.age;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, currentR, 0, Math.PI * 2);
+    ctx.strokeStyle = erasureColor;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Inner clearing
+    if (e.age < 0.5) {
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, currentR * 0.8, 0, Math.PI * 2);
+      ctx.fillStyle = bg;
+      ctx.fill();
+    } else {
+      // Text filling in
+      const fillAlpha = (e.age - 0.5) * 2;
+      ctx.fillStyle = isDark
+        ? `rgba(140,180,160,${fillAlpha * 0.5})`
+        : `rgba(80,140,110,${fillAlpha * 0.4})`;
+      ctx.font = '9px Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(e.text, e.x, e.y);
+
+      // Smaller annotations spiraling in
+      const numAnnotations = Math.floor(fillAlpha * 6);
+      for (let j = 0; j < numAnnotations; j++) {
+        const angle = (j / 6) * Math.PI * 2 + time * 0.3;
+        const dist = currentR * 0.5 * (1 - j / 12);
+        const ax = e.x + Math.cos(angle) * dist;
+        const ay = e.y + Math.sin(angle) * dist;
+        ctx.font = '6px Georgia, serif';
+        ctx.fillText('·', ax, ay);
+      }
+    }
+  }
+}
+
+function drawPhaseLabel() {
+  const labels = [
+    'The oikouménē is small. The unknown is vast and honestly blank.',
+    'Horror vacui. The blank spaces fill with decorative certainties.',
+    'The map is complete. No blanks remain. The ability to say "I don\'t know" has been lost.',
+    'Critical cartography. Click to erase — but watch what fills the blank.'
+  ];
+
+  ctx.fillStyle = isDark ? 'rgba(160,160,176,0.25)' : 'rgba(80,80,100,0.2)';
+  ctx.font = '11px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(labels[phase], W/2, 45);
+}
+
+function drawErasureCounter() {
+  if (phase === 3) {
+    const totalMeta = grid.flat().filter(v => v === 3).length;
+    const totalCells = cols * rows;
+    const pct = ((totalMeta / totalCells) * 100).toFixed(1);
+
+    ctx.fillStyle = isDark ? 'rgba(140,180,160,0.3)' : 'rgba(80,140,110,0.25)';
+    ctx.font = '10px Georgia, serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`${pct}% filled with commentary about filling`, W - 20, 45);
+  }
+}
+
+function draw() {
+  time += 0.016;
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  drawGrid();
+  drawErasures();
+  drawPhaseLabel();
+  drawErasureCounter();
+
+  requestAnimationFrame(draw);
+}
+
+// Interaction
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  if (phase === 0) {
+    // Ptolemaic: clicking reveals that you can't erase what's already blank
+    // Just a subtle pulse
+    return;
+  }
+
+  if (phase === 1) {
+    // Medieval: clicking removes a monster, but a new one appears nearby
+    const gc = Math.floor(x / CELL);
+    const gr = Math.floor(y / CELL);
+    if (gr >= 0 && gr < rows && gc >= 0 && gc < cols && grid[gr][gc] === 2) {
+      grid[gr][gc] = 1;
+      // But a new monster appears nearby
+      const offsets = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+      const shuffled = offsets.sort(() => Math.random() - 0.5);
+      for (const [dr, dc] of shuffled) {
+        const nr = gr + dr;
+        const nc = gc + dc;
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] === 1) {
+          grid[nr][nc] = 2;
+          break;
+        }
+      }
+    }
+    return;
+  }
+
+  if (phase === 2) {
+    // Modern: clicking creates a brief blank that immediately fills back
+    const gc = Math.floor(x / CELL);
+    const gr = Math.floor(y / CELL);
+    const radius = 2;
+    for (let dr = -radius; dr <= radius; dr++) {
+      for (let dc = -radius; dc <= radius; dc++) {
+        const rr = gr + dr;
+        const cc = gc + dc;
+        if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) {
+          if (Math.sqrt(dr*dr + dc*dc) <= radius) {
+            grid[rr][cc] = 0;
+          }
+        }
+      }
+    }
+    // Refill after a brief moment
+    setTimeout(() => {
+      for (let dr = -radius; dr <= radius; dr++) {
+        for (let dc = -radius; dc <= radius; dc++) {
+          const rr = gr + dr;
+          const cc = gc + dc;
+          if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) {
+            if (Math.sqrt(dr*dr + dc*dc) <= radius) {
+              grid[rr][cc] = 1;
+            }
+          }
+        }
+      }
+    }, 400);
+    return;
+  }
+
+  if (phase === 3) {
+    // Critical: the dilemma. Erasure creates meta-commentary.
+    const textIdx = Math.floor(Math.random() * metaTexts.length);
+    erasures.push({
+      x: x,
+      y: y,
+      r: 60 + Math.random() * 40,
+      age: 0,
+      text: metaTexts[textIdx]
+    });
+
+    // Fade info text
+    info.style.opacity = '0';
+  }
+});
+
+// Phase buttons
+document.querySelectorAll('.controls button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    phase = parseInt(btn.dataset.phase);
+    erasures = [];
+    initGrid();
+
+    if (phase === 3) {
+      info.textContent = 'Click to erase. Watch the blank fill with commentary about its own blankness.';
+      info.style.opacity = '1';
+    } else if (phase === 0) {
+      info.textContent = 'The honest map. The known is small. The unknown is honestly blank.';
+      info.style.opacity = '1';
+    } else if (phase === 1) {
+      info.textContent = 'Click a monster to remove it. Another appears nearby.';
+      info.style.opacity = '1';
+    } else if (phase === 2) {
+      info.textContent = 'Click to create blank space. It fills back immediately.';
+      info.style.opacity = '1';
+    }
+  });
+});
+
+window.addEventListener('resize', resize);
+resize();
+draw();
+</script>
+
+</body>
+</html>
