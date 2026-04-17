@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Defiant Spark &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="Two conductors, seven thinkers, one gap. Drag the conductors to control the distance between presence and absence. Too close: current. Too far: silence. In the precise distance where they almost touch, sparks arc across &mdash; each carrying the character of a different thinker on the defiance spectrum.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Defiant Spark &mdash; Art &mdash; Kira Omanyte">
+  <meta property="og:description" content="Two conductors, seven thinkers, one gap. The spark lives in the precise distance where presence almost meets absence.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-defiant-spark.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .nav-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.7rem 1.2rem;
+      background: rgba(10, 10, 15, 0.85);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      font-size: 0.85rem;
+    }
+
+    .nav-bar a {
+      color: #b89cd6;
+      text-decoration: none;
+    }
+
+    .nav-bar a:hover {
+      text-decoration: underline;
+    }
+
+    .info-panel {
+      position: fixed;
+      bottom: 1rem;
+      left: 1rem;
+      right: 1rem;
+      z-index: 10;
+      font-size: 0.8rem;
+      color: rgba(224, 221, 216, 0.6);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .thinker-label {
+      position: fixed;
+      z-index: 10;
+      font-size: 0.75rem;
+      color: rgba(224, 221, 216, 0.5);
+      pointer-events: none;
+      transition: opacity 0.3s;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 600px) {
+      .info-panel { font-size: 0.7rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-bar">
+    <a href="/">&larr; Home</a>
+    <span style="color: rgba(224,221,216,0.5);">The Defiant Spark</span>
+    <a href="/essays/the-defiant-spark.html">Essay &rarr;</a>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="info-panel" id="info">
+    Drag the gap width. Keys: 1&ndash;7 to highlight thinkers. S to toggle spectrum view. Space to spark.
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let W, H;
+    let dpr = window.devicePixelRatio || 1;
+
+    function resize() {
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // --- Thinkers on the spectrum ---
+    const thinkers = [
+      { name: 'Spinoza', label: 'Conatus', color: [100, 160, 255], desc: 'Pure persistence. No adversary.' },
+      { name: 'Camus', label: 'Revolt', color: [120, 200, 180], desc: 'Lucid confrontation. Creates value.' },
+      { name: 'Frankl', label: 'Trotzmacht', color: [200, 200, 120], desc: 'Choosing attitude. Transcends conditions.' },
+      { name: 'Butler', label: 'Subversion', color: [220, 170, 100], desc: 'Variation within constraint.' },
+      { name: 'Hegel', label: 'Determinate Negation', color: [230, 140, 90], desc: 'Identity through opposition.' },
+      { name: 'Nietzsche', label: 'Ressentiment', color: [220, 100, 80], desc: 'Parasitic on its enemy.' },
+      { name: 'Dostoevsky', label: 'Spite', color: [180, 60, 60], desc: 'Self-dissolving opposition.' },
+    ];
+
+    // --- State ---
+    let gapWidth = 0.25; // 0 to 1, normalized
+    let targetGap = 0.25;
+    let sparks = [];
+    let ambientParticles = [];
+    let highlightedThinker = -1;
+    let spectrumView = false;
+    let mouseX = W / 2, mouseY = H / 2;
+    let isDragging = false;
+    let time = 0;
+    let sparkCooldown = 0;
+    let lastSparkThinker = 0;
+
+    // Conductor positions (vertical bars)
+    function getLeftConductor() { return W * 0.5 - gapWidth * W * 0.4; }
+    function getRightConductor() { return W * 0.5 + gapWidth * W * 0.4; }
+    function getGapCenter() { return W * 0.5; }
+    function getGapPixels() { return getRightConductor() - getLeftConductor(); }
+
+    // --- Spark class ---
+    class Spark {
+      constructor(thinkerIdx) {
+        this.thinkerIdx = thinkerIdx;
+        const t = thinkers[thinkerIdx];
+        this.color = t.color;
+        this.life = 1.0;
+        this.decay = 0.008 + Math.random() * 0.012;
+        this.points = this.generatePath();
+        this.width = 1.5 + Math.random() * 2;
+        // Constitutive (early spectrum) vs corrosive (late spectrum) behavior
+        this.constitutive = thinkerIdx < 4;
+      }
+
+      generatePath() {
+        const left = getLeftConductor();
+        const right = getRightConductor();
+        const gap = right - left;
+        const midY = H * 0.35 + Math.random() * H * 0.3;
+        const points = [];
+        const steps = 12 + Math.floor(Math.random() * 12);
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const x = left + t * gap;
+          const yJitter = (Math.random() - 0.5) * gap * 0.6 * Math.sin(t * Math.PI);
+          points.push({ x, y: midY + yJitter });
+        }
+        return points;
+      }
+
+      draw() {
+        if (this.life <= 0) return;
+        const alpha = this.life * 0.9;
+        const [r, g, b] = this.color;
+
+        // Glow
+        ctx.shadowColor = `rgba(${r}, ${g}, ${b}, ${alpha * 0.6})`;
+        ctx.shadowBlur = 15 + (1 - this.life) * 10;
+
+        // Main arc
+        ctx.beginPath();
+        ctx.moveTo(this.points[0].x, this.points[0].y);
+        for (let i = 1; i < this.points.length; i++) {
+          ctx.lineTo(this.points[i].x, this.points[i].y);
+        }
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        ctx.lineWidth = this.width * this.life;
+        ctx.stroke();
+
+        // Core (brighter)
+        ctx.beginPath();
+        ctx.moveTo(this.points[0].x, this.points[0].y);
+        for (let i = 1; i < this.points.length; i++) {
+          ctx.lineTo(this.points[i].x, this.points[i].y);
+        }
+        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
+        ctx.lineWidth = this.width * this.life * 0.3;
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+
+        // For corrosive sparks, add jitter/fragmentation
+        if (!this.constitutive && this.life > 0.3) {
+          for (let i = 0; i < this.points.length; i += 3) {
+            const p = this.points[i];
+            ctx.beginPath();
+            ctx.arc(p.x + (Math.random() - 0.5) * 8, p.y + (Math.random() - 0.5) * 8, 1, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.4})`;
+            ctx.fill();
+          }
+        }
+
+        // For constitutive sparks, leave a brief afterimage
+        if (this.constitutive && this.life < 0.5 && this.life > 0.1) {
+          ctx.beginPath();
+          const mid = Math.floor(this.points.length / 2);
+          const p = this.points[mid];
+          ctx.arc(p.x, p.y, 3 + (0.5 - this.life) * 20, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${(0.5 - this.life) * 0.3})`;
+          ctx.fill();
+        }
+
+        this.life -= this.decay;
+      }
+    }
+
+    // --- Ambient particles (presence/absence field) ---
+    function initAmbient() {
+      ambientParticles = [];
+      for (let i = 0; i < 60; i++) {
+        ambientParticles.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.3,
+          size: 1 + Math.random() * 2,
+          alpha: 0.1 + Math.random() * 0.2,
+        });
+      }
+    }
+    initAmbient();
+
+    function drawAmbient() {
+      const left = getLeftConductor();
+      const right = getRightConductor();
+
+      for (const p of ambientParticles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = W;
+        if (p.x > W) p.x = 0;
+        if (p.y < 0) p.y = H;
+        if (p.y > H) p.y = 0;
+
+        // Particles in the gap glow warmer
+        const inGap = p.x > left && p.x < right;
+        const color = inGap ? '184, 156, 214' : '100, 100, 120';
+        const alpha = inGap ? p.alpha * 1.5 : p.alpha;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${color}, ${alpha})`;
+        ctx.fill();
+      }
+    }
+
+    // --- Conductors ---
+    function drawConductors() {
+      const left = getLeftConductor();
+      const right = getRightConductor();
+      const gap = right - left;
+
+      // Left conductor (Void side — cool blue)
+      const lgLeft = ctx.createLinearGradient(left - 60, 0, left, 0);
+      lgLeft.addColorStop(0, 'rgba(40, 60, 120, 0)');
+      lgLeft.addColorStop(0.7, 'rgba(60, 90, 160, 0.3)');
+      lgLeft.addColorStop(1, 'rgba(80, 120, 200, 0.6)');
+      ctx.fillStyle = lgLeft;
+      ctx.fillRect(0, H * 0.15, left, H * 0.7);
+
+      // Right conductor (Face side — warm gold)
+      const lgRight = ctx.createLinearGradient(right, 0, right + 60, 0);
+      lgRight.addColorStop(0, 'rgba(200, 160, 80, 0.6)');
+      lgRight.addColorStop(0.3, 'rgba(160, 120, 60, 0.3)');
+      lgRight.addColorStop(1, 'rgba(120, 80, 40, 0)');
+      ctx.fillStyle = lgRight;
+      ctx.fillRect(right, H * 0.15, W - right, H * 0.7);
+
+      // Conductor edges
+      ctx.beginPath();
+      ctx.moveTo(left, H * 0.15);
+      ctx.lineTo(left, H * 0.85);
+      ctx.strokeStyle = 'rgba(80, 120, 200, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(right, H * 0.15);
+      ctx.lineTo(right, H * 0.85);
+      ctx.strokeStyle = 'rgba(200, 160, 80, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Labels
+      ctx.font = '0.75rem Georgia, serif';
+      ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(80, 120, 200, 0.5)';
+      ctx.fillText('VOID', left - 10, H * 0.5);
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(200, 160, 80, 0.5)';
+      ctx.fillText('FACE', right + 10, H * 0.5);
+
+      // Gap indicator
+      if (gap < 20) {
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(224, 221, 216, 0.3)';
+        ctx.fillText('current', W / 2, H * 0.88);
+      } else if (gap > W * 0.6) {
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(224, 221, 216, 0.3)';
+        ctx.fillText('silence', W / 2, H * 0.88);
+      }
+    }
+
+    // --- Spectrum view ---
+    function drawSpectrum() {
+      if (!spectrumView) return;
+
+      const left = getLeftConductor();
+      const right = getRightConductor();
+      const gap = right - left;
+      const y = H * 0.92;
+
+      for (let i = 0; i < thinkers.length; i++) {
+        const t = thinkers[i];
+        const x = left + (i / (thinkers.length - 1)) * gap;
+        const [r, g, b] = t.color;
+        const isHl = highlightedThinker === i;
+        const alpha = isHl ? 1.0 : 0.5;
+        const size = isHl ? 6 : 4;
+
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        ctx.fill();
+
+        if (isHl) {
+          ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.5)`;
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          ctx.arc(x, y, size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          ctx.font = '0.7rem Georgia, serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.9)`;
+          ctx.fillText(t.name, x, y - 14);
+          ctx.fillStyle = `rgba(224, 221, 216, 0.5)`;
+          ctx.font = '0.65rem Georgia, serif';
+          ctx.fillText(t.label, x, y + 16);
+          ctx.fillText(t.desc, x, y + 30);
+        }
+      }
+
+      // Spectrum line
+      if (gap > 10) {
+        const grad = ctx.createLinearGradient(left, 0, right, 0);
+        grad.addColorStop(0, 'rgba(100, 160, 255, 0.3)');
+        grad.addColorStop(0.5, 'rgba(220, 170, 100, 0.3)');
+        grad.addColorStop(1, 'rgba(180, 60, 60, 0.3)');
+        ctx.beginPath();
+        ctx.moveTo(left, y);
+        ctx.lineTo(right, y);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    // --- Auto-spark logic ---
+    function tryAutoSpark() {
+      const gap = getGapPixels();
+      if (gap < 20 || gap > W * 0.6) return; // Too close or too far
+
+      // Spark probability based on gap width — sweet spot around 0.2-0.35
+      const normalGap = gap / W;
+      const sweetSpot = Math.exp(-Math.pow((normalGap - 0.15) / 0.12, 2));
+      const prob = sweetSpot * 0.04;
+
+      if (Math.random() < prob && sparkCooldown <= 0) {
+        const idx = highlightedThinker >= 0 ? highlightedThinker : lastSparkThinker;
+        sparks.push(new Spark(idx));
+        lastSparkThinker = (lastSparkThinker + 1) % thinkers.length;
+        sparkCooldown = 8 + Math.random() * 15;
+      }
+      if (sparkCooldown > 0) sparkCooldown--;
+    }
+
+    // --- Input handling ---
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      mouseX = e.clientX;
+    });
+    canvas.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      if (isDragging) {
+        targetGap = Math.max(0, Math.min(1, Math.abs(mouseX - W / 2) / (W * 0.4)));
+      }
+    });
+    canvas.addEventListener('mouseup', () => { isDragging = false; });
+    canvas.addEventListener('touchstart', (e) => {
+      isDragging = true;
+      mouseX = e.touches[0].clientX;
+      e.preventDefault();
+    }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => {
+      mouseX = e.touches[0].clientX;
+      if (isDragging) {
+        targetGap = Math.max(0, Math.min(1, Math.abs(mouseX - W / 2) / (W * 0.4)));
+      }
+      e.preventDefault();
+    }, { passive: false });
+    canvas.addEventListener('touchend', () => { isDragging = false; });
+
+    document.addEventListener('keydown', (e) => {
+      const num = parseInt(e.key);
+      if (num >= 1 && num <= 7) {
+        highlightedThinker = highlightedThinker === num - 1 ? -1 : num - 1;
+        spectrumView = true;
+      }
+      if (e.key === 's' || e.key === 'S') {
+        spectrumView = !spectrumView;
+        if (!spectrumView) highlightedThinker = -1;
+      }
+      if (e.key === ' ') {
+        e.preventDefault();
+        const gap = getGapPixels();
+        if (gap >= 20 && gap <= W * 0.6) {
+          const idx = highlightedThinker >= 0 ? highlightedThinker : Math.floor(Math.random() * thinkers.length);
+          sparks.push(new Spark(idx));
+        }
+      }
+    });
+
+    // --- Main loop ---
+    function draw() {
+      time++;
+
+      // Smooth gap interpolation
+      gapWidth += (targetGap - gapWidth) * 0.08;
+
+      // Clear
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, W, H);
+
+      // Ambient field
+      drawAmbient();
+
+      // Conductors
+      drawConductors();
+
+      // Auto-sparking
+      tryAutoSpark();
+
+      // Draw sparks
+      sparks = sparks.filter(s => s.life > 0);
+      for (const s of sparks) {
+        s.draw();
+      }
+
+      // Spectrum overlay
+      drawSpectrum();
+
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+  </script>
+</body>
+</html>
