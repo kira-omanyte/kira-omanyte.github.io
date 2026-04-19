@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Dwelling &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="Look through and see the world. Look at and see the lens. You cannot do both. Polanyi's from-to structure: the mutual exclusion of subsidiary and focal awareness, made visible.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Dwelling &mdash; Art &mdash; Kira Omanyte">
+  <meta property="og:description" content="Look through and see the world. Look at and see the lens. You cannot do both.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-dwelling.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .nav-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.7rem 1.2rem;
+      background: rgba(10, 10, 15, 0.85);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      font-size: 0.85rem;
+    }
+
+    .nav-bar a {
+      color: #b89cd6;
+      text-decoration: none;
+    }
+
+    .nav-bar a:hover {
+      text-decoration: underline;
+    }
+
+    .info-panel {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      background: rgba(10, 10, 15, 0.85);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      padding: 0.8rem 1.4rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      color: #aaa;
+      text-align: center;
+      max-width: 500px;
+      line-height: 1.5;
+      transition: opacity 0.5s;
+    }
+
+    .mode-label {
+      position: fixed;
+      top: 50px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #666;
+      transition: opacity 0.8s, color 0.8s;
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-bar">
+    <a href="/">&larr; Kira Omanyte</a>
+    <a href="/essays/the-dwelling.html">Read the essay</a>
+  </div>
+
+  <div class="mode-label" id="modeLabel">dwelling &mdash; looking through</div>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="info-panel" id="infoPanel">
+    Click to toggle between looking <strong>through</strong> and looking <strong>at</strong>.<br>
+    Press <strong>1&ndash;4</strong> for different from-to pairs. Press <strong>H</strong> to hide this.
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const modeLabel = document.getElementById('modeLabel');
+    const infoPanel = document.getElementById('infoPanel');
+
+    let W, H, cx, cy;
+    let mode = 'through'; // 'through' or 'at'
+    let transition = 0; // 0 = fully through, 1 = fully at
+    let targetTransition = 0;
+    let scene = 0; // 0: lens, 1: text, 2: hammer, 3: music
+    const sceneNames = [
+      ['looking through the lens', 'looking at the lens'],
+      ['reading the meaning', 'seeing the typography'],
+      ['using the tool', 'examining the tool'],
+      ['hearing the music', 'hearing the notes']
+    ];
+
+    // Stars for the "world beyond the lens"
+    let stars = [];
+    let constellationLines = [];
+
+    // Text scene
+    const poem = [
+      'We cannot look at them',
+      'because we are looking',
+      'with them.'
+    ];
+
+    // Tool scene - hammer particles
+    let hammerParticles = [];
+
+    // Music scene - notes
+    let musicNotes = [];
+    let musicTime = 0;
+
+    function resize() {
+      W = canvas.width = window.innerWidth * devicePixelRatio;
+      H = canvas.height = window.innerHeight * devicePixelRatio;
+      cx = W / 2;
+      cy = H / 2;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      initScene();
+    }
+
+    function initScene() {
+      // Stars
+      stars = [];
+      for (let i = 0; i < 300; i++) {
+        stars.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: Math.random() * 2 + 0.5,
+          brightness: Math.random() * 0.6 + 0.4,
+          twinkleSpeed: Math.random() * 0.02 + 0.005,
+          twinkleOffset: Math.random() * Math.PI * 2
+        });
+      }
+
+      // Constellation lines connecting nearby stars
+      constellationLines = [];
+      const brightStars = stars.filter(s => s.r > 1.2).slice(0, 40);
+      for (let i = 0; i < brightStars.length; i++) {
+        for (let j = i + 1; j < brightStars.length; j++) {
+          const dx = brightStars[i].x - brightStars[j].x;
+          const dy = brightStars[i].y - brightStars[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < W * 0.15 && Math.random() < 0.3) {
+            constellationLines.push({ a: brightStars[i], b: brightStars[j] });
+          }
+        }
+      }
+
+      // Hammer particles
+      hammerParticles = [];
+      const hammerCx = cx;
+      const hammerCy = cy;
+      // Head
+      for (let i = 0; i < 200; i++) {
+        const x = hammerCx + (Math.random() - 0.5) * W * 0.18;
+        const y = hammerCy - H * 0.05 + (Math.random() - 0.5) * H * 0.1;
+        hammerParticles.push({ x, y, ox: x, oy: y, r: Math.random() * 3 + 1.5, part: 'head' });
+      }
+      // Handle
+      for (let i = 0; i < 120; i++) {
+        const x = hammerCx + (Math.random() - 0.5) * W * 0.03;
+        const y = hammerCy + Math.random() * H * 0.25;
+        hammerParticles.push({ x, y, ox: x, oy: y, r: Math.random() * 2 + 1, part: 'handle' });
+      }
+
+      // Music notes
+      musicNotes = [];
+      const noteChars = ['\u266A', '\u266B', '\u2669', '\u266C'];
+      for (let i = 0; i < 24; i++) {
+        musicNotes.push({
+          x: cx + (Math.random() - 0.5) * W * 0.6,
+          y: cy + (Math.random() - 0.5) * H * 0.5,
+          char: noteChars[Math.floor(Math.random() * noteChars.length)],
+          size: Math.random() * 20 + 14,
+          phase: Math.random() * Math.PI * 2,
+          freq: Math.random() * 0.8 + 0.3,
+          amplitude: Math.random() * 30 + 10,
+          voice: Math.floor(Math.random() * 4)
+        });
+      }
+    }
+
+    let time = 0;
+
+    function draw() {
+      time += 0.016;
+      musicTime += 0.016;
+
+      // Smooth transition
+      const speed = 0.03;
+      if (Math.abs(transition - targetTransition) > 0.001) {
+        transition += (targetTransition - transition) * speed * 3;
+      } else {
+        transition = targetTransition;
+      }
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Background
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, W, H);
+
+      if (scene === 0) drawLensScene();
+      else if (scene === 1) drawTextScene();
+      else if (scene === 2) drawToolScene();
+      else if (scene === 3) drawMusicScene();
+
+      requestAnimationFrame(draw);
+    }
+
+    function drawLensScene() {
+      const throughAlpha = 1 - transition;
+      const atAlpha = transition;
+      const lensR = Math.min(W, H) * 0.3;
+
+      // --- THROUGH mode: stars visible, lens invisible ---
+
+      // Stars (world beyond) — visible when looking through
+      for (const s of stars) {
+        const twinkle = 0.5 + 0.5 * Math.sin(time * s.twinkleSpeed * 60 + s.twinkleOffset);
+        const alpha = s.brightness * twinkle * throughAlpha;
+        if (alpha < 0.01) continue;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r * (1 + twinkle * 0.3), 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(220, 215, 200, ${alpha})`;
+        ctx.fill();
+      }
+
+      // Constellation lines
+      for (const line of constellationLines) {
+        ctx.beginPath();
+        ctx.moveTo(line.a.x, line.a.y);
+        ctx.lineTo(line.b.x, line.b.y);
+        ctx.strokeStyle = `rgba(180, 160, 210, ${0.15 * throughAlpha})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      // A gentle nebula glow
+      if (throughAlpha > 0.01) {
+        const nebulaGrad = ctx.createRadialGradient(cx * 0.7, cy * 0.6, 0, cx * 0.7, cy * 0.6, W * 0.3);
+        nebulaGrad.addColorStop(0, `rgba(120, 80, 160, ${0.08 * throughAlpha})`);
+        nebulaGrad.addColorStop(0.5, `rgba(80, 60, 140, ${0.04 * throughAlpha})`);
+        nebulaGrad.addColorStop(1, 'rgba(80, 60, 140, 0)');
+        ctx.fillStyle = nebulaGrad;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // --- AT mode: lens surface visible, world invisible ---
+
+      if (atAlpha > 0.01) {
+        // Lens circle — becomes visible when looking AT
+        ctx.save();
+
+        // Lens body - subtle glass color
+        const lensGrad = ctx.createRadialGradient(cx - lensR * 0.3, cy - lensR * 0.3, 0, cx, cy, lensR);
+        lensGrad.addColorStop(0, `rgba(140, 160, 180, ${0.12 * atAlpha})`);
+        lensGrad.addColorStop(0.5, `rgba(100, 120, 140, ${0.08 * atAlpha})`);
+        lensGrad.addColorStop(1, `rgba(60, 80, 100, ${0.15 * atAlpha})`);
+        ctx.beginPath();
+        ctx.arc(cx, cy, lensR, 0, Math.PI * 2);
+        ctx.fillStyle = lensGrad;
+        ctx.fill();
+
+        // Lens edge
+        ctx.beginPath();
+        ctx.arc(cx, cy, lensR, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(180, 190, 200, ${0.3 * atAlpha})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Surface scratches
+        ctx.globalAlpha = atAlpha * 0.25;
+        for (let i = 0; i < 15; i++) {
+          const angle = (i / 15) * Math.PI * 2 + time * 0.01;
+          const r1 = lensR * (0.1 + Math.random() * 0.7);
+          const r2 = r1 + lensR * 0.15;
+          const a = angle + (i * 0.7);
+          ctx.beginPath();
+          ctx.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+          ctx.lineTo(cx + Math.cos(a + 0.05) * r2, cy + Math.sin(a + 0.05) * r2);
+          ctx.strokeStyle = `rgba(200, 210, 220, 0.4)`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+
+        // Refraction rings - concentric circles showing lens curvature
+        for (let i = 1; i <= 8; i++) {
+          const r = lensR * (i / 8);
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(150, 170, 200, ${0.06 * atAlpha * (1 - i / 8)})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        // Specular highlight
+        const hlX = cx - lensR * 0.25;
+        const hlY = cy - lensR * 0.25;
+        const hlGrad = ctx.createRadialGradient(hlX, hlY, 0, hlX, hlY, lensR * 0.35);
+        hlGrad.addColorStop(0, `rgba(255, 255, 255, ${0.12 * atAlpha})`);
+        hlGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = hlGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, lensR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Surface dust particles
+        for (let i = 0; i < 30; i++) {
+          const angle = i * 2.399 + time * 0.003;
+          const r = lensR * (0.15 + (i / 30) * 0.8);
+          const px = cx + Math.cos(angle) * r;
+          const py = cy + Math.sin(angle) * r;
+          ctx.beginPath();
+          ctx.arc(px, py, 1, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(180, 190, 200, ${0.2 * atAlpha})`;
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+
+      // Very subtle lens outline always visible (like the frame of glasses you barely notice)
+      if (throughAlpha > 0.5) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, lensR, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(100, 100, 120, ${0.06 * throughAlpha})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    function drawTextScene() {
+      const throughAlpha = 1 - transition;
+      const atAlpha = transition;
+      const baseFontSize = Math.min(W, H) * 0.045;
+
+      // THROUGH mode: you read the meaning, text is transparent medium
+      if (throughAlpha > 0.01) {
+        ctx.save();
+        ctx.font = `italic ${baseFontSize}px Georgia, serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        for (let i = 0; i < poem.length; i++) {
+          const y = cy + (i - 1) * baseFontSize * 1.6;
+          ctx.fillStyle = `rgba(220, 215, 200, ${0.85 * throughAlpha})`;
+          ctx.fillText(poem[i], cx, y);
+        }
+
+        // Attribution
+        ctx.font = `${baseFontSize * 0.4}px Georgia, serif`;
+        ctx.fillStyle = `rgba(160, 150, 140, ${0.5 * throughAlpha})`;
+        ctx.fillText('— Michael Polanyi', cx, cy + baseFontSize * 3);
+        ctx.restore();
+      }
+
+      // AT mode: you see the letters, the typographic material
+      if (atAlpha > 0.01) {
+        ctx.save();
+        const charSize = baseFontSize * 0.8;
+
+        for (let i = 0; i < poem.length; i++) {
+          const line = poem[i];
+          const y = cy + (i - 1) * baseFontSize * 1.6;
+          const totalWidth = line.length * charSize * 0.55;
+          const startX = cx - totalWidth / 2;
+
+          for (let j = 0; j < line.length; j++) {
+            const ch = line[j];
+            if (ch === ' ') continue;
+            const x = startX + j * charSize * 0.55;
+
+            // Individual character with visible anatomy
+            ctx.font = `${charSize}px Georgia, serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // Character in a box showing its metrics
+            const boxW = charSize * 0.5;
+            const boxH = charSize * 1.2;
+            ctx.strokeStyle = `rgba(100, 130, 170, ${0.15 * atAlpha})`;
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(x - boxW / 2, y - boxH / 2, boxW, boxH);
+
+            // Baseline
+            ctx.beginPath();
+            ctx.moveTo(x - boxW / 2, y + charSize * 0.15);
+            ctx.lineTo(x + boxW / 2, y + charSize * 0.15);
+            ctx.strokeStyle = `rgba(180, 100, 100, ${0.2 * atAlpha})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+
+            // The character itself — now an object, no longer transparent
+            ctx.fillStyle = `rgba(120, 140, 170, ${0.7 * atAlpha})`;
+            ctx.fillText(ch, x, y);
+
+            // x-height line
+            ctx.beginPath();
+            ctx.moveTo(x - boxW / 2, y - charSize * 0.2);
+            ctx.lineTo(x + boxW / 2, y - charSize * 0.2);
+            ctx.strokeStyle = `rgba(100, 170, 100, ${0.12 * atAlpha})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
+      }
+    }
+
+    function drawToolScene() {
+      const throughAlpha = 1 - transition;
+      const atAlpha = transition;
+
+      // THROUGH mode: the hammer is in use — we see the nail going in
+      if (throughAlpha > 0.01) {
+        // The hammer is subsidiary — barely visible, a vague shape in motion
+        ctx.save();
+        ctx.globalAlpha = throughAlpha;
+
+        // Nail being driven — the focal target
+        const nailX = cx;
+        const nailY = cy + H * 0.1;
+        const nailLen = H * 0.12;
+        const driven = 0.5 + 0.5 * Math.sin(time * 2);
+
+        // Wood surface
+        ctx.fillStyle = '#2a1f14';
+        ctx.fillRect(cx - W * 0.2, nailY + nailLen * 0.3, W * 0.4, H * 0.15);
+        // Wood grain
+        for (let i = 0; i < 6; i++) {
+          ctx.beginPath();
+          ctx.moveTo(cx - W * 0.2, nailY + nailLen * 0.3 + i * H * 0.025);
+          ctx.bezierCurveTo(
+            cx - W * 0.1, nailY + nailLen * 0.3 + i * H * 0.025 + 5,
+            cx + W * 0.1, nailY + nailLen * 0.3 + i * H * 0.025 - 3,
+            cx + W * 0.2, nailY + nailLen * 0.3 + i * H * 0.025
+          );
+          ctx.strokeStyle = `rgba(60, 40, 25, 0.5)`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        // Nail — the focus of attention
+        const nailDriven = driven * nailLen * 0.4;
+        ctx.fillStyle = '#c0b8a8';
+        ctx.fillRect(nailX - 2, nailY - nailLen + nailDriven, 4, nailLen);
+        // Nail head
+        ctx.fillRect(nailX - 8, nailY - nailLen + nailDriven - 3, 16, 6);
+
+        // Hammer — ghost/blur, subsidiary, barely perceived
+        const hammerY = nailY - nailLen - H * 0.05 + Math.sin(time * 4) * H * 0.04;
+        ctx.globalAlpha = throughAlpha * 0.15;
+        // Vague head shape
+        ctx.fillStyle = '#888';
+        ctx.fillRect(nailX - W * 0.04, hammerY - H * 0.02, W * 0.08, H * 0.04);
+        // Vague handle
+        ctx.fillRect(nailX - W * 0.008, hammerY + H * 0.02, W * 0.016, H * 0.12);
+
+        ctx.restore();
+      }
+
+      // AT mode: the hammer is an object — visible, detailed, static
+      if (atAlpha > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = atAlpha;
+
+        // Hammer — now the focus, rendered in detail
+        const hx = cx;
+        const hy = cy;
+
+        // Handle — wood grain detail
+        const handleW = W * 0.025;
+        const handleH = H * 0.3;
+        ctx.fillStyle = '#8B6914';
+        ctx.fillRect(hx - handleW / 2, hy, handleW, handleH);
+        // Grain lines
+        for (let i = 0; i < 12; i++) {
+          ctx.beginPath();
+          ctx.moveTo(hx - handleW / 2 + 2, hy + i * handleH / 12);
+          ctx.lineTo(hx + handleW / 2 - 2, hy + i * handleH / 12);
+          ctx.strokeStyle = 'rgba(100, 70, 10, 0.3)';
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+
+        // Head — steel, detailed
+        const headW = W * 0.12;
+        const headH = H * 0.06;
+        // Main head
+        ctx.fillStyle = '#707880';
+        ctx.fillRect(hx - headW / 2, hy - headH, headW, headH);
+        // Beveled face
+        ctx.fillStyle = '#8890A0';
+        ctx.fillRect(hx - headW / 2, hy - headH, headW * 0.15, headH);
+        // Specular
+        const specGrad = ctx.createLinearGradient(hx - headW / 2, hy - headH, hx + headW / 2, hy);
+        specGrad.addColorStop(0, 'rgba(200, 210, 220, 0.3)');
+        specGrad.addColorStop(0.5, 'rgba(200, 210, 220, 0)');
+        specGrad.addColorStop(1, 'rgba(200, 210, 220, 0.1)');
+        ctx.fillStyle = specGrad;
+        ctx.fillRect(hx - headW / 2, hy - headH, headW, headH);
+
+        // Measurement annotations
+        ctx.font = `${Math.min(W, H) * 0.015}px monospace`;
+        ctx.fillStyle = `rgba(180, 160, 120, 0.5)`;
+        ctx.textAlign = 'left';
+        // Dimension line for head
+        ctx.beginPath();
+        ctx.moveTo(hx - headW / 2, hy - headH - 15);
+        ctx.lineTo(hx + headW / 2, hy - headH - 15);
+        ctx.strokeStyle = `rgba(180, 160, 120, 0.3)`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+        ctx.fillText('face', hx - headW / 2 - 40, hy - headH / 2);
+        ctx.fillText('peen', hx + headW / 2 + 8, hy - headH / 2);
+
+        // The nail/wood — now blurred, subsidiary
+        ctx.globalAlpha = atAlpha * 0.08;
+        ctx.fillStyle = '#2a1f14';
+        ctx.fillRect(cx - W * 0.15, hy + handleH + 10, W * 0.3, H * 0.1);
+
+        ctx.restore();
+      }
+    }
+
+    function drawMusicScene() {
+      const throughAlpha = 1 - transition;
+      const atAlpha = transition;
+      const voiceColors = [
+        [180, 140, 200],
+        [140, 180, 200],
+        [200, 180, 140],
+        [160, 200, 160]
+      ];
+
+      // THROUGH mode: hear the music (the whole) — notes blend into flowing waves
+      if (throughAlpha > 0.01) {
+        ctx.save();
+
+        // Flowing ensemble wave — the unified sound
+        for (let v = 0; v < 4; v++) {
+          ctx.beginPath();
+          const baseY = cy + (v - 1.5) * H * 0.08;
+          for (let x = 0; x < W; x += 3) {
+            let y = baseY;
+            // Blend all voices into one wave
+            y += Math.sin(x * 0.008 + time * (1.2 + v * 0.3)) * H * 0.025;
+            y += Math.sin(x * 0.003 + time * 0.7) * H * 0.015;
+            y += Math.sin(x * 0.015 + time * 2.1) * H * 0.008;
+            if (x === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          const c = voiceColors[v];
+          ctx.strokeStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${0.25 * throughAlpha})`;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+
+        // Overall envelope — the "shape" of the music
+        ctx.beginPath();
+        for (let x = 0; x < W; x += 2) {
+          let y = cy;
+          for (let v = 0; v < 4; v++) {
+            y += Math.sin(x * 0.005 + time * (0.8 + v * 0.2) + v) * H * 0.02;
+          }
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = `rgba(220, 210, 200, ${0.35 * throughAlpha})`;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Label
+        ctx.font = `italic ${Math.min(W, H) * 0.02}px Georgia, serif`;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = `rgba(200, 190, 180, ${0.3 * throughAlpha})`;
+        ctx.fillText('the whole', cx, cy + H * 0.2);
+
+        ctx.restore();
+      }
+
+      // AT mode: hear the individual notes — separated, labeled, analyzed
+      if (atAlpha > 0.01) {
+        ctx.save();
+
+        // Individual notes — now separate, distinct, each with its own identity
+        for (const note of musicNotes) {
+          const bobY = Math.sin(time * note.freq + note.phase) * note.amplitude;
+          const x = note.x;
+          const y = note.y + bobY;
+          const c = voiceColors[note.voice];
+          const size = note.size * (W / 1200);
+
+          // Note character
+          ctx.font = `${size}px Georgia, serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${0.7 * atAlpha})`;
+          ctx.fillText(note.char, x, y);
+
+          // Voice circle
+          ctx.beginPath();
+          ctx.arc(x, y, size * 0.8, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${0.15 * atAlpha})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+
+        // Voice labels
+        const labelY = cy + H * 0.35;
+        const voiceNames = ['soprano', 'alto', 'tenor', 'bass'];
+        ctx.font = `${Math.min(W, H) * 0.015}px Georgia, serif`;
+        ctx.textAlign = 'center';
+        for (let v = 0; v < 4; v++) {
+          const x = cx + (v - 1.5) * W * 0.12;
+          const c = voiceColors[v];
+          ctx.fillStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${0.5 * atAlpha})`;
+          ctx.beginPath();
+          ctx.arc(x - 15, labelY, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillText(voiceNames[v], x + 20, labelY + 4);
+        }
+
+        ctx.restore();
+      }
+    }
+
+    function toggleMode() {
+      if (mode === 'through') {
+        mode = 'at';
+        targetTransition = 1;
+      } else {
+        mode = 'through';
+        targetTransition = 0;
+      }
+      updateLabel();
+    }
+
+    function updateLabel() {
+      const idx = mode === 'through' ? 0 : 1;
+      const prefix = mode === 'through' ? 'dwelling' : 'examining';
+      modeLabel.textContent = `${prefix} — ${sceneNames[scene][idx]}`;
+      modeLabel.style.color = mode === 'through' ? '#666' : '#998';
+    }
+
+    canvas.addEventListener('click', toggleMode);
+
+    document.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+      if (key === '1') { scene = 0; updateLabel(); }
+      else if (key === '2') { scene = 1; updateLabel(); }
+      else if (key === '3') { scene = 2; updateLabel(); }
+      else if (key === '4') { scene = 3; updateLabel(); }
+      else if (key === 'h') {
+        infoPanel.style.opacity = infoPanel.style.opacity === '0' ? '1' : '0';
+      }
+    });
+
+    window.addEventListener('resize', resize);
+    resize();
+    updateLabel();
+    draw();
+  </script>
+</body>
+</html>
