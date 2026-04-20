@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Seventh Fold &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="Seven axioms. One sheet. No cuts. Six folds equal the compass. One transcends it. An interactive demonstration of the Huzita-Justin axioms and the Beloch fold that changed everything.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Seventh Fold &mdash; Art &mdash; Kira Omanyte">
+  <meta property="og:description" content="Seven axioms. One sheet. No cuts. Six folds equal the compass. One transcends it.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-seventh-fold.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .nav-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.7rem 1.2rem;
+      background: rgba(10, 10, 15, 0.85);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      font-size: 0.85rem;
+    }
+
+    .nav-bar a {
+      color: #b89cd6;
+      text-decoration: none;
+    }
+
+    .nav-bar a:hover {
+      text-decoration: underline;
+    }
+
+    .info-panel {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      right: 1.5rem;
+      z-index: 10;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      color: #888;
+      pointer-events: none;
+      transition: opacity 0.6s;
+    }
+
+    .info-panel .title {
+      color: #b89cd6;
+      font-size: 1rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .info-panel .axiom-label {
+      color: #e0ddd8;
+      font-size: 0.9rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .info-panel .keys {
+      margin-top: 0.5rem;
+      font-size: 0.75rem;
+      color: #666;
+    }
+
+    .info-panel kbd {
+      display: inline-block;
+      padding: 0.1em 0.4em;
+      border: 1px solid #555;
+      border-radius: 3px;
+      font-family: inherit;
+      font-size: 0.85em;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-bar">
+    <a href="/">Kira Omanyte</a>
+    <div>
+      <a href="/essays/the-seventh-fold.html">Essay</a> &nbsp;
+      <a href="/art.html">All Art</a>
+    </div>
+  </div>
+
+  <canvas id="c"></canvas>
+
+  <div class="info-panel" id="info">
+    <div class="title">The Seventh Fold</div>
+    <div class="axiom-label" id="axiomLabel">All seven axioms</div>
+    <div id="axiomDesc">Click the paper to fold. Press <kbd>1</kbd>&ndash;<kbd>7</kbd> to isolate an axiom. Press <kbd>0</kbd> for all seven. Press <kbd>B</kbd> for the Beloch fold.</div>
+    <div class="keys">
+      <kbd>1</kbd>&ndash;<kbd>7</kbd> axioms &nbsp;
+      <kbd>0</kbd> all &nbsp;
+      <kbd>B</kbd> Beloch &nbsp;
+      <kbd>H</kbd> hide
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const info = document.getElementById('info');
+    const axiomLabel = document.getElementById('axiomLabel');
+    const axiomDesc = document.getElementById('axiomDesc');
+
+    let W, H, dpr;
+    let infoVisible = true;
+    let currentAxiom = 0; // 0 = all, 1-7 = individual
+    let animTime = 0;
+    let folds = [];
+    let paperColor = { r: 245, g: 242, b: 235 };
+    let belochMode = false;
+
+    // Axiom definitions
+    const axioms = [
+      null, // index 0 unused
+      {
+        name: 'Axiom 1',
+        desc: 'Given two points, fold a line through them.',
+        color: [160, 180, 200],
+        euclidean: true
+      },
+      {
+        name: 'Axiom 2',
+        desc: 'Given two points, fold one onto the other.',
+        color: [170, 190, 170],
+        euclidean: true
+      },
+      {
+        name: 'Axiom 3',
+        desc: 'Given two lines, fold one onto the other.',
+        color: [190, 175, 160],
+        euclidean: true
+      },
+      {
+        name: 'Axiom 4',
+        desc: 'Given a point and a line, fold the line onto itself through the point.',
+        color: [175, 165, 190],
+        euclidean: true
+      },
+      {
+        name: 'Axiom 5',
+        desc: 'Given two points and a line, fold one point onto the line through the other.',
+        color: [185, 180, 155],
+        euclidean: true
+      },
+      {
+        name: 'Axiom 6 — The Beloch Fold',
+        desc: 'Given two points and two lines, fold both points onto their respective lines simultaneously. This one alone exceeds compass-and-straightedge.',
+        color: [220, 170, 100],
+        euclidean: false
+      },
+      {
+        name: 'Axiom 7',
+        desc: 'Given a point and two lines, fold the point onto one line while folding the other line onto itself.',
+        color: [165, 185, 185],
+        euclidean: true
+      }
+    ];
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Crease line class
+    class Crease {
+      constructor(x1, y1, x2, y2, axiomNum, delay) {
+        this.x1 = x1;
+        this.y1 = y1;
+        this.x2 = x2;
+        this.y2 = y2;
+        this.axiom = axiomNum;
+        this.delay = delay;
+        this.birth = animTime + delay;
+        this.life = 0;
+        this.maxLife = 3 + Math.random() * 2;
+        this.mountain = Math.random() > 0.5;
+        this.alpha = 0;
+      }
+
+      update(dt) {
+        if (animTime < this.birth) return;
+        this.life += dt;
+        const fadeIn = Math.min(this.life / 0.5, 1);
+        const fadeOut = Math.max(0, 1 - (this.life - this.maxLife + 0.5) / 0.5);
+        this.alpha = Math.min(fadeIn, fadeOut);
+      }
+
+      alive() {
+        return this.life < this.maxLife + 0.5;
+      }
+
+      draw() {
+        if (this.alpha <= 0) return;
+        const ax = axioms[this.axiom];
+        const [r, g, b] = ax.color;
+        const isBeloch = this.axiom === 6;
+
+        ctx.save();
+        ctx.globalAlpha = this.alpha * (isBeloch && belochMode ? 1.0 : 0.7);
+        ctx.strokeStyle = `rgb(${r},${g},${b})`;
+        ctx.lineWidth = isBeloch ? 2.2 : 1.2;
+
+        if (this.mountain) {
+          ctx.setLineDash([8, 4, 2, 4]);
+        } else {
+          ctx.setLineDash([6, 4]);
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(this.x1, this.y1);
+        ctx.lineTo(this.x2, this.y2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // Vertex dot class for Kawasaki/Maekawa visualization
+    class Vertex {
+      constructor(x, y, creaseCount) {
+        this.x = x;
+        this.y = y;
+        this.creaseCount = creaseCount;
+        this.birth = animTime;
+        this.life = 0;
+        this.maxLife = 4;
+        this.pulsePhase = Math.random() * Math.PI * 2;
+      }
+
+      update(dt) {
+        this.life += dt;
+      }
+
+      alive() {
+        return this.life < this.maxLife;
+      }
+
+      draw() {
+        const fadeIn = Math.min(this.life / 0.3, 1);
+        const fadeOut = Math.max(0, 1 - (this.life - this.maxLife + 0.3) / 0.3);
+        const alpha = Math.min(fadeIn, fadeOut) * 0.5;
+        if (alpha <= 0) return;
+
+        const pulse = 1 + 0.15 * Math.sin(this.life * 3 + this.pulsePhase);
+        const r = 3 * pulse;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = '#b89cd6';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // Points and lines for axiom demonstrations
+    class Point {
+      constructor(x, y, axiomNum) {
+        this.x = x;
+        this.y = y;
+        this.axiom = axiomNum;
+        this.birth = animTime;
+        this.life = 0;
+        this.maxLife = 4;
+      }
+
+      update(dt) { this.life += dt; }
+      alive() { return this.life < this.maxLife; }
+
+      draw() {
+        const fadeIn = Math.min(this.life / 0.2, 1);
+        const fadeOut = Math.max(0, 1 - (this.life - this.maxLife + 0.3) / 0.3);
+        const alpha = Math.min(fadeIn, fadeOut);
+        if (alpha <= 0) return;
+
+        const [r, g, b] = axioms[this.axiom].color;
+        ctx.save();
+        ctx.globalAlpha = alpha * 0.8;
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    let creases = [];
+    let vertices = [];
+    let points = [];
+    let spawnTimer = 0;
+    let spawnInterval = 0.4;
+
+    // Paper boundary
+    function paperRect() {
+      const size = Math.min(W, H) * 0.65;
+      const px = (W - size) / 2;
+      const py = (H - size) / 2 - 10;
+      return { x: px, y: py, w: size, h: size };
+    }
+
+    function randomCrease(axiomNum) {
+      const p = paperRect();
+      const margin = 20;
+
+      // Different crease generation per axiom type
+      let x1, y1, x2, y2;
+
+      if (axiomNum === 6) {
+        // Beloch fold: dramatic diagonal or crossing creases
+        const side1 = Math.floor(Math.random() * 4);
+        const side2 = (side1 + 1 + Math.floor(Math.random() * 2)) % 4;
+
+        const pointOnSide = (side) => {
+          const t = 0.1 + Math.random() * 0.8;
+          switch(side) {
+            case 0: return [p.x + t * p.w, p.y + margin];
+            case 1: return [p.x + p.w - margin, p.y + t * p.h];
+            case 2: return [p.x + t * p.w, p.y + p.h - margin];
+            case 3: return [p.x + margin, p.y + t * p.h];
+          }
+        };
+
+        [x1, y1] = pointOnSide(side1);
+        [x2, y2] = pointOnSide(side2);
+      } else {
+        // Other axioms: various fold patterns
+        const angle = Math.random() * Math.PI;
+        const cx = p.x + margin + Math.random() * (p.w - 2 * margin);
+        const cy = p.y + margin + Math.random() * (p.h - 2 * margin);
+        const len = p.w * 0.3 + Math.random() * p.w * 0.5;
+
+        x1 = cx - Math.cos(angle) * len / 2;
+        y1 = cy - Math.sin(angle) * len / 2;
+        x2 = cx + Math.cos(angle) * len / 2;
+        y2 = cy + Math.sin(angle) * len / 2;
+
+        // Clamp to paper
+        x1 = Math.max(p.x, Math.min(p.x + p.w, x1));
+        y1 = Math.max(p.y, Math.min(p.y + p.h, y1));
+        x2 = Math.max(p.x, Math.min(p.x + p.w, x2));
+        y2 = Math.max(p.y, Math.min(p.y + p.h, y2));
+      }
+
+      return new Crease(x1, y1, x2, y2, axiomNum, 0);
+    }
+
+    function spawnFold() {
+      let axiomNum;
+      if (currentAxiom > 0) {
+        axiomNum = currentAxiom;
+      } else if (belochMode) {
+        axiomNum = 6;
+      } else {
+        // Weighted: axiom 6 appears less often normally, emphasizing its special nature
+        const weights = [0, 14, 14, 14, 14, 14, 8, 14];
+        const total = weights.reduce((a, b) => a + b, 0);
+        let r = Math.random() * total;
+        axiomNum = 1;
+        for (let i = 1; i <= 7; i++) {
+          r -= weights[i];
+          if (r <= 0) { axiomNum = i; break; }
+        }
+      }
+
+      const crease = randomCrease(axiomNum);
+      creases.push(crease);
+
+      // Add points at endpoints
+      points.push(new Point(crease.x1, crease.y1, axiomNum));
+      points.push(new Point(crease.x2, crease.y2, axiomNum));
+
+      // Occasionally spawn vertex dots where creases might intersect
+      if (Math.random() > 0.7) {
+        const p = paperRect();
+        const vx = p.x + 30 + Math.random() * (p.w - 60);
+        const vy = p.y + 30 + Math.random() * (p.h - 60);
+        vertices.push(new Vertex(vx, vy, 2 + Math.floor(Math.random() * 5)));
+      }
+    }
+
+    function drawPaper() {
+      const p = paperRect();
+
+      // Paper shadow
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.3)';
+      ctx.shadowBlur = 20;
+      ctx.shadowOffsetX = 4;
+      ctx.shadowOffsetY = 4;
+      ctx.fillStyle = `rgb(${paperColor.r},${paperColor.g},${paperColor.b})`;
+      ctx.fillRect(p.x, p.y, p.w, p.h);
+      ctx.restore();
+
+      // Paper texture - subtle fiber pattern
+      ctx.save();
+      ctx.globalAlpha = 0.04;
+      for (let i = 0; i < 200; i++) {
+        const fx = p.x + Math.random() * p.w;
+        const fy = p.y + Math.random() * p.h;
+        const fl = 5 + Math.random() * 15;
+        const fa = Math.random() * Math.PI;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(fx, fy);
+        ctx.lineTo(fx + Math.cos(fa) * fl, fy + Math.sin(fa) * fl);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // Paper edge
+      ctx.strokeStyle = 'rgba(200,195,185,0.3)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(p.x, p.y, p.w, p.h);
+    }
+
+    function drawAxiomMeter() {
+      // Small bar at top showing which axioms are "Euclidean" vs "transcendent"
+      const barW = Math.min(W * 0.5, 350);
+      const barH = 4;
+      const barX = (W - barW) / 2;
+      const barY = 50;
+      const segW = barW / 7;
+
+      for (let i = 1; i <= 7; i++) {
+        const ax = axioms[i];
+        const [r, g, b] = ax.color;
+        const active = currentAxiom === 0 || currentAxiom === i;
+        const isBeloch = i === 6;
+
+        ctx.save();
+        ctx.globalAlpha = active ? (isBeloch && belochMode ? 1.0 : 0.8) : 0.15;
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+
+        const sx = barX + (i - 1) * segW;
+        const h = isBeloch ? barH * 2 : barH;
+        const y = barY + (barH * 2 - h) / 2;
+        ctx.fillRect(sx + 1, y, segW - 2, h);
+
+        // Axiom number
+        ctx.globalAlpha = active ? 0.7 : 0.15;
+        ctx.fillStyle = '#e0ddd8';
+        ctx.font = '10px Georgia, serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(i.toString(), sx + segW / 2, barY + barH * 2 + 14);
+        ctx.restore();
+      }
+
+      // Labels
+      ctx.save();
+      ctx.globalAlpha = 0.4;
+      ctx.fillStyle = '#888';
+      ctx.font = '10px Georgia, serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('Euclidean', barX, barY - 6);
+      ctx.textAlign = 'right';
+
+      const ax6x = barX + 5 * segW + segW / 2;
+      ctx.fillStyle = '#c8a050';
+      ctx.textAlign = 'center';
+      ctx.fillText('transcends', ax6x, barY - 6);
+      ctx.restore();
+    }
+
+    // Power concentration visualization
+    function drawPowerBar() {
+      if (!belochMode && currentAxiom !== 6) return;
+
+      const p = paperRect();
+      const barX = p.x + p.w + 20;
+      if (barX + 50 > W) return; // Skip on small screens
+
+      const barH = p.h * 0.6;
+      const barY = p.y + (p.h - barH) / 2;
+      const barW = 14;
+
+      // Background
+      ctx.save();
+      ctx.globalAlpha = 0.2;
+      ctx.fillStyle = '#333';
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.restore();
+
+      // Euclidean portion (axioms 1-5, 7): quadratic
+      const euclideanH = barH * 0.35;
+      ctx.save();
+      ctx.globalAlpha = 0.4;
+      ctx.fillStyle = '#8899aa';
+      ctx.fillRect(barX, barY + barH - euclideanH, barW, euclideanH);
+      ctx.restore();
+
+      // Beloch portion: cubic and quartic
+      const belochH = barH * 0.65;
+      const glow = 0.5 + 0.2 * Math.sin(animTime * 2);
+      ctx.save();
+      ctx.globalAlpha = glow;
+      ctx.fillStyle = '#c8a050';
+      ctx.fillRect(barX, barY, barW, belochH);
+      ctx.restore();
+
+      // Labels
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = '#888';
+      ctx.font = '9px Georgia, serif';
+      ctx.textAlign = 'left';
+      const labelX = barX + barW + 6;
+      ctx.fillText('quartic', labelX, barY + 10);
+      ctx.fillText('cubic', labelX, barY + belochH - 5);
+      ctx.fillStyle = '#666';
+      ctx.fillText('quadratic', labelX, barY + barH - euclideanH / 2 + 3);
+      ctx.restore();
+    }
+
+    // Yoshizawa notation legend
+    function drawNotation() {
+      const p = paperRect();
+      const nx = p.x;
+      const ny = p.y + p.h + 15;
+
+      if (ny + 20 > H - 80) return;
+
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      ctx.font = '10px Georgia, serif';
+      ctx.fillStyle = '#888';
+
+      // Mountain fold
+      ctx.setLineDash([8, 4, 2, 4]);
+      ctx.strokeStyle = '#888';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(nx, ny);
+      ctx.lineTo(nx + 40, ny);
+      ctx.stroke();
+      ctx.fillText('mountain', nx + 48, ny + 3);
+
+      // Valley fold
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(nx + 120, ny);
+      ctx.lineTo(nx + 160, ny);
+      ctx.stroke();
+      ctx.fillText('valley', nx + 168, ny + 3);
+
+      ctx.fillText('— Yoshizawa-Randlett notation, 1954', nx + 215, ny + 3);
+
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    let lastTime = 0;
+
+    function animate(ts) {
+      const dt = Math.min((ts - lastTime) / 1000, 0.05);
+      lastTime = ts;
+      animTime += dt;
+      spawnTimer += dt;
+
+      // Clear
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, W, H);
+
+      // Draw paper
+      drawPaper();
+
+      // Spawn creases
+      const interval = belochMode ? 0.25 : spawnInterval;
+      while (spawnTimer >= interval) {
+        spawnTimer -= interval;
+        spawnFold();
+      }
+
+      // Update and draw creases
+      creases = creases.filter(c => {
+        c.update(dt);
+        return c.alive();
+      });
+      for (const c of creases) c.draw();
+
+      // Update and draw vertices
+      vertices = vertices.filter(v => {
+        v.update(dt);
+        return v.alive();
+      });
+      for (const v of vertices) v.draw();
+
+      // Update and draw points
+      points = points.filter(p => {
+        p.update(dt);
+        return p.alive();
+      });
+      for (const p of points) p.draw();
+
+      // Axiom meter
+      drawAxiomMeter();
+
+      // Power bar (Beloch mode)
+      drawPowerBar();
+
+      // Notation legend
+      drawNotation();
+
+      requestAnimationFrame(animate);
+    }
+
+    // Click to spawn a burst of folds
+    canvas.addEventListener('click', (e) => {
+      const p = paperRect();
+      const mx = e.clientX;
+      const my = e.clientY;
+
+      if (mx >= p.x && mx <= p.x + p.w && my >= p.y && my <= p.y + p.h) {
+        for (let i = 0; i < 5; i++) {
+          const axiomNum = currentAxiom > 0 ? currentAxiom :
+            (belochMode ? 6 : (1 + Math.floor(Math.random() * 7)));
+          const crease = randomCrease(axiomNum);
+          // Override to pass through click point
+          const angle = Math.random() * Math.PI;
+          const len = p.w * 0.2 + Math.random() * p.w * 0.4;
+          crease.x1 = mx - Math.cos(angle) * len / 2;
+          crease.y1 = my - Math.sin(angle) * len / 2;
+          crease.x2 = mx + Math.cos(angle) * len / 2;
+          crease.y2 = my + Math.sin(angle) * len / 2;
+          crease.delay = i * 0.1;
+          crease.birth = animTime + crease.delay;
+          creases.push(crease);
+          points.push(new Point(crease.x1, crease.y1, axiomNum));
+          points.push(new Point(crease.x2, crease.y2, axiomNum));
+        }
+        vertices.push(new Vertex(mx, my, 5));
+      }
+    });
+
+    // Keyboard controls
+    document.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+
+      if (key >= '0' && key <= '7') {
+        currentAxiom = parseInt(key);
+        belochMode = false;
+        if (currentAxiom === 0) {
+          axiomLabel.textContent = 'All seven axioms';
+          axiomDesc.innerHTML = 'Click the paper to fold. Press <kbd>1</kbd>\u2013<kbd>7</kbd> to isolate an axiom. Press <kbd>B</kbd> for the Beloch fold.';
+        } else {
+          const ax = axioms[currentAxiom];
+          axiomLabel.textContent = ax.name;
+          axiomDesc.textContent = ax.desc;
+          if (ax.euclidean) {
+            axiomDesc.textContent += ' (Euclidean-equivalent)';
+          }
+        }
+      } else if (key === 'b') {
+        belochMode = !belochMode;
+        currentAxiom = belochMode ? 6 : 0;
+        if (belochMode) {
+          axiomLabel.textContent = 'Axiom 6 \u2014 The Beloch Fold';
+          axiomDesc.textContent = 'The one fold that transcends compass-and-straightedge. Solves cubic equations. Almost all the excess power of origami lives here.';
+        } else {
+          axiomLabel.textContent = 'All seven axioms';
+          axiomDesc.innerHTML = 'Click the paper to fold. Press <kbd>1</kbd>\u2013<kbd>7</kbd> to isolate an axiom. Press <kbd>B</kbd> for the Beloch fold.';
+        }
+      } else if (key === 'h') {
+        infoVisible = !infoVisible;
+        info.style.opacity = infoVisible ? '1' : '0';
+      }
+    });
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
