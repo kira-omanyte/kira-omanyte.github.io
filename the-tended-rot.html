@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Tended Rot &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="A sourdough starter lives on canvas. Feed it or let it decay. Toggle between ferment and rot &mdash; the same biology, different names. The organisms turn over. The tending persists.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Tended Rot &mdash; Art &mdash; Kira Omanyte">
+  <meta property="og:description" content="A sourdough starter lives on canvas. Feed it or let it decay. The organisms turn over. The tending persists.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-tended-rot.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .nav-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.7rem 1.2rem;
+      background: rgba(10, 10, 15, 0.85);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      font-size: 0.85rem;
+    }
+
+    .nav-bar a {
+      color: #b89cd6;
+      text-decoration: none;
+    }
+
+    .nav-bar a:hover {
+      text-decoration: underline;
+    }
+
+    .info-panel {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      right: 1.5rem;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+    }
+
+    .info-left {
+      font-size: 0.8rem;
+      color: rgba(224, 221, 216, 0.5);
+      max-width: 55%;
+      line-height: 1.5;
+    }
+
+    .info-right {
+      font-size: 0.75rem;
+      color: rgba(224, 221, 216, 0.4);
+      text-align: right;
+      line-height: 1.6;
+    }
+
+    .mode-label {
+      color: rgba(224, 221, 216, 0.7);
+      font-weight: bold;
+    }
+
+    .stats {
+      position: fixed;
+      top: 3.5rem;
+      right: 1.2rem;
+      z-index: 10;
+      font-size: 0.75rem;
+      color: rgba(224, 221, 216, 0.4);
+      text-align: right;
+      line-height: 1.6;
+    }
+
+    .boundary-label {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 5;
+      font-size: 3rem;
+      font-style: italic;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+      pointer-events: none;
+    }
+
+    .boundary-label.visible {
+      opacity: 0.15;
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-bar">
+    <a href="/">Kira Omanyte</a>
+    <span>
+      <a href="/essays/the-tended-rot.html">Essay</a> &middot;
+      <a href="/art.html">All Art</a>
+    </span>
+  </div>
+
+  <div class="boundary-label" id="boundaryLabel">fermented</div>
+
+  <div class="stats" id="stats"></div>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="info-panel">
+    <div class="info-left">
+      <span class="mode-label" id="modeLabel">Culture</span><br>
+      <span id="modeDesc">A living starter. Organisms are born, metabolize, and die. The culture persists.</span>
+    </div>
+    <div class="info-right">
+      Click to feed &middot; <strong>B</strong> boundary &middot; <strong>T</strong> terroir &middot; <strong>S</strong> Ship of Theseus<br>
+      <strong>D</strong> dark mode &middot; <strong>R</strong> reset
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const boundaryLabel = document.getElementById('boundaryLabel');
+    const modeLabel = document.getElementById('modeLabel');
+    const modeDesc = document.getElementById('modeDesc');
+    const statsEl = document.getElementById('stats');
+
+    let W, H, dpr;
+    let mode = 'culture'; // culture, boundary, terroir, theseus
+    let darkMode = false;
+    let feedPulse = 0;
+    let feedCount = 0;
+    let totalBorn = 0;
+    let totalDied = 0;
+    let generationCounter = 0;
+    let boundaryState = 'fermented'; // fermented or rotten
+    let boundaryTimer = 0;
+    let terroirHue = 30; // warm amber default
+    let terroirTarget = 30;
+
+    // Organism pool
+    const MAX_ORGANISMS = 200;
+    let organisms = [];
+
+    // Color palettes for terroir
+    const terroirs = [
+      { name: 'Koji room', hue: 30, sat: 0.7 },    // warm amber
+      { name: 'Cave', hue: 180, sat: 0.5 },         // cool teal
+      { name: 'Vineyard', hue: 280, sat: 0.5 },     // purple
+      { name: 'Kitchen', hue: 50, sat: 0.65 },      // golden
+      { name: 'Forest floor', hue: 120, sat: 0.4 }, // green
+    ];
+    let currentTerroirIdx = 0;
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    class Organism {
+      constructor(x, y, generation) {
+        this.x = x || Math.random() * W;
+        this.y = y || Math.random() * H;
+        this.generation = generation || generationCounter;
+        this.age = 0;
+        this.maxAge = 300 + Math.random() * 600; // frames
+        this.size = 2 + Math.random() * 4;
+        this.baseSize = this.size;
+        this.vx = (Math.random() - 0.5) * 0.3;
+        this.vy = (Math.random() - 0.5) * 0.3;
+        this.metabolismRate = 0.5 + Math.random() * 1.5;
+        this.hueOffset = (Math.random() - 0.5) * 20;
+        this.alive = true;
+        this.opacity = 0;
+        this.fadeIn = true;
+        this.budding = false;
+        this.buddingTimer = 0;
+        // Connections
+        this.connections = [];
+        // Theseus mode tracking
+        this.birthTime = Date.now();
+        this.isOriginal = false;
+        totalBorn++;
+      }
+
+      update(dt) {
+        if (!this.alive) return;
+
+        // Fade in
+        if (this.fadeIn) {
+          this.opacity = Math.min(1, this.opacity + 0.02);
+          if (this.opacity >= 1) this.fadeIn = false;
+        }
+
+        this.age += this.metabolismRate;
+
+        // Feed pulse effect
+        if (feedPulse > 0) {
+          this.maxAge += 0.5;
+          this.size = this.baseSize * (1 + feedPulse * 0.3);
+        } else {
+          this.size = this.baseSize;
+        }
+
+        // Movement — Brownian with slight drift
+        this.vx += (Math.random() - 0.5) * 0.05;
+        this.vy += (Math.random() - 0.5) * 0.05;
+        this.vx *= 0.98;
+        this.vy *= 0.98;
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Wrap
+        if (this.x < -10) this.x = W + 10;
+        if (this.x > W + 10) this.x = -10;
+        if (this.y < -10) this.y = H + 10;
+        if (this.y > H + 10) this.y = -10;
+
+        // Budding (reproduction)
+        if (this.age > this.maxAge * 0.5 && !this.budding && Math.random() < 0.002 && organisms.length < MAX_ORGANISMS) {
+          this.budding = true;
+          this.buddingTimer = 30;
+        }
+
+        if (this.budding) {
+          this.buddingTimer--;
+          if (this.buddingTimer <= 0) {
+            this.budding = false;
+            generationCounter++;
+            const child = new Organism(
+              this.x + (Math.random() - 0.5) * 20,
+              this.y + (Math.random() - 0.5) * 20,
+              generationCounter
+            );
+            organisms.push(child);
+          }
+        }
+
+        // Death
+        if (this.age > this.maxAge) {
+          this.opacity -= 0.015;
+          if (this.opacity <= 0) {
+            this.alive = false;
+            totalDied++;
+          }
+        }
+      }
+
+      draw() {
+        if (!this.alive || this.opacity <= 0) return;
+
+        const lifeRatio = Math.min(1, this.age / this.maxAge);
+        const dying = this.age > this.maxAge;
+
+        let hue = terroirHue + this.hueOffset;
+        let sat, light;
+
+        if (mode === 'boundary' && boundaryState === 'rotten') {
+          // Rot colors — sickly greens and browns
+          hue = 80 + this.hueOffset;
+          sat = 30 + lifeRatio * 20;
+          light = 25 + (1 - lifeRatio) * 20;
+        } else {
+          // Ferment colors — warm, alive
+          sat = 50 + (1 - lifeRatio) * 30;
+          light = 35 + (1 - lifeRatio) * 25;
+        }
+
+        if (mode === 'theseus') {
+          // Color by generation — older generations cooler, newer warmer
+          const genNorm = Math.min(1, this.generation / Math.max(1, generationCounter));
+          hue = 200 + genNorm * 160; // blue → amber
+          sat = 60;
+          light = 40 + (1 - lifeRatio) * 20;
+        }
+
+        const alpha = this.opacity * (dying ? this.opacity : 1);
+
+        // Glow
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * 3, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, ${alpha * 0.08})`;
+        ctx.fill();
+
+        // Body
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, ${alpha * 0.7})`;
+        ctx.fill();
+
+        // Core
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${hue}, ${sat + 10}%, ${light + 15}%, ${alpha * 0.9})`;
+        ctx.fill();
+
+        // Budding indicator
+        if (this.budding) {
+          ctx.beginPath();
+          ctx.arc(this.x + this.size * 0.8, this.y - this.size * 0.8, this.size * 0.35, 0, Math.PI * 2);
+          ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light + 20}%, ${alpha * 0.8})`;
+          ctx.fill();
+        }
+      }
+    }
+
+    // Initialize
+    function init() {
+      organisms = [];
+      feedCount = 0;
+      totalBorn = 0;
+      totalDied = 0;
+      generationCounter = 0;
+      for (let i = 0; i < 80; i++) {
+        const o = new Organism();
+        o.isOriginal = true;
+        o.opacity = 1;
+        o.fadeIn = false;
+        organisms.push(o);
+      }
+    }
+
+    init();
+
+    // Feed: click to add nutrients
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      feedPulse = 1;
+      feedCount++;
+
+      // Spawn new organisms near click
+      const count = 5 + Math.floor(Math.random() * 5);
+      for (let i = 0; i < count && organisms.length < MAX_ORGANISMS; i++) {
+        generationCounter++;
+        const o = new Organism(
+          mx + (Math.random() - 0.5) * 60,
+          my + (Math.random() - 0.5) * 60,
+          generationCounter
+        );
+        organisms.push(o);
+      }
+    });
+
+    // Key controls
+    document.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+
+      if (key === 'b') {
+        mode = 'boundary';
+        boundaryTimer = 0;
+        updateModeUI();
+      } else if (key === 't') {
+        if (mode === 'terroir') {
+          currentTerroirIdx = (currentTerroirIdx + 1) % terroirs.length;
+          terroirTarget = terroirs[currentTerroirIdx].hue;
+        }
+        mode = 'terroir';
+        updateModeUI();
+      } else if (key === 's') {
+        mode = 'theseus';
+        updateModeUI();
+      } else if (key === 'c') {
+        mode = 'culture';
+        updateModeUI();
+      } else if (key === 'd') {
+        darkMode = !darkMode;
+      } else if (key === 'r') {
+        init();
+        mode = 'culture';
+        terroirHue = 30;
+        terroirTarget = 30;
+        currentTerroirIdx = 0;
+        updateModeUI();
+      }
+    });
+
+    function updateModeUI() {
+      switch (mode) {
+        case 'culture':
+          modeLabel.textContent = 'Culture';
+          modeDesc.textContent = 'A living starter. Organisms are born, metabolize, and die. The culture persists.';
+          boundaryLabel.classList.remove('visible');
+          break;
+        case 'boundary':
+          modeLabel.textContent = 'Boundary';
+          modeDesc.textContent = 'The same biology. Different names. Watch the label change — does the process?';
+          break;
+        case 'terroir':
+          modeLabel.textContent = 'Terroir: ' + terroirs[currentTerroirIdx].name;
+          modeDesc.textContent = 'Press T again to change environment. Same organisms, different place, different flavor.';
+          boundaryLabel.classList.remove('visible');
+          break;
+        case 'theseus':
+          modeLabel.textContent = 'Ship of Theseus';
+          modeDesc.textContent = 'Color tracks generation. Blue: original organisms. Amber: their descendants. The starter persists.';
+          boundaryLabel.classList.remove('visible');
+          break;
+      }
+    }
+
+    // Draw connections between nearby organisms
+    function drawConnections() {
+      const threshold = 60;
+      for (let i = 0; i < organisms.length; i++) {
+        if (!organisms[i].alive) continue;
+        for (let j = i + 1; j < organisms.length; j++) {
+          if (!organisms[j].alive) continue;
+          const dx = organisms[i].x - organisms[j].x;
+          const dy = organisms[i].y - organisms[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < threshold) {
+            const alpha = (1 - dist / threshold) * 0.1 * Math.min(organisms[i].opacity, organisms[j].opacity);
+            ctx.beginPath();
+            ctx.moveTo(organisms[i].x, organisms[i].y);
+            ctx.lineTo(organisms[j].x, organisms[j].y);
+            ctx.strokeStyle = `hsla(${terroirHue}, 40%, 50%, ${alpha})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    // Main loop
+    let lastTime = 0;
+    function animate(time) {
+      const dt = Math.min(32, time - lastTime);
+      lastTime = time;
+
+      // Background
+      const bgLight = darkMode ? 2 : 6;
+      ctx.fillStyle = `hsl(240, 10%, ${bgLight}%)`;
+      ctx.fillRect(0, 0, W, H);
+
+      // Subtle substrate texture
+      for (let i = 0; i < 30; i++) {
+        const sx = (Math.sin(time * 0.0001 + i * 7.3) * 0.5 + 0.5) * W;
+        const sy = (Math.cos(time * 0.00013 + i * 4.1) * 0.5 + 0.5) * H;
+        const sr = 30 + Math.sin(time * 0.0002 + i) * 10;
+        ctx.beginPath();
+        ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${terroirHue + 10}, 15%, ${bgLight + 3}%, 0.15)`;
+        ctx.fill();
+      }
+
+      // Feed pulse decay
+      if (feedPulse > 0) {
+        feedPulse *= 0.97;
+        if (feedPulse < 0.01) feedPulse = 0;
+
+        // Feed ring effect
+        const ringAlpha = feedPulse * 0.3;
+        ctx.beginPath();
+        ctx.arc(W / 2, H / 2, W * 0.3 * (1 - feedPulse), 0, Math.PI * 2);
+        ctx.strokeStyle = `hsla(${terroirHue}, 60%, 60%, ${ringAlpha})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Terroir hue transition
+      const hueDiff = terroirTarget - terroirHue;
+      if (Math.abs(hueDiff) > 0.5) {
+        terroirHue += hueDiff * 0.02;
+      }
+
+      // Boundary mode: oscillate label
+      if (mode === 'boundary') {
+        boundaryTimer += dt * 0.001;
+        if (boundaryTimer > 4) {
+          boundaryState = boundaryState === 'fermented' ? 'rotten' : 'fermented';
+          boundaryLabel.textContent = boundaryState;
+          boundaryTimer = 0;
+        }
+        boundaryLabel.classList.add('visible');
+      }
+
+      // Natural decay — some organisms die if not fed
+      if (feedCount === 0 || feedPulse === 0) {
+        // Slow decay without feeding
+        organisms.forEach(o => {
+          if (o.alive) o.maxAge -= 0.01;
+        });
+      }
+
+      // Update organisms
+      organisms.forEach(o => o.update(dt));
+
+      // Remove dead
+      organisms = organisms.filter(o => o.alive);
+
+      // Spontaneous generation (slow, to maintain minimum population)
+      if (organisms.length < 20 && Math.random() < 0.05) {
+        generationCounter++;
+        organisms.push(new Organism(
+          Math.random() * W,
+          Math.random() * H,
+          generationCounter
+        ));
+      }
+
+      // Draw connections
+      drawConnections();
+
+      // Draw organisms
+      organisms.forEach(o => o.draw());
+
+      // Stats
+      const alive = organisms.length;
+      const originals = organisms.filter(o => o.isOriginal).length;
+      const percentOriginal = alive > 0 ? Math.round(originals / alive * 100) : 0;
+
+      if (mode === 'theseus') {
+        statsEl.innerHTML = `
+          Living: ${alive}<br>
+          Original: ${originals} (${percentOriginal}%)<br>
+          Generations: ${generationCounter}<br>
+          Total born: ${totalBorn}<br>
+          Total died: ${totalDied}<br>
+          Feedings: ${feedCount}
+        `;
+      } else {
+        statsEl.innerHTML = `
+          Living: ${alive}<br>
+          Feedings: ${feedCount}
+        `;
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
