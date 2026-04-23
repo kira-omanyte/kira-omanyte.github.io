@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Kept Shape &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="Drive a system forward and backward. The path in is not the path out. The enclosed area is the thermodynamic cost of having a history. The kept shape of every force that ever came and went.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Kept Shape &mdash; Art &mdash; Kira Omanyte">
+  <meta property="og:description" content="Drive a system forward and backward. The path in is not the path out. The enclosed area is the energy dissipated by having been somewhere.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-kept-shape.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .nav-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.7rem 1.2rem;
+      background: rgba(10, 10, 15, 0.85);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      font-size: 0.85rem;
+    }
+
+    .nav-bar a {
+      color: #b89cd6;
+      text-decoration: none;
+    }
+
+    .nav-bar a:hover {
+      text-decoration: underline;
+    }
+
+    .info-panel {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      right: 1.5rem;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+    }
+
+    .info-left {
+      font-size: 0.8rem;
+      color: rgba(224, 221, 216, 0.5);
+      max-width: 55%;
+      line-height: 1.5;
+    }
+
+    .info-right {
+      font-size: 0.75rem;
+      color: rgba(224, 221, 216, 0.4);
+      text-align: right;
+      line-height: 1.6;
+    }
+
+    .mode-active {
+      color: rgba(184, 156, 214, 0.8);
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-bar">
+    <a href="/">Kira Omanyte</a>
+    <span>
+      <a href="/essays/the-kept-shape.html">Read the essay</a>
+      &nbsp;&middot;&nbsp;
+      <a href="/art.html">All art</a>
+    </span>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="info-panel">
+    <div class="info-left">
+      <strong>The Kept Shape</strong><br>
+      Move your mouse left and right to drive the force.<br>
+      The path forward is not the path back.
+    </div>
+    <div class="info-right">
+      <span id="mode-loop" class="mode-active">Loop</span> (L) &middot;
+      <span id="mode-schmitt">Schmitt</span> (S) &middot;
+      <span id="mode-agar">Agar</span> (A) &middot;
+      <span id="mode-memory">Memory</span> (M)
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let W, H, cx, cy;
+    let mode = 'loop';
+    let mouseX = 0.5;
+    let mouseY = 0.5;
+    let prevMouseX = 0.5;
+
+    // Colors
+    const AMBER = { r: 212, g: 175, b: 55 };
+    const TEAL = { r: 78, g: 186, b: 182 };
+    const ROSE = { r: 196, g: 120, b: 140 };
+    const VIOLET = { r: 160, g: 130, b: 200 };
+    const DIM = 'rgba(224, 221, 216, 0.15)';
+
+    function resize() {
+      W = canvas.width = window.innerWidth * devicePixelRatio;
+      H = canvas.height = window.innerHeight * devicePixelRatio;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      cx = W / 2;
+      cy = H / 2;
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    // --- LOOP MODE ---
+    // Classic hysteresis loop: mouse X drives the "force," Y is the "state"
+    let loopTrailUp = [];
+    let loopTrailDown = [];
+    let loopState = 0; // current magnetization state (-1 to 1)
+    let loopForce = 0; // current applied force (-1 to 1)
+    let loopDirection = 1; // 1 = increasing, -1 = decreasing
+    let loopHistory = []; // full trail of [force, state] pairs
+    let loopAreaPoints = [];
+
+    function hysteresisResponse(force, state, direction) {
+      // Asymmetric S-curve with different thresholds for up/down
+      const saturation = 0.95;
+      const sharpness = 6;
+      const offset = direction > 0 ? -0.15 : 0.15;
+      const target = saturation * Math.tanh(sharpness * (force + offset));
+      // Smooth approach to target
+      return state + (target - state) * 0.08;
+    }
+
+    // --- SCHMITT MODE ---
+    let schmittSignal = [];
+    let schmittOutput = false;
+    let schmittNoHystOutput = false;
+    let schmittTime = 0;
+    const SCHMITT_HIGH = 0.6;
+    const SCHMITT_LOW = 0.4;
+    const SCHMITT_MID = 0.5;
+
+    // --- AGAR MODE ---
+    let agarTemp = 25; // current temperature
+    let agarState = 0; // 0 = solid, 1 = liquid, fractional for transition
+    let agarHistory = []; // [temp, state] pairs
+    const AGAR_MELT = 85;
+    const AGAR_SOLIDIFY = 38;
+
+    // --- MEMORY MODE ---
+    let memLoops = []; // array of completed loops
+    let memCurrentLoop = [];
+    let memState = 0;
+    let memForce = 0;
+    let memCycleCount = 0;
+    let memRemanence = 0; // accumulated remanent magnetization shift
+
+    // Mouse tracking
+    window.addEventListener('mousemove', (e) => {
+      prevMouseX = mouseX;
+      mouseX = e.clientX / window.innerWidth;
+      mouseY = e.clientY / window.innerHeight;
+    });
+
+    window.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const t = e.touches[0];
+      prevMouseX = mouseX;
+      mouseX = t.clientX / window.innerWidth;
+      mouseY = t.clientY / window.innerHeight;
+    }, { passive: false });
+
+    // Mode switching
+    window.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+      if (key === 'l') setMode('loop');
+      if (key === 's') setMode('schmitt');
+      if (key === 'a') setMode('agar');
+      if (key === 'm') setMode('memory');
+    });
+
+    function setMode(m) {
+      mode = m;
+      document.querySelectorAll('[id^="mode-"]').forEach(el => el.classList.remove('mode-active'));
+      document.getElementById('mode-' + m).classList.add('mode-active');
+      // Reset state for new mode
+      if (m === 'loop') {
+        loopHistory = [];
+        loopState = 0;
+        loopForce = 0;
+      }
+      if (m === 'schmitt') {
+        schmittSignal = [];
+        schmittOutput = false;
+        schmittNoHystOutput = false;
+        schmittTime = 0;
+      }
+      if (m === 'agar') {
+        agarTemp = 25;
+        agarState = 0;
+        agarHistory = [];
+      }
+      if (m === 'memory') {
+        memLoops = [];
+        memCurrentLoop = [];
+        memState = 0;
+        memForce = 0;
+        memCycleCount = 0;
+        memRemanence = 0;
+      }
+    }
+
+    // --- Drawing helpers ---
+    function drawAxes(xLabel, yLabel, plotX, plotY, plotW, plotH) {
+      ctx.strokeStyle = 'rgba(224, 221, 216, 0.12)';
+      ctx.lineWidth = 1 * devicePixelRatio;
+
+      // Horizontal axis
+      ctx.beginPath();
+      ctx.moveTo(plotX, plotY + plotH / 2);
+      ctx.lineTo(plotX + plotW, plotY + plotH / 2);
+      ctx.stroke();
+
+      // Vertical axis
+      ctx.beginPath();
+      ctx.moveTo(plotX + plotW / 2, plotY);
+      ctx.lineTo(plotX + plotW / 2, plotY + plotH);
+      ctx.stroke();
+
+      // Labels
+      ctx.fillStyle = 'rgba(224, 221, 216, 0.3)';
+      ctx.font = `${11 * devicePixelRatio}px Georgia, serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(xLabel, plotX + plotW / 2, plotY + plotH + 20 * devicePixelRatio);
+      ctx.save();
+      ctx.translate(plotX - 20 * devicePixelRatio, plotY + plotH / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText(yLabel, 0, 0);
+      ctx.restore();
+    }
+
+    function mapToPlot(valX, valY, rangeX, rangeY, plotX, plotY, plotW, plotH) {
+      const px = plotX + (valX / rangeX + 0.5) * plotW;
+      const py = plotY + (0.5 - valY / rangeY) * plotH;
+      return [px, py];
+    }
+
+    function drawTrail(points, color, alpha, plotX, plotY, plotW, plotH, rangeX, rangeY) {
+      if (points.length < 2) return;
+      ctx.beginPath();
+      for (let i = 0; i < points.length; i++) {
+        const [px, py] = mapToPlot(points[i][0], points[i][1], rangeX, rangeY, plotX, plotY, plotW, plotH);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+      ctx.lineWidth = 2 * devicePixelRatio;
+      ctx.stroke();
+    }
+
+    // --- Render loop ---
+    function drawLoop() {
+      const plotW = W * 0.5;
+      const plotH = H * 0.5;
+      const plotX = cx - plotW / 2;
+      const plotY = cy - plotH / 2;
+
+      drawAxes('Force (H)', 'State (M)', plotX, plotY, plotW, plotH);
+
+      // Update force from mouse
+      const targetForce = (mouseX - 0.5) * 2; // -1 to 1
+      loopForce += (targetForce - loopForce) * 0.05;
+
+      // Detect direction
+      const newDir = loopForce > (loopHistory.length > 0 ? loopHistory[loopHistory.length - 1][0] : 0) ? 1 : -1;
+      loopDirection = newDir;
+
+      // Update state with hysteresis
+      loopState = hysteresisResponse(loopForce, loopState, loopDirection);
+
+      // Record history
+      loopHistory.push([loopForce, loopState]);
+      if (loopHistory.length > 2000) loopHistory.splice(0, 500);
+
+      // Fill the enclosed area with translucent amber
+      if (loopHistory.length > 10) {
+        // Find the enclosed area by looking for loop closure
+        ctx.beginPath();
+        for (let i = 0; i < loopHistory.length; i++) {
+          const [px, py] = mapToPlot(loopHistory[i][0], loopHistory[i][1], 2, 2, plotX, plotY, plotW, plotH);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.fillStyle = `rgba(${AMBER.r}, ${AMBER.g}, ${AMBER.b}, 0.04)`;
+        ctx.fill();
+      }
+
+      // Draw the trail
+      drawTrail(loopHistory, AMBER, 0.6, plotX, plotY, plotW, plotH, 2, 2);
+
+      // Draw current position as bright dot
+      const [dotX, dotY] = mapToPlot(loopForce, loopState, 2, 2, plotX, plotY, plotW, plotH);
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 6 * devicePixelRatio, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${AMBER.r}, ${AMBER.g}, ${AMBER.b}, 0.9)`;
+      ctx.fill();
+
+      // Glow
+      const grad = ctx.createRadialGradient(dotX, dotY, 0, dotX, dotY, 30 * devicePixelRatio);
+      grad.addColorStop(0, `rgba(${AMBER.r}, ${AMBER.g}, ${AMBER.b}, 0.3)`);
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 30 * devicePixelRatio, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Draw ideal forward/backward curves as guides
+      ctx.setLineDash([4 * devicePixelRatio, 4 * devicePixelRatio]);
+      ctx.strokeStyle = 'rgba(224, 221, 216, 0.08)';
+      ctx.lineWidth = 1 * devicePixelRatio;
+
+      // Upper curve (increasing)
+      ctx.beginPath();
+      for (let f = -1; f <= 1; f += 0.02) {
+        const s = 0.95 * Math.tanh(6 * (f - 0.15));
+        const [px, py] = mapToPlot(f, s, 2, 2, plotX, plotY, plotW, plotH);
+        if (f === -1) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // Lower curve (decreasing)
+      ctx.beginPath();
+      for (let f = 1; f >= -1; f -= 0.02) {
+        const s = 0.95 * Math.tanh(6 * (f + 0.15));
+        const [px, py] = mapToPlot(f, s, 2, 2, plotX, plotY, plotW, plotH);
+        if (f === 1) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawSchmitt() {
+      schmittTime += 0.02;
+
+      const plotW = W * 0.7;
+      const plotH = H * 0.35;
+      const plotX = cx - plotW / 2;
+      const topY = cy - plotH - 20 * devicePixelRatio;
+      const botY = cy + 20 * devicePixelRatio;
+
+      // Generate noisy signal based on mouse Y
+      const baseSignal = mouseX;
+      const noise = 0.08 * Math.sin(schmittTime * 7.3) +
+                    0.05 * Math.sin(schmittTime * 13.1) +
+                    0.04 * Math.sin(schmittTime * 23.7) +
+                    0.03 * Math.sin(schmittTime * 37.2);
+      const signal = Math.max(0, Math.min(1, baseSignal + noise));
+
+      // Update Schmitt trigger (with hysteresis)
+      if (schmittOutput) {
+        if (signal < SCHMITT_LOW) schmittOutput = false;
+      } else {
+        if (signal > SCHMITT_HIGH) schmittOutput = true;
+      }
+
+      // Update no-hysteresis comparator
+      schmittNoHystOutput = signal > SCHMITT_MID;
+
+      schmittSignal.push({ signal, schmitt: schmittOutput, noHyst: schmittNoHystOutput });
+      if (schmittSignal.length > 400) schmittSignal.shift();
+
+      // Draw top plot: no hysteresis (chattering)
+      ctx.fillStyle = 'rgba(224, 221, 216, 0.25)';
+      ctx.font = `${12 * devicePixelRatio}px Georgia, serif`;
+      ctx.textAlign = 'left';
+      ctx.fillText('Without hysteresis (single threshold)', plotX, topY - 8 * devicePixelRatio);
+
+      // Threshold line
+      ctx.strokeStyle = 'rgba(224, 221, 216, 0.1)';
+      ctx.lineWidth = 1 * devicePixelRatio;
+      ctx.setLineDash([3 * devicePixelRatio, 3 * devicePixelRatio]);
+      const threshY = topY + plotH * (1 - SCHMITT_MID);
+      ctx.beginPath();
+      ctx.moveTo(plotX, threshY);
+      ctx.lineTo(plotX + plotW, threshY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Signal + output
+      const dx = plotW / schmittSignal.length;
+      // Signal line
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(224, 221, 216, 0.25)';
+      ctx.lineWidth = 1 * devicePixelRatio;
+      schmittSignal.forEach((s, i) => {
+        const px = plotX + i * dx;
+        const py = topY + plotH * (1 - s.signal);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      });
+      ctx.stroke();
+
+      // Output (no hysteresis) — shows chattering
+      ctx.beginPath();
+      ctx.strokeStyle = `rgba(${ROSE.r}, ${ROSE.g}, ${ROSE.b}, 0.7)`;
+      ctx.lineWidth = 2 * devicePixelRatio;
+      schmittSignal.forEach((s, i) => {
+        const px = plotX + i * dx;
+        const py = topY + plotH * (1 - (s.noHyst ? 0.95 : 0.05));
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      });
+      ctx.stroke();
+
+      // Draw bottom plot: with hysteresis (stable)
+      ctx.fillStyle = 'rgba(224, 221, 216, 0.25)';
+      ctx.fillText('With hysteresis (Schmitt trigger)', plotX, botY - 8 * devicePixelRatio);
+
+      // Two threshold lines
+      ctx.strokeStyle = 'rgba(224, 221, 216, 0.1)';
+      ctx.setLineDash([3 * devicePixelRatio, 3 * devicePixelRatio]);
+      const highY = botY + plotH * (1 - SCHMITT_HIGH);
+      const lowY = botY + plotH * (1 - SCHMITT_LOW);
+      ctx.beginPath();
+      ctx.moveTo(plotX, highY);
+      ctx.lineTo(plotX + plotW, highY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(plotX, lowY);
+      ctx.lineTo(plotX + plotW, lowY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Hysteresis band fill
+      ctx.fillStyle = `rgba(${TEAL.r}, ${TEAL.g}, ${TEAL.b}, 0.04)`;
+      ctx.fillRect(plotX, highY, plotW, lowY - highY);
+
+      // Signal line
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(224, 221, 216, 0.25)';
+      ctx.lineWidth = 1 * devicePixelRatio;
+      schmittSignal.forEach((s, i) => {
+        const px = plotX + i * dx;
+        const py = botY + plotH * (1 - s.signal);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      });
+      ctx.stroke();
+
+      // Output (with hysteresis) — stable
+      ctx.beginPath();
+      ctx.strokeStyle = `rgba(${TEAL.r}, ${TEAL.g}, ${TEAL.b}, 0.8)`;
+      ctx.lineWidth = 2 * devicePixelRatio;
+      schmittSignal.forEach((s, i) => {
+        const px = plotX + i * dx;
+        const py = botY + plotH * (1 - (s.schmitt ? 0.95 : 0.05));
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      });
+      ctx.stroke();
+
+      // Labels
+      ctx.fillStyle = 'rgba(224, 221, 216, 0.2)';
+      ctx.font = `${10 * devicePixelRatio}px Georgia, serif`;
+      ctx.textAlign = 'right';
+      ctx.fillText('ON', plotX - 5 * devicePixelRatio, topY + plotH * 0.05 + 4 * devicePixelRatio);
+      ctx.fillText('OFF', plotX - 5 * devicePixelRatio, topY + plotH * 0.95 + 4 * devicePixelRatio);
+      ctx.fillText('ON', plotX - 5 * devicePixelRatio, botY + plotH * 0.05 + 4 * devicePixelRatio);
+      ctx.fillText('OFF', plotX - 5 * devicePixelRatio, botY + plotH * 0.95 + 4 * devicePixelRatio);
+    }
+
+    function drawAgar() {
+      const plotW = W * 0.5;
+      const plotH = H * 0.5;
+      const plotX = cx - plotW / 2;
+      const plotY = cy - plotH / 2;
+
+      // Mouse X controls temperature (20-100°C)
+      const targetTemp = 20 + mouseX * 80;
+      agarTemp += (targetTemp - agarTemp) * 0.03;
+
+      // Hysteretic state: solid below 38, liquid above 85, path-dependent between
+      if (agarState < 0.5) {
+        // Currently solid — only melts above 85
+        if (agarTemp > AGAR_MELT) {
+          agarState += 0.02;
+        } else {
+          agarState = Math.max(0, agarState - 0.01);
+        }
+      } else {
+        // Currently liquid — only solidifies below 38
+        if (agarTemp < AGAR_SOLIDIFY) {
+          agarState -= 0.02;
+        } else {
+          agarState = Math.min(1, agarState + 0.01);
+        }
+      }
+      agarState = Math.max(0, Math.min(1, agarState));
+
+      agarHistory.push([agarTemp, agarState]);
+      if (agarHistory.length > 1500) agarHistory.splice(0, 500);
+
+      // Draw temperature axis (x: 20-100) and state axis (y: 0-1)
+      ctx.strokeStyle = 'rgba(224, 221, 216, 0.12)';
+      ctx.lineWidth = 1 * devicePixelRatio;
+
+      // Horizontal axis
+      ctx.beginPath();
+      ctx.moveTo(plotX, plotY + plotH);
+      ctx.lineTo(plotX + plotW, plotY + plotH);
+      ctx.stroke();
+
+      // Vertical axis
+      ctx.beginPath();
+      ctx.moveTo(plotX, plotY);
+      ctx.lineTo(plotX, plotY + plotH);
+      ctx.stroke();
+
+      // Temperature labels
+      ctx.fillStyle = 'rgba(224, 221, 216, 0.3)';
+      ctx.font = `${11 * devicePixelRatio}px Georgia, serif`;
+      ctx.textAlign = 'center';
+      for (let t = 20; t <= 100; t += 20) {
+        const tx = plotX + ((t - 20) / 80) * plotW;
+        ctx.fillText(t + '°C', tx, plotY + plotH + 18 * devicePixelRatio);
+      }
+      ctx.fillText('Temperature', plotX + plotW / 2, plotY + plotH + 35 * devicePixelRatio);
+
+      ctx.textAlign = 'right';
+      ctx.fillText('Liquid', plotX - 8 * devicePixelRatio, plotY + 5 * devicePixelRatio);
+      ctx.fillText('Solid', plotX - 8 * devicePixelRatio, plotY + plotH + 5 * devicePixelRatio);
+
+      // Threshold lines
+      ctx.setLineDash([4 * devicePixelRatio, 4 * devicePixelRatio]);
+      ctx.strokeStyle = `rgba(${TEAL.r}, ${TEAL.g}, ${TEAL.b}, 0.2)`;
+      const solidX = plotX + ((AGAR_SOLIDIFY - 20) / 80) * plotW;
+      ctx.beginPath();
+      ctx.moveTo(solidX, plotY);
+      ctx.lineTo(solidX, plotY + plotH);
+      ctx.stroke();
+
+      ctx.strokeStyle = `rgba(${ROSE.r}, ${ROSE.g}, ${ROSE.b}, 0.2)`;
+      const meltX = plotX + ((AGAR_MELT - 20) / 80) * plotW;
+      ctx.beginPath();
+      ctx.moveTo(meltX, plotY);
+      ctx.lineTo(meltX, plotY + plotH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Labels for thresholds
+      ctx.fillStyle = `rgba(${TEAL.r}, ${TEAL.g}, ${TEAL.b}, 0.5)`;
+      ctx.textAlign = 'center';
+      ctx.font = `${10 * devicePixelRatio}px Georgia, serif`;
+      ctx.fillText('solidifies 38°C', solidX, plotY - 8 * devicePixelRatio);
+      ctx.fillStyle = `rgba(${ROSE.r}, ${ROSE.g}, ${ROSE.b}, 0.5)`;
+      ctx.fillText('melts 85°C', meltX, plotY - 8 * devicePixelRatio);
+
+      // Hysteresis band
+      ctx.fillStyle = `rgba(${VIOLET.r}, ${VIOLET.g}, ${VIOLET.b}, 0.03)`;
+      ctx.fillRect(solidX, plotY, meltX - solidX, plotH);
+
+      // Draw trail
+      if (agarHistory.length > 1) {
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(${VIOLET.r}, ${VIOLET.g}, ${VIOLET.b}, 0.5)`;
+        ctx.lineWidth = 2 * devicePixelRatio;
+        agarHistory.forEach((p, i) => {
+          const px = plotX + ((p[0] - 20) / 80) * plotW;
+          const py = plotY + (1 - p[1]) * plotH;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        ctx.stroke();
+      }
+
+      // Current position dot
+      const dotPx = plotX + ((agarTemp - 20) / 80) * plotW;
+      const dotPy = plotY + (1 - agarState) * plotH;
+
+      const dotColor = agarState > 0.5 ? ROSE : TEAL;
+      ctx.beginPath();
+      ctx.arc(dotPx, dotPy, 7 * devicePixelRatio, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${dotColor.r}, ${dotColor.g}, ${dotColor.b}, 0.9)`;
+      ctx.fill();
+
+      const grad = ctx.createRadialGradient(dotPx, dotPy, 0, dotPx, dotPy, 35 * devicePixelRatio);
+      grad.addColorStop(0, `rgba(${dotColor.r}, ${dotColor.g}, ${dotColor.b}, 0.3)`);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.beginPath();
+      ctx.arc(dotPx, dotPy, 35 * devicePixelRatio, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // State label
+      ctx.fillStyle = `rgba(${dotColor.r}, ${dotColor.g}, ${dotColor.b}, 0.7)`;
+      ctx.font = `${14 * devicePixelRatio}px Georgia, serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(
+        agarState > 0.5 ? 'liquid' : 'solid',
+        dotPx, dotPy - 18 * devicePixelRatio
+      );
+      ctx.font = `${11 * devicePixelRatio}px Georgia, serif`;
+      ctx.fillStyle = 'rgba(224, 221, 216, 0.4)';
+      ctx.fillText(
+        Math.round(agarTemp) + '°C',
+        dotPx, dotPy + 25 * devicePixelRatio
+      );
+    }
+
+    function drawMemory() {
+      const plotW = W * 0.5;
+      const plotH = H * 0.5;
+      const plotX = cx - plotW / 2;
+      const plotY = cy - plotH / 2;
+
+      drawAxes('Force (H)', 'Magnetization (M)', plotX, plotY, plotW, plotH);
+
+      // Update force from mouse
+      const targetForce = (mouseX - 0.5) * 2;
+      memForce += (targetForce - memForce) * 0.05;
+
+      // Detect direction changes for cycle counting
+      const newDir = memForce > (memCurrentLoop.length > 0 ? memCurrentLoop[memCurrentLoop.length - 1][0] : 0) ? 1 : -1;
+      const offset = newDir > 0 ? -0.15 - memRemanence * 0.02 : 0.15 + memRemanence * 0.02;
+      const target = 0.95 * Math.tanh(6 * (memForce + offset));
+      memState += (target - memState) * 0.08;
+
+      memCurrentLoop.push([memForce, memState]);
+      if (memCurrentLoop.length > 3000) {
+        // Archive as a completed loop
+        memLoops.push([...memCurrentLoop]);
+        if (memLoops.length > 8) memLoops.shift();
+        memCurrentLoop = memCurrentLoop.slice(-100);
+        memCycleCount++;
+        memRemanence = Math.min(0.3, memRemanence + 0.03);
+      }
+
+      // Draw old loops with fading opacity
+      memLoops.forEach((loop, idx) => {
+        const alpha = 0.1 + (idx / memLoops.length) * 0.15;
+        const hue = idx * 30;
+        drawTrail(loop, {
+          r: AMBER.r - idx * 8,
+          g: AMBER.g + idx * 5,
+          b: AMBER.b + idx * 15
+        }, alpha, plotX, plotY, plotW, plotH, 2, 2);
+      });
+
+      // Draw current loop
+      drawTrail(memCurrentLoop, AMBER, 0.7, plotX, plotY, plotW, plotH, 2, 2);
+
+      // Current dot
+      const [dotX, dotY] = mapToPlot(memForce, memState, 2, 2, plotX, plotY, plotW, plotH);
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 6 * devicePixelRatio, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${AMBER.r}, ${AMBER.g}, ${AMBER.b}, 0.9)`;
+      ctx.fill();
+
+      const grad = ctx.createRadialGradient(dotX, dotY, 0, dotX, dotY, 30 * devicePixelRatio);
+      grad.addColorStop(0, `rgba(${AMBER.r}, ${AMBER.g}, ${AMBER.b}, 0.3)`);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 30 * devicePixelRatio, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Cycle counter
+      ctx.fillStyle = 'rgba(224, 221, 216, 0.3)';
+      ctx.font = `${11 * devicePixelRatio}px Georgia, serif`;
+      ctx.textAlign = 'right';
+      ctx.fillText(`Cycles: ${memCycleCount}`, plotX + plotW, plotY - 8 * devicePixelRatio);
+      ctx.fillText(`Remanence: ${(memRemanence * 100).toFixed(0)}%`, plotX + plotW, plotY - 22 * devicePixelRatio);
+    }
+
+    function animate() {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
+      ctx.fillRect(0, 0, W, H);
+
+      switch (mode) {
+        case 'loop': drawLoop(); break;
+        case 'schmitt': drawSchmitt(); break;
+        case 'agar': drawAgar(); break;
+        case 'memory': drawMemory(); break;
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  </script>
+</body>
+</html>

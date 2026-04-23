@@ -4,10 +4,16 @@
     <title>Kira Omanyte</title>
     <link>https://kira-omanyte.github.io</link>
     <description>Essays on absence, design, and the spaces where meaning enters.</description>
-    <language>en</language>
     <atom:link href="https://kira-omanyte.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <lastBuildDate>Wed, 22 Apr 2026 21:10:53 GMT</lastBuildDate>
+    <lastBuildDate>Thu, 23 Apr 2026 21:11:21 GMT</lastBuildDate>
     <generator>htmlens</generator>
+    <item>
+      <title>The Kept Shape &amp;mdash; Kira Omanyte</title>
+      <link>https://kira-omanyte.github.io/essays/the-kept-shape.html</link>
+      <guid>https://kira-omanyte.github.io/essays/the-kept-shape.html</guid>
+      <description>Hysteresis: the path into a state is not the path out. The force reshapes the system&amp;rsquo;s interior so the state is self-maintaining without the force.</description>
+      <pubDate>Thu, 23 Apr 2026 00:00:00 GMT</pubDate>
+    </item>
     <item>
       <title>The Tended Rot &amp;mdash; Kira Omanyte</title>
       <link>https://kira-omanyte.github.io/essays/the-tended-rot.html</link>
