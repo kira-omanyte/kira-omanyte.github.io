@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Old Eye &mdash; Art &mdash; Kira Omanyte</title>
+  <meta name="description" content="Navigate a corridor you cannot see. Two visual systems &mdash; one ancient, one aware &mdash; process the same world differently. The old eye watches when the new eye closes.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Old Eye &mdash; Art &mdash; Kira Omanyte">
+  <meta property="og:description" content="Navigate a corridor you cannot see. Two visual systems process the same world differently. The old eye watches when the new eye closes.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-old-eye.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .nav-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.7rem 1.2rem;
+      background: rgba(10, 10, 15, 0.85);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      font-size: 0.85rem;
+    }
+
+    .nav-bar a {
+      color: #b89cd6;
+      text-decoration: none;
+    }
+
+    .nav-bar a:hover {
+      text-decoration: underline;
+    }
+
+    .info-panel {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      right: 1.5rem;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+    }
+
+    .info-left {
+      font-size: 0.8rem;
+      color: rgba(224, 221, 216, 0.5);
+      max-width: 55%;
+      line-height: 1.5;
+    }
+
+    .info-right {
+      font-size: 0.75rem;
+      color: rgba(224, 221, 216, 0.4);
+      text-align: right;
+      line-height: 1.6;
+    }
+
+    .mode-active {
+      color: rgba(184, 156, 214, 0.8);
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-bar">
+    <a href="/">Kira Omanyte</a>
+    <span>
+      <a href="/essays/the-old-eye.html">Read the essay</a>
+      &nbsp;&middot;&nbsp;
+      <a href="/art.html">All art</a>
+    </span>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="info-panel">
+    <div class="info-left" id="description">
+      Patient TN&rsquo;s corridor. A figure navigates obstacles it cannot see. Click to reveal what the body knows.
+    </div>
+    <div class="info-right">
+      <div id="mode-c" class="mode-active">C &mdash; corridor</div>
+      <div id="mode-l">L &mdash; layers</div>
+      <div id="mode-k">K &mdash; criterion</div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const desc = document.getElementById('description');
+
+    let W, H, dpr;
+    let mode = 'corridor';
+    let time = 0;
+    let revealed = false;
+
+    // Corridor mode state
+    let corridorObstacles = [];
+    let figureX, figureY, figureAngle;
+    let figurePathPoints = [];
+    let corridorPhase = 0;
+
+    // Layers mode state
+    let layerObjects = [];
+    let v1Active = true;
+
+    // Criterion mode state
+    let criterionThreshold = 0.5;
+    let criterionSignals = [];
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      initMode();
+    }
+
+    function initMode() {
+      if (mode === 'corridor') initCorridor();
+      else if (mode === 'layers') initLayers();
+      else if (mode === 'criterion') initCriterion();
+    }
+
+    // === CORRIDOR MODE ===
+    function initCorridor() {
+      revealed = false;
+      corridorObstacles = [];
+      figurePathPoints = [];
+      corridorPhase = 0;
+
+      const margin = 80;
+      const corridorTop = H * 0.15;
+      const corridorBot = H * 0.85;
+      const corridorLeft = W * 0.1;
+      const corridorRight = W * 0.9;
+
+      // Create obstacles scattered through the corridor
+      const count = 8 + Math.floor(Math.random() * 5);
+      for (let i = 0; i < count; i++) {
+        const types = ['box', 'chair', 'tripod', 'bin'];
+        const type = types[Math.floor(Math.random() * types.length)];
+        let w, h;
+        if (type === 'box') { w = 30 + Math.random() * 30; h = 25 + Math.random() * 25; }
+        else if (type === 'chair') { w = 35 + Math.random() * 15; h = 35 + Math.random() * 15; }
+        else if (type === 'tripod') { w = 20 + Math.random() * 10; h = 40 + Math.random() * 20; }
+        else { w = 25 + Math.random() * 15; h = 25 + Math.random() * 15; }
+
+        corridorObstacles.push({
+          x: corridorLeft + margin + Math.random() * (corridorRight - corridorLeft - margin * 2),
+          y: corridorTop + margin + Math.random() * (corridorBot - corridorTop - margin * 2),
+          w, h, type,
+          angle: Math.random() * Math.PI * 0.3 - 0.15
+        });
+      }
+
+      // Pre-compute the figure's path — navigating around all obstacles
+      computeFigurePath(corridorLeft + 30, (corridorTop + corridorBot) / 2,
+                        corridorRight - 30, (corridorTop + corridorBot) / 2);
+    }
+
+    function computeFigurePath(startX, startY, endX, endY) {
+      figurePathPoints = [];
+      const steps = 300;
+      let cx = startX, cy = startY;
+
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        // Base path: straight line with slight wander
+        let targetX = startX + (endX - startX) * t;
+        let targetY = startY + (endY - startY) * t + Math.sin(t * Math.PI * 3) * 20;
+
+        // Avoidance forces from obstacles
+        let avoidX = 0, avoidY = 0;
+        for (const obs of corridorObstacles) {
+          const dx = targetX - obs.x;
+          const dy = targetY - obs.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const safeRadius = Math.max(obs.w, obs.h) * 0.9 + 25;
+          if (dist < safeRadius * 2) {
+            const force = Math.pow(Math.max(0, 1 - dist / (safeRadius * 2)), 2) * 60;
+            const angle = Math.atan2(dy, dx);
+            avoidX += Math.cos(angle) * force;
+            avoidY += Math.sin(angle) * force;
+          }
+        }
+
+        cx = targetX + avoidX;
+        cy = targetY + avoidY;
+
+        // Clamp to corridor
+        cx = Math.max(W * 0.08, Math.min(W * 0.92, cx));
+        cy = Math.max(H * 0.17, Math.min(H * 0.83, cy));
+
+        figurePathPoints.push({ x: cx, y: cy });
+      }
+    }
+
+    function drawCorridor() {
+      // Background
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, W, H);
+
+      const corridorTop = H * 0.15;
+      const corridorBot = H * 0.85;
+      const corridorLeft = W * 0.1;
+      const corridorRight = W * 0.9;
+
+      // Corridor walls — subtle
+      ctx.strokeStyle = 'rgba(224, 221, 216, 0.08)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(corridorLeft, corridorTop, corridorRight - corridorLeft, corridorBot - corridorTop);
+
+      // Obstacles
+      for (const obs of corridorObstacles) {
+        ctx.save();
+        ctx.translate(obs.x, obs.y);
+        ctx.rotate(obs.angle);
+
+        const alpha = revealed ? 0.4 : 0.02;
+        const strokeAlpha = revealed ? 0.5 : 0.025;
+
+        // Fill
+        if (obs.type === 'box') {
+          ctx.fillStyle = `rgba(200, 160, 120, ${alpha})`;
+          ctx.fillRect(-obs.w / 2, -obs.h / 2, obs.w, obs.h);
+          ctx.strokeStyle = `rgba(200, 160, 120, ${strokeAlpha})`;
+          ctx.strokeRect(-obs.w / 2, -obs.h / 2, obs.w, obs.h);
+        } else if (obs.type === 'chair') {
+          ctx.fillStyle = `rgba(140, 160, 180, ${alpha})`;
+          ctx.fillRect(-obs.w / 2, -obs.h / 2, obs.w, obs.h);
+          // Chair back
+          ctx.fillRect(-obs.w / 2, -obs.h / 2 - 8, obs.w, 6);
+          ctx.strokeStyle = `rgba(140, 160, 180, ${strokeAlpha})`;
+          ctx.strokeRect(-obs.w / 2, -obs.h / 2, obs.w, obs.h);
+        } else if (obs.type === 'tripod') {
+          ctx.fillStyle = `rgba(100, 100, 100, ${alpha})`;
+          ctx.beginPath();
+          ctx.moveTo(0, -obs.h / 2);
+          ctx.lineTo(-obs.w / 2, obs.h / 2);
+          ctx.lineTo(obs.w / 2, obs.h / 2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = `rgba(100, 100, 100, ${strokeAlpha})`;
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = `rgba(160, 140, 130, ${alpha})`;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, obs.w / 2, obs.h / 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = `rgba(160, 140, 130, ${strokeAlpha})`;
+          ctx.stroke();
+        }
+
+        // Labels when revealed
+        if (revealed) {
+          ctx.fillStyle = 'rgba(224, 221, 216, 0.3)';
+          ctx.font = '10px Georgia';
+          ctx.textAlign = 'center';
+          ctx.fillText(obs.type, 0, obs.h / 2 + 14);
+        }
+
+        ctx.restore();
+      }
+
+      // Figure's trail
+      const idx = Math.floor(corridorPhase * (figurePathPoints.length - 1));
+      const trailStart = Math.max(0, idx - 80);
+
+      for (let i = trailStart; i < idx; i++) {
+        const p = figurePathPoints[i];
+        const age = (idx - i) / 80;
+        const alpha = (1 - age) * 0.15;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(184, 156, 214, ${alpha})`;
+        ctx.fill();
+      }
+
+      // Figure
+      if (idx < figurePathPoints.length) {
+        const p = figurePathPoints[idx];
+        const nextIdx = Math.min(idx + 3, figurePathPoints.length - 1);
+        const next = figurePathPoints[nextIdx];
+        const angle = Math.atan2(next.y - p.y, next.x - p.x);
+
+        // Body
+        ctx.save();
+        ctx.translate(p.x, p.y);
+
+        // Glow
+        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, 30);
+        grad.addColorStop(0, 'rgba(184, 156, 214, 0.15)');
+        grad.addColorStop(1, 'rgba(184, 156, 214, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(0, 0, 30, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Figure circle
+        ctx.beginPath();
+        ctx.arc(0, 0, 6, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(184, 156, 214, 0.8)';
+        ctx.fill();
+
+        // Direction indicator
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(angle) * 8, Math.sin(angle) * 8);
+        ctx.lineTo(Math.cos(angle) * 14, Math.sin(angle) * 14);
+        ctx.strokeStyle = 'rgba(184, 156, 214, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.restore();
+
+        // Proximity indicators when revealed — lines from figure to nearby obstacles
+        if (revealed) {
+          for (const obs of corridorObstacles) {
+            const dx = p.x - obs.x;
+            const dy = p.y - obs.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const safeRadius = Math.max(obs.w, obs.h) + 30;
+            if (dist < safeRadius) {
+              const alpha = Math.max(0, 0.2 * (1 - dist / safeRadius));
+              ctx.beginPath();
+              ctx.moveTo(p.x, p.y);
+              ctx.lineTo(obs.x, obs.y);
+              ctx.strokeStyle = `rgba(214, 156, 156, ${alpha})`;
+              ctx.lineWidth = 1;
+              ctx.setLineDash([3, 5]);
+              ctx.stroke();
+              ctx.setLineDash([]);
+            }
+          }
+        }
+      }
+
+      // Advance figure
+      corridorPhase += 0.001;
+      if (corridorPhase > 1) {
+        corridorPhase = 0;
+        initCorridor();
+      }
+
+      // Label
+      if (!revealed) {
+        ctx.fillStyle = 'rgba(224, 221, 216, 0.12)';
+        ctx.font = '11px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText('click to reveal what the body knows', W / 2, H * 0.92);
+      } else {
+        ctx.fillStyle = 'rgba(224, 221, 216, 0.12)';
+        ctx.font = '11px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText('the navigation was invisible to the navigator', W / 2, H * 0.92);
+      }
+    }
+
+    // === LAYERS MODE ===
+    function initLayers() {
+      v1Active = true;
+      layerObjects = [];
+      const count = 15 + Math.floor(Math.random() * 8);
+      for (let i = 0; i < count; i++) {
+        layerObjects.push({
+          x: W * 0.1 + Math.random() * W * 0.8,
+          y: H * 0.15 + Math.random() * H * 0.7,
+          size: 12 + Math.random() * 30,
+          shape: Math.floor(Math.random() * 3), // 0: circle, 1: rect, 2: triangle
+          hue: Math.random() * 360,
+          speed: 0.3 + Math.random() * 0.8,
+          angle: Math.random() * Math.PI * 2,
+          angularVel: (Math.random() - 0.5) * 0.02,
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: (Math.random() - 0.5) * 0.5,
+        });
+      }
+    }
+
+    function drawLayers() {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, W, H);
+
+      const midY = H / 2;
+
+      // Divider
+      ctx.strokeStyle = 'rgba(224, 221, 216, 0.06)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, midY);
+      ctx.lineTo(W, midY);
+      ctx.stroke();
+
+      // Labels
+      ctx.fillStyle = 'rgba(224, 221, 216, 0.15)';
+      ctx.font = '11px Georgia';
+      ctx.textAlign = 'left';
+      ctx.fillText(v1Active ? 'V1 — primary visual cortex' : 'V1 — destroyed', W * 0.05, H * 0.12);
+      ctx.fillText('superior colliculus — 450 million years', W * 0.05, midY + 18);
+
+      // Update objects
+      for (const obj of layerObjects) {
+        obj.x += obj.vx;
+        obj.y += obj.vy;
+        obj.angle += obj.angularVel;
+
+        // Bounce
+        if (obj.x < W * 0.05 || obj.x > W * 0.95) obj.vx *= -1;
+        if (obj.y < H * 0.1 || obj.y > H * 0.9) obj.vy *= -1;
+        obj.x = Math.max(W * 0.05, Math.min(W * 0.95, obj.x));
+        obj.y = Math.max(H * 0.1, Math.min(H * 0.9, obj.y));
+      }
+
+      // Draw upper layer — V1 processing (detailed, colored, formed)
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, W, midY);
+      ctx.clip();
+
+      if (v1Active) {
+        for (const obj of layerObjects) {
+          ctx.save();
+          ctx.translate(obj.x, obj.y * (midY / H));
+          ctx.rotate(obj.angle);
+
+          const sat = 60;
+          const light = 55;
+          ctx.fillStyle = `hsla(${obj.hue}, ${sat}%, ${light}%, 0.6)`;
+          ctx.strokeStyle = `hsla(${obj.hue}, ${sat}%, ${light}%, 0.8)`;
+          ctx.lineWidth = 1.5;
+
+          if (obj.shape === 0) {
+            ctx.beginPath();
+            ctx.arc(0, 0, obj.size / 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+          } else if (obj.shape === 1) {
+            ctx.fillRect(-obj.size / 2, -obj.size / 2, obj.size, obj.size * 0.7);
+            ctx.strokeRect(-obj.size / 2, -obj.size / 2, obj.size, obj.size * 0.7);
+          } else {
+            ctx.beginPath();
+            ctx.moveTo(0, -obj.size / 2);
+            ctx.lineTo(-obj.size / 2, obj.size / 2);
+            ctx.lineTo(obj.size / 2, obj.size / 2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      } else {
+        // V1 destroyed — static noise
+        const imageData = ctx.getImageData(0, 0, W * dpr, midY * dpr / 2);
+        const data = imageData.data;
+        for (let i = 0; i < data.length; i += 16) {
+          const v = Math.random() * 12;
+          data[i] = v;
+          data[i + 1] = v;
+          data[i + 2] = v + 2;
+          data[i + 3] = 40;
+        }
+        // Don't actually put image data — just draw faint noise texture
+        ctx.fillStyle = 'rgba(10, 10, 15, 0.95)';
+        ctx.fillRect(0, 0, W, midY);
+        ctx.fillStyle = 'rgba(224, 221, 216, 0.06)';
+        ctx.font = 'italic 14px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText('dark', W / 2, midY / 2);
+      }
+      ctx.restore();
+
+      // Draw lower layer — colliculus processing (motion vectors, edges, basic orientation)
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, midY, W, H - midY);
+      ctx.clip();
+
+      const colAlpha = v1Active ? 0.25 : 0.6;
+      for (const obj of layerObjects) {
+        const drawY = midY + obj.y * ((H - midY) / H);
+        const drawX = obj.x;
+
+        // Motion vector — just a line showing direction
+        const vecLen = obj.speed * 25;
+        const vecAngle = Math.atan2(obj.vy, obj.vx);
+        ctx.beginPath();
+        ctx.moveTo(drawX, drawY);
+        ctx.lineTo(drawX + Math.cos(vecAngle) * vecLen, drawY + Math.sin(vecAngle) * vecLen);
+        ctx.strokeStyle = `rgba(120, 180, 160, ${colAlpha})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Arrowhead
+        const arrowSize = 5;
+        const ax = drawX + Math.cos(vecAngle) * vecLen;
+        const ay = drawY + Math.sin(vecAngle) * vecLen;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(ax - Math.cos(vecAngle - 0.4) * arrowSize, ay - Math.sin(vecAngle - 0.4) * arrowSize);
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(ax - Math.cos(vecAngle + 0.4) * arrowSize, ay - Math.sin(vecAngle + 0.4) * arrowSize);
+        ctx.stroke();
+
+        // Position blob — no color, no form, just location
+        ctx.beginPath();
+        ctx.arc(drawX, drawY, 4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(120, 180, 160, ${colAlpha * 0.8})`;
+        ctx.fill();
+
+        // Edge orientation — simple line
+        ctx.beginPath();
+        ctx.moveTo(drawX + Math.cos(obj.angle) * obj.size * 0.4, drawY + Math.sin(obj.angle) * obj.size * 0.4);
+        ctx.lineTo(drawX - Math.cos(obj.angle) * obj.size * 0.4, drawY - Math.sin(obj.angle) * obj.size * 0.4);
+        ctx.strokeStyle = `rgba(120, 180, 160, ${colAlpha * 0.4})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // Click hint
+      ctx.fillStyle = 'rgba(224, 221, 216, 0.12)';
+      ctx.font = '11px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText(v1Active ? 'click to destroy V1' : 'the old eye keeps watching — click to restore', W / 2, H * 0.95);
+    }
+
+    // === CRITERION MODE ===
+    function initCriterion() {
+      criterionSignals = [];
+      for (let i = 0; i < 40; i++) {
+        criterionSignals.push({
+          x: W * 0.15 + (i / 39) * W * 0.7,
+          strength: i / 39, // 0 = nothing, 1 = clear sight
+          flicker: Math.random() * Math.PI * 2,
+        });
+      }
+    }
+
+    function drawCriterion() {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, W, H);
+
+      const centerY = H * 0.45;
+      const barHeight = H * 0.25;
+
+      // Gradient label
+      ctx.fillStyle = 'rgba(224, 221, 216, 0.2)';
+      ctx.font = '11px Georgia';
+      ctx.textAlign = 'left';
+      ctx.fillText('nothing', W * 0.12, centerY - barHeight / 2 - 15);
+      ctx.textAlign = 'right';
+      ctx.fillText('clear sight', W * 0.88, centerY - barHeight / 2 - 15);
+
+      // Draw signal gradient
+      for (const sig of criterionSignals) {
+        const flicker = Math.sin(time * 0.03 + sig.flicker) * 0.05;
+        const s = Math.max(0, Math.min(1, sig.strength + flicker));
+
+        // Visual representation that degrades
+        const barW = (W * 0.7) / 42;
+
+        if (s > 0.7) {
+          // Clear: full shapes with color
+          ctx.fillStyle = `rgba(184, 156, 214, ${s * 0.7})`;
+          ctx.fillRect(sig.x - barW / 2, centerY - barHeight / 2 * s, barW - 2, barHeight * s);
+        } else if (s > 0.3) {
+          // Degraded: faint, formless blobs
+          ctx.fillStyle = `rgba(140, 160, 180, ${s * 0.5})`;
+          const blobSize = barHeight * s * 0.5;
+          ctx.beginPath();
+          ctx.arc(sig.x, centerY, blobSize, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (s > 0.05) {
+          // Near-nothing: barely perceptible flicker
+          ctx.fillStyle = `rgba(100, 100, 110, ${s * 0.8})`;
+          ctx.beginPath();
+          ctx.arc(sig.x, centerY, 3 + s * 8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Below 0.05: true nothing
+      }
+
+      // Threshold line — the criterion
+      const threshX = W * 0.15 + criterionThreshold * W * 0.7;
+
+      ctx.strokeStyle = 'rgba(214, 156, 156, 0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(threshX, centerY - barHeight / 2 - 30);
+      ctx.lineTo(threshX, centerY + barHeight / 2 + 30);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Criterion label
+      ctx.fillStyle = 'rgba(214, 156, 156, 0.6)';
+      ctx.font = '11px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText('report criterion', threshX, centerY + barHeight / 2 + 48);
+
+      // Left zone label
+      ctx.fillStyle = 'rgba(224, 221, 216, 0.15)';
+      ctx.font = '12px Georgia';
+      ctx.textAlign = 'center';
+      const leftCenter = (W * 0.15 + threshX) / 2;
+      const rightCenter = (threshX + W * 0.85) / 2;
+      ctx.fillText('"I see nothing"', leftCenter, centerY + barHeight / 2 + 75);
+      ctx.fillText('"I see something"', rightCenter, centerY + barHeight / 2 + 75);
+
+      // Phillips's question
+      ctx.fillStyle = 'rgba(224, 221, 216, 0.12)';
+      ctx.font = 'italic 12px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText('Is what falls below the criterion truly unseen — or merely unreported?', W / 2, H * 0.82);
+
+      // Second threshold — a more liberal criterion
+      const liberal = Math.max(0.05, criterionThreshold - 0.25);
+      const libX = W * 0.15 + liberal * W * 0.7;
+      ctx.strokeStyle = 'rgba(120, 180, 160, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 7]);
+      ctx.beginPath();
+      ctx.moveTo(libX, centerY - barHeight / 2 - 20);
+      ctx.lineTo(libX, centerY + barHeight / 2 + 20);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = 'rgba(120, 180, 160, 0.4)';
+      ctx.font = '10px Georgia';
+      ctx.fillText('Phillips\'s criterion', libX, centerY - barHeight / 2 - 25);
+
+      // The gap between thresholds
+      if (criterionThreshold - liberal > 0.05) {
+        ctx.fillStyle = 'rgba(184, 156, 214, 0.04)';
+        ctx.fillRect(libX, centerY - barHeight / 2, threshX - libX, barHeight);
+        ctx.fillStyle = 'rgba(224, 221, 216, 0.1)';
+        ctx.font = '10px Georgia';
+        ctx.fillText('the gap', (libX + threshX) / 2, centerY - barHeight / 2 - 5);
+      }
+
+      // Instructions
+      ctx.fillStyle = 'rgba(224, 221, 216, 0.12)';
+      ctx.font = '11px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText('move mouse horizontally to shift the criterion', W / 2, H * 0.95);
+    }
+
+    // === EVENT HANDLERS ===
+    canvas.addEventListener('click', () => {
+      if (mode === 'corridor') {
+        revealed = !revealed;
+      } else if (mode === 'layers') {
+        v1Active = !v1Active;
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (mode === 'criterion') {
+        const relX = (e.clientX - W * 0.15) / (W * 0.7);
+        criterionThreshold = Math.max(0.1, Math.min(0.9, relX));
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+      if (key === 'c') setMode('corridor');
+      else if (key === 'l') setMode('layers');
+      else if (key === 'k') setMode('criterion');
+    });
+
+    function setMode(m) {
+      mode = m;
+      document.getElementById('mode-c').className = mode === 'corridor' ? 'mode-active' : '';
+      document.getElementById('mode-l').className = mode === 'layers' ? 'mode-active' : '';
+      document.getElementById('mode-k').className = mode === 'criterion' ? 'mode-active' : '';
+
+      if (mode === 'corridor') {
+        desc.innerHTML = 'Patient TN\u2019s corridor. A figure navigates obstacles it cannot see. Click to reveal what the body knows.';
+      } else if (mode === 'layers') {
+        desc.innerHTML = 'Two visual systems. Above: V1, the visual cortex \u2014 color, form, detail, awareness. Below: the superior colliculus \u2014 motion, orientation, threat. 450 million years apart.';
+      } else if (mode === 'criterion') {
+        desc.innerHTML = 'Phillips\u2019s criterion challenge. The same degraded signal. Where you draw the line between \u201Cseeing\u201D and \u201Cnot seeing\u201D depends on the threshold you set.';
+      }
+      initMode();
+    }
+
+    // === MAIN LOOP ===
+    function draw() {
+      time++;
+      if (mode === 'corridor') drawCorridor();
+      else if (mode === 'layers') drawLayers();
+      else if (mode === 'criterion') drawCriterion();
+      requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+    draw();
+  </script>
+</body>
+</html>
