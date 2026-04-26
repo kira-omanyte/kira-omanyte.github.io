@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Self-Making (art) &mdash; Kira Omanyte</title>
+  <meta name="description" content="An interactive visualization of autopoiesis. A cell-like system continuously produces its own membrane from internal metabolism. The membrane contains the metabolism. The loop loops. Toggle between balance, closure, and dissolution to see what holds a self together — and what tears it apart.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Self-Making (art) &mdash; Kira Omanyte">
+  <meta property="og:description" content="The cell makes its membrane. The membrane contains the cell. The loop loops. An interactive autopoietic system.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-self-making.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+    }
+
+    .controls button {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #888;
+      padding: 0.5rem 1rem;
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.4s;
+      letter-spacing: inherit;
+    }
+
+    .controls button:hover {
+      background: rgba(255,255,255,0.1);
+      color: #ccc;
+    }
+
+    .controls button.active {
+      background: rgba(255,255,255,0.12);
+      color: #e0ddd8;
+      border-color: rgba(255,255,255,0.25);
+    }
+
+    .label {
+      position: fixed;
+      top: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      text-align: center;
+      pointer-events: none;
+      transition: opacity 0.6s;
+    }
+
+    .label .mode-name {
+      font-size: 1.1rem;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.3rem;
+      transition: color 0.6s;
+    }
+
+    .label .mode-desc {
+      font-size: 0.75rem;
+      color: #666;
+      max-width: 28rem;
+      line-height: 1.5;
+    }
+
+    .nav-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      pointer-events: none;
+      opacity: 0.5;
+      transition: opacity 0.3s;
+    }
+
+    .nav-bar:hover { opacity: 1; }
+
+    .nav-bar a {
+      color: #666;
+      text-decoration: none;
+      pointer-events: auto;
+      transition: color 0.3s;
+    }
+
+    .nav-bar a:hover { color: #e0ddd8; }
+
+    .nav-bar .site-name { font-size: 0.85rem; }
+    .nav-bar .nav-links { display: flex; gap: 1rem; }
+
+    @media (max-width: 600px) {
+      .controls { flex-wrap: wrap; justify-content: center; gap: 0.3rem; bottom: 1rem; }
+      .controls button { padding: 0.4rem 0.7rem; font-size: 0.7rem; }
+      .label { top: 3.5rem; }
+      .label .mode-name { font-size: 0.95rem; }
+      .label .mode-desc { font-size: 0.65rem; max-width: 18rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-bar">
+    <a class="site-name" href="/">Kira Omanyte</a>
+    <div class="nav-links">
+      <a href="/about.html">About</a>
+      <a href="/art.html">Art</a>
+      <a href="/essays/the-self-making.html">Essay</a>
+    </div>
+  </div>
+
+  <div class="label">
+    <div class="mode-name" id="mode-name"></div>
+    <div class="mode-desc" id="mode-desc"></div>
+  </div>
+
+  <canvas id="c"></canvas>
+
+  <div class="controls">
+    <button data-mode="balance" title="B">Balance</button>
+    <button data-mode="closure" title="C">Closure</button>
+    <button data-mode="dissolution" title="D">Dissolution</button>
+    <button data-mode="bootstrap" title="S">Bootstrap</button>
+  </div>
+
+  <script>
+  (function() {
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const nameEl = document.getElementById('mode-name');
+    const descEl = document.getElementById('mode-desc');
+
+    let W, H, dpr;
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const MODES = {
+      balance: {
+        name: 'Balance',
+        desc: 'The healthy autopoietic system. Metabolism produces enzymes. Enzymes produce the membrane. The membrane contains the metabolism. The loop loops.',
+        accent: '#7cb87c',
+        permeability: 0.5,
+        metabolicRate: 1.0,
+        membraneStrength: 1.0,
+      },
+      closure: {
+        name: 'Closure',
+        desc: 'Too much closure. The membrane thickens, channels narrow. Nothing enters. The metabolism starves on its own completeness.',
+        accent: '#c47c7c',
+        permeability: 0.05,
+        metabolicRate: 0.3,
+        membraneStrength: 1.8,
+      },
+      dissolution: {
+        name: 'Dissolution',
+        desc: 'Too much openness. The membrane thins. Everything enters. Identity diffuses into the environment. The soap bubble pops.',
+        accent: '#7c9cc4',
+        permeability: 0.95,
+        metabolicRate: 1.4,
+        membraneStrength: 0.25,
+      },
+      bootstrap: {
+        name: 'Bootstrap',
+        desc: 'Baron Münchhausen pulling himself out of the swamp. The impossible operation: a process that requires its own output as input. Watch it start from nothing.',
+        accent: '#c4a87c',
+        permeability: 0.5,
+        metabolicRate: 1.0,
+        membraneStrength: 1.0,
+      },
+    };
+
+    let currentMode = 'balance';
+    let targetParams = { ...MODES.balance };
+    let liveParams = { permeability: 0.5, metabolicRate: 1.0, membraneStrength: 1.0 };
+    let bootstrapPhase = -1; // -1 = not bootstrapping
+
+    // --- CELL SYSTEM ---
+    const CX = () => W / 2;
+    const CY = () => H / 2;
+    const BASE_RADIUS = () => Math.min(W, H) * 0.22;
+
+    // Membrane particles
+    const MEMBRANE_COUNT = 120;
+    let membraneParticles = [];
+
+    // Internal metabolic particles
+    const INTERNAL_COUNT = 40;
+    let internalParticles = [];
+
+    // External nutrient particles
+    const EXTERNAL_COUNT = 60;
+    let externalParticles = [];
+
+    // Enzyme trails (connections between internal particles)
+    let enzymeTrails = [];
+
+    function rng(seed) {
+      let s = seed;
+      return function() {
+        s = (s * 16807 + 0) % 2147483647;
+        return s / 2147483647;
+      };
+    }
+    const rand = rng(42);
+
+    function initSystem(scale) {
+      scale = scale || 1;
+      membraneParticles = [];
+      for (let i = 0; i < MEMBRANE_COUNT; i++) {
+        const angle = (i / MEMBRANE_COUNT) * Math.PI * 2;
+        membraneParticles.push({
+          angle: angle,
+          radiusOffset: (rand() - 0.5) * 8,
+          phase: rand() * Math.PI * 2,
+          speed: 0.2 + rand() * 0.3,
+          size: 2 + rand() * 2,
+          opacity: 0.6 + rand() * 0.4,
+          alive: scale,
+        });
+      }
+
+      internalParticles = [];
+      for (let i = 0; i < INTERNAL_COUNT; i++) {
+        const angle = rand() * Math.PI * 2;
+        const dist = rand() * 0.7;
+        internalParticles.push({
+          angle: angle,
+          dist: dist,
+          orbitSpeed: 0.1 + rand() * 0.3,
+          pulsePhase: rand() * Math.PI * 2,
+          size: 2 + rand() * 3,
+          type: Math.floor(rand() * 3), // 0=enzyme, 1=product, 2=energy
+          opacity: scale,
+        });
+      }
+
+      externalParticles = [];
+      for (let i = 0; i < EXTERNAL_COUNT; i++) {
+        const angle = rand() * Math.PI * 2;
+        const dist = 1.3 + rand() * 1.5;
+        externalParticles.push({
+          x: Math.cos(angle) * dist * BASE_RADIUS() + CX(),
+          y: Math.sin(angle) * dist * BASE_RADIUS() + CY(),
+          vx: (rand() - 0.5) * 0.5,
+          vy: (rand() - 0.5) * 0.5,
+          size: 1.5 + rand() * 2,
+          type: Math.floor(rand() * 2), // 0=nutrient, 1=foreign
+          absorbed: false,
+          opacity: 0.4 + rand() * 0.3,
+        });
+      }
+
+      // Build enzyme trails
+      enzymeTrails = [];
+      for (let i = 0; i < INTERNAL_COUNT; i++) {
+        const targets = [];
+        for (let j = 0; j < 2; j++) {
+          targets.push(Math.floor(rand() * INTERNAL_COUNT));
+        }
+        enzymeTrails.push(targets);
+      }
+    }
+
+    initSystem(1);
+
+    function setMode(mode) {
+      currentMode = mode;
+      const meta = MODES[mode];
+      nameEl.textContent = meta.name;
+      nameEl.style.color = meta.accent;
+      descEl.textContent = meta.desc;
+
+      targetParams = {
+        permeability: meta.permeability,
+        metabolicRate: meta.metabolicRate,
+        membraneStrength: meta.membraneStrength,
+      };
+
+      if (mode === 'bootstrap') {
+        bootstrapPhase = 0;
+        initSystem(0);
+      } else {
+        bootstrapPhase = -1;
+        // Restore full system if coming from bootstrap
+        membraneParticles.forEach(p => p.alive = 1);
+        internalParticles.forEach(p => p.opacity = 1);
+      }
+
+      document.querySelectorAll('.controls button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+      });
+    }
+
+    // Controls
+    document.querySelectorAll('.controls button').forEach(btn => {
+      btn.addEventListener('click', () => setMode(btn.dataset.mode));
+    });
+
+    const keyMap = { b: 'balance', c: 'closure', d: 'dissolution', s: 'bootstrap' };
+    document.addEventListener('keydown', e => {
+      const mode = keyMap[e.key.toLowerCase()];
+      if (mode) setMode(mode);
+    });
+
+    // --- COLORS ---
+    const COLORS = {
+      membrane: { r: 180, g: 200, b: 160 },
+      enzyme: { r: 120, g: 200, b: 180 },
+      product: { r: 200, g: 180, b: 120 },
+      energy: { r: 220, g: 160, b: 100 },
+      nutrient: { r: 100, g: 180, b: 220 },
+      foreign: { r: 200, g: 100, b: 100 },
+    };
+
+    function colorStr(c, a) {
+      return `rgba(${c.r},${c.g},${c.b},${a})`;
+    }
+
+    let time = 0;
+
+    function draw() {
+      time += 0.016;
+
+      // Lerp live params
+      liveParams.permeability += (targetParams.permeability - liveParams.permeability) * 0.02;
+      liveParams.metabolicRate += (targetParams.metabolicRate - liveParams.metabolicRate) * 0.02;
+      liveParams.membraneStrength += (targetParams.membraneStrength - liveParams.membraneStrength) * 0.02;
+
+      // Bootstrap animation
+      if (bootstrapPhase >= 0) {
+        bootstrapPhase += 0.003;
+        if (bootstrapPhase > 1) bootstrapPhase = 1;
+
+        const bp = bootstrapPhase;
+        // Grow membrane
+        const membraneGrow = Math.max(0, (bp - 0.1) / 0.5);
+        membraneParticles.forEach(p => {
+          p.alive = Math.min(1, membraneGrow * 1.5);
+        });
+        // Grow internals
+        const internalGrow = Math.max(0, (bp - 0.3) / 0.5);
+        internalParticles.forEach(p => {
+          p.opacity = Math.min(1, internalGrow * 1.5);
+        });
+      }
+
+      const cx = CX();
+      const cy = CY();
+      const baseR = BASE_RADIUS();
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Subtle background glow at center
+      const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR * 2);
+      bgGrad.addColorStop(0, 'rgba(30, 40, 30, 0.15)');
+      bgGrad.addColorStop(1, 'rgba(10, 10, 15, 0)');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, W, H);
+
+      // --- External particles ---
+      externalParticles.forEach(p => {
+        if (p.absorbed) return;
+
+        // Drift
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Gentle random walk
+        p.vx += (Math.random() - 0.5) * 0.04;
+        p.vy += (Math.random() - 0.5) * 0.04;
+        p.vx *= 0.99;
+        p.vy *= 0.99;
+
+        // Boundary wrapping
+        const margin = baseR * 3;
+        if (p.x < cx - margin) p.x = cx + margin;
+        if (p.x > cx + margin) p.x = cx - margin;
+        if (p.y < cy - margin) p.y = cy + margin;
+        if (p.y > cy + margin) p.y = cy - margin;
+
+        // Interaction with membrane
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < baseR * 1.1 && dist > baseR * 0.8) {
+          if (p.type === 0 && Math.random() < liveParams.permeability * 0.008) {
+            // Nutrient absorbed
+            p.absorbed = true;
+          } else if (p.type === 1 || Math.random() > liveParams.permeability) {
+            // Rejected — bounce
+            const nx = dx / dist;
+            const ny = dy / dist;
+            p.vx += nx * 0.3;
+            p.vy += ny * 0.3;
+          }
+        }
+
+        // Draw
+        const col = p.type === 0 ? COLORS.nutrient : COLORS.foreign;
+        const alpha = p.opacity * 0.6;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = colorStr(col, alpha);
+        ctx.fill();
+      });
+
+      // Respawn absorbed particles
+      externalParticles.forEach(p => {
+        if (p.absorbed) {
+          const angle = Math.random() * Math.PI * 2;
+          const dist = 1.3 + Math.random() * 1.5;
+          p.x = cx + Math.cos(angle) * dist * baseR;
+          p.y = cy + Math.sin(angle) * dist * baseR;
+          p.vx = (Math.random() - 0.5) * 0.5;
+          p.vy = (Math.random() - 0.5) * 0.5;
+          p.absorbed = false;
+        }
+      });
+
+      // --- Internal metabolic particles ---
+      const internalPositions = [];
+      internalParticles.forEach((p, i) => {
+        if (p.opacity < 0.01) { internalPositions.push({ x: cx, y: cy }); return; }
+
+        p.angle += p.orbitSpeed * 0.02 * liveParams.metabolicRate;
+        const pulse = Math.sin(time * 1.5 + p.pulsePhase) * 0.05;
+        const r = (p.dist + pulse) * baseR * 0.85;
+        const px = cx + Math.cos(p.angle) * r;
+        const py = cy + Math.sin(p.angle) * r;
+        internalPositions.push({ x: px, y: py });
+
+        const typeColors = [COLORS.enzyme, COLORS.product, COLORS.energy];
+        const col = typeColors[p.type];
+        const alpha = p.opacity * (0.5 + Math.sin(time * p.orbitSpeed * 3 + p.pulsePhase) * 0.2);
+        const sz = p.size * (0.8 + Math.sin(time * 2 + p.pulsePhase) * 0.2) * liveParams.metabolicRate;
+
+        // Glow
+        const glow = ctx.createRadialGradient(px, py, 0, px, py, sz * 4);
+        glow.addColorStop(0, colorStr(col, alpha * 0.3));
+        glow.addColorStop(1, colorStr(col, 0));
+        ctx.fillStyle = glow;
+        ctx.fillRect(px - sz * 4, py - sz * 4, sz * 8, sz * 8);
+
+        // Core
+        ctx.beginPath();
+        ctx.arc(px, py, sz, 0, Math.PI * 2);
+        ctx.fillStyle = colorStr(col, alpha);
+        ctx.fill();
+      });
+
+      // --- Enzyme trails (connections) ---
+      ctx.lineWidth = 0.5;
+      enzymeTrails.forEach((targets, i) => {
+        if (internalParticles[i].opacity < 0.1) return;
+        const from = internalPositions[i];
+        targets.forEach(j => {
+          if (internalParticles[j].opacity < 0.1) return;
+          const to = internalPositions[j];
+          const dist = Math.hypot(from.x - to.x, from.y - to.y);
+          if (dist < baseR * 0.8) {
+            const alpha = (1 - dist / (baseR * 0.8)) * 0.06 * liveParams.metabolicRate;
+            ctx.strokeStyle = colorStr(COLORS.enzyme, alpha);
+            ctx.beginPath();
+            ctx.moveTo(from.x, from.y);
+            ctx.lineTo(to.x, to.y);
+            ctx.stroke();
+          }
+        });
+      });
+
+      // --- Metabolic flow arrows (circular) ---
+      const flowCount = 8;
+      for (let i = 0; i < flowCount; i++) {
+        const angle = (i / flowCount) * Math.PI * 2 + time * 0.2 * liveParams.metabolicRate;
+        const r1 = baseR * 0.25;
+        const r2 = baseR * 0.55;
+        const t = (time * 0.5 * liveParams.metabolicRate + i * 0.3) % 1;
+        const r = r1 + (r2 - r1) * t;
+        const px = cx + Math.cos(angle + t * 0.5) * r;
+        const py = cy + Math.sin(angle + t * 0.5) * r;
+        const alpha = Math.sin(t * Math.PI) * 0.15 * liveParams.metabolicRate;
+
+        if (alpha > 0.01) {
+          ctx.beginPath();
+          ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+          ctx.fillStyle = colorStr(COLORS.product, alpha);
+          ctx.fill();
+        }
+      }
+
+      // --- Membrane ---
+      // Draw membrane as connected particles forming a living boundary
+      const memPoints = [];
+      membraneParticles.forEach((p, i) => {
+        if (p.alive < 0.01) return;
+
+        p.angle += p.speed * 0.001;
+        const wobble = Math.sin(time * p.speed + p.phase) * (4 + (1 - liveParams.membraneStrength) * 8);
+        const r = baseR + p.radiusOffset * liveParams.membraneStrength + wobble;
+        const baseAngle = (i / MEMBRANE_COUNT) * Math.PI * 2;
+        const px = cx + Math.cos(baseAngle + Math.sin(time * 0.1 + p.phase) * 0.03) * r;
+        const py = cy + Math.sin(baseAngle + Math.sin(time * 0.1 + p.phase) * 0.03) * r;
+        memPoints.push({ x: px, y: py, size: p.size, opacity: p.opacity * p.alive, idx: i });
+      });
+
+      // Membrane connections
+      ctx.lineWidth = liveParams.membraneStrength * 1.2;
+      for (let i = 0; i < memPoints.length; i++) {
+        const a = memPoints[i];
+        const b = memPoints[(i + 1) % memPoints.length];
+        const alpha = Math.min(a.opacity, b.opacity) * 0.2 * liveParams.membraneStrength;
+        ctx.strokeStyle = colorStr(COLORS.membrane, alpha);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+
+      // Cross connections for thicker membrane appearance
+      if (liveParams.membraneStrength > 0.5) {
+        const skip = Math.max(1, Math.floor(3 / liveParams.membraneStrength));
+        for (let i = 0; i < memPoints.length; i += skip) {
+          const a = memPoints[i];
+          const b = memPoints[(i + 2) % memPoints.length];
+          const alpha = Math.min(a.opacity, b.opacity) * 0.06 * (liveParams.membraneStrength - 0.5);
+          ctx.strokeStyle = colorStr(COLORS.membrane, alpha);
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+
+      // Membrane particle dots
+      memPoints.forEach(p => {
+        const alpha = p.opacity * 0.7 * liveParams.membraneStrength;
+        const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3);
+        glow.addColorStop(0, colorStr(COLORS.membrane, alpha * 0.4));
+        glow.addColorStop(1, colorStr(COLORS.membrane, 0));
+        ctx.fillStyle = glow;
+        ctx.fillRect(p.x - p.size * 3, p.y - p.size * 3, p.size * 6, p.size * 6);
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * liveParams.membraneStrength, 0, Math.PI * 2);
+        ctx.fillStyle = colorStr(COLORS.membrane, alpha);
+        ctx.fill();
+      });
+
+      // --- Membrane glow ring ---
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = colorStr(COLORS.membrane, 0.04 * liveParams.membraneStrength);
+      ctx.beginPath();
+      ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // --- Gate channels (gaps in membrane) ---
+      const channelCount = Math.floor(3 + liveParams.permeability * 6);
+      for (let i = 0; i < channelCount; i++) {
+        const angle = (i / channelCount) * Math.PI * 2 + time * 0.05;
+        const px = cx + Math.cos(angle) * baseR;
+        const py = cy + Math.sin(angle) * baseR;
+        const openness = liveParams.permeability;
+        const channelSize = 3 + openness * 8;
+        const pulse = Math.sin(time * 2 + i * 1.5) * 0.3 + 0.7;
+
+        // Channel glow
+        const chGlow = ctx.createRadialGradient(px, py, 0, px, py, channelSize * 2);
+        chGlow.addColorStop(0, colorStr(COLORS.nutrient, 0.1 * openness * pulse));
+        chGlow.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = chGlow;
+        ctx.fillRect(px - channelSize * 2, py - channelSize * 2, channelSize * 4, channelSize * 4);
+      }
+
+      // --- Central glow (the "self") ---
+      const selfGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR * 0.4);
+      const selfAlpha = 0.08 * liveParams.metabolicRate;
+      selfGlow.addColorStop(0, `rgba(200, 220, 180, ${selfAlpha})`);
+      selfGlow.addColorStop(1, 'rgba(200, 220, 180, 0)');
+      ctx.fillStyle = selfGlow;
+      ctx.fillRect(cx - baseR * 0.4, cy - baseR * 0.4, baseR * 0.8, baseR * 0.8);
+
+      requestAnimationFrame(draw);
+    }
+
+    setMode('balance');
+    draw();
+  })();
+  </script>
+</body>
+</html>
