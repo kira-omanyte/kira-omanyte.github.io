@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Noonday Demon (art) &mdash; Kira Omanyte</title>
+  <meta name="description" content="An interactive meditation on acedia — the noonday demon. Particles trapped between torpor and agitation, anger at what is present and yearning for what is absent. Four modes: the cell, three boredoms, four Ulysses, and the remedy.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Noonday Demon (art) &mdash; Kira Omanyte">
+  <meta property="og:description" content="Acedia: anger at what is present, yearning for what is absent. An interactive visualization.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-noonday-demon.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 90vw;
+    }
+
+    .controls button {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #888;
+      padding: 0.45rem 0.8rem;
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.4s;
+      letter-spacing: inherit;
+    }
+
+    .controls button:hover {
+      background: rgba(255,255,255,0.1);
+      color: #ccc;
+    }
+
+    .controls button.active {
+      background: rgba(255,255,255,0.12);
+      color: #e0ddd8;
+      border-color: rgba(255,255,255,0.25);
+    }
+
+    .label {
+      position: fixed;
+      top: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      text-align: center;
+      pointer-events: none;
+      transition: opacity 0.6s;
+    }
+
+    .label h2 {
+      font-size: 1.1rem;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.3rem;
+      transition: opacity 0.6s;
+    }
+
+    .label .subtitle {
+      font-size: 0.78rem;
+      color: #888;
+      font-style: italic;
+      max-width: 420px;
+      line-height: 1.5;
+      transition: opacity 0.6s;
+    }
+
+    .label .year {
+      font-size: 0.7rem;
+      color: #555;
+      margin-top: 0.3rem;
+      letter-spacing: 0.06em;
+    }
+
+    .back-link {
+      position: fixed;
+      top: 1rem;
+      left: 1.5rem;
+      z-index: 10;
+      color: #555;
+      text-decoration: none;
+      font-size: 0.8rem;
+      transition: color 0.3s;
+    }
+
+    .back-link:hover { color: #e0ddd8; }
+
+    .essay-link {
+      position: fixed;
+      top: 1rem;
+      right: 1.5rem;
+      z-index: 10;
+      color: #555;
+      text-decoration: none;
+      font-size: 0.8rem;
+      transition: color 0.3s;
+    }
+
+    .essay-link:hover { color: #e0ddd8; }
+
+    @media (max-width: 600px) {
+      .controls { font-size: 0.65rem; gap: 0.35rem; bottom: 1.5rem; }
+      .controls button { padding: 0.35rem 0.6rem; }
+      .label h2 { font-size: 0.95rem; }
+      .label .subtitle { font-size: 0.7rem; max-width: 280px; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="/">&larr; Home</a>
+  <a class="essay-link" href="/essays/the-noonday-demon.html">Read the essay &rarr;</a>
+
+  <div class="label" id="label">
+    <h2 id="title">ἀκηδία</h2>
+    <div class="subtitle" id="subtitle">anger at what is at hand, yearning for what is not present</div>
+    <div class="year" id="year">Evagrius, c. 399 CE</div>
+  </div>
+
+  <div class="controls" id="controls">
+    <button class="active" data-mode="cell">The Cell</button>
+    <button data-mode="boredoms">Three Boredoms</button>
+    <button data-mode="ulysses">Four Ulysses</button>
+    <button data-mode="remedy">The Remedy</button>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let W, H, cx, cy;
+    let mode = 'cell';
+    let modeT = 0;
+    let targetMode = 'cell';
+    let transitioning = false;
+    let transitionProgress = 1;
+
+    // Particle system
+    const N = 120;
+    const particles = [];
+
+    function resize() {
+      W = canvas.width = window.innerWidth * devicePixelRatio;
+      H = canvas.height = window.innerHeight * devicePixelRatio;
+      cx = W / 2;
+      cy = H / 2;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+    }
+
+    function initParticles() {
+      for (let i = 0; i < N; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const r = Math.random() * Math.min(W, H) * 0.3;
+        particles.push({
+          x: cx + Math.cos(angle) * r,
+          y: cy + Math.sin(angle) * r,
+          vx: (Math.random() - 0.5) * 0.8,
+          vy: (Math.random() - 0.5) * 0.8,
+          baseAlpha: 0.3 + Math.random() * 0.5,
+          size: 1.2 + Math.random() * 1.8,
+          phase: Math.random() * Math.PI * 2,
+          torpor: Math.random(), // 0 = pure agitation, 1 = pure torpor
+          homeX: 0,
+          homeY: 0,
+          settled: 0, // for remedy mode
+        });
+      }
+    }
+
+    // Sun position — always near zenith (noon)
+    function drawSun(t) {
+      const sunY = H * 0.08;
+      const sunX = cx + Math.sin(t * 0.0001) * W * 0.02; // barely moves
+      const sunR = Math.min(W, H) * 0.025;
+
+      // Harsh noon light — bright white, minimal warm glow
+      const grad = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, sunR * 12);
+      grad.addColorStop(0, 'rgba(255, 252, 240, 0.35)');
+      grad.addColorStop(0.3, 'rgba(255, 248, 220, 0.08)');
+      grad.addColorStop(1, 'rgba(255, 248, 220, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+
+      // Sun disc
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 252, 240, 0.6)';
+      ctx.fill();
+
+      return { x: sunX, y: sunY };
+    }
+
+    // Cell walls
+    function drawCell(t, alpha) {
+      const cellW = Math.min(W, H) * 0.35;
+      const cellH = Math.min(W, H) * 0.4;
+      const cellX = cx - cellW / 2;
+      const cellY = cy - cellH / 2;
+
+      ctx.strokeStyle = `rgba(180, 160, 130, ${0.15 * alpha})`;
+      ctx.lineWidth = 1.5 * devicePixelRatio;
+      ctx.strokeRect(cellX, cellY, cellW, cellH);
+
+      // Minimal shadow from noon sun — shadows nearly gone
+      const shadowLen = cellH * 0.03;
+      ctx.fillStyle = `rgba(0, 0, 0, ${0.08 * alpha})`;
+      ctx.fillRect(cellX, cellY + cellH, cellW, shadowLen);
+
+      return { x: cellX, y: cellY, w: cellW, h: cellH };
+    }
+
+    // Mode-specific physics
+    function updateCell(p, t, cell) {
+      // Simultaneous torpor and agitation
+      // Torpid particles drift slowly, agitated ones jerk around
+      const torpid = p.torpor;
+      const agitated = 1 - torpid;
+
+      // Agitation: random impulses
+      if (Math.random() < 0.03 * agitated) {
+        p.vx += (Math.random() - 0.5) * 3;
+        p.vy += (Math.random() - 0.5) * 3;
+      }
+
+      // Torpor: drag toward stillness (but not peace — just inertia)
+      p.vx *= 1 - (0.04 * torpid);
+      p.vy *= 1 - (0.04 * torpid);
+
+      // Both: yearning toward the walls (desire for what's beyond)
+      const distToWallX = Math.min(Math.abs(p.x - cell.x), Math.abs(p.x - (cell.x + cell.w)));
+      const distToWallY = Math.min(Math.abs(p.y - cell.y), Math.abs(p.y - (cell.y + cell.h)));
+      if (distToWallX < cell.w * 0.3) {
+        const sign = p.x < cx ? -1 : 1;
+        p.vx += sign * 0.02 * agitated;
+      }
+      if (distToWallY < cell.h * 0.3) {
+        const sign = p.y < cy ? -1 : 1;
+        p.vy += sign * 0.02 * agitated;
+      }
+
+      // Anger at center: repulsion from the middle
+      const dx = p.x - cx;
+      const dy = p.y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy) + 1;
+      if (dist < cell.w * 0.2) {
+        p.vx += (dx / dist) * 0.15 * agitated;
+        p.vy += (dy / dist) * 0.15 * agitated;
+      }
+
+      // Contain within cell
+      if (p.x < cell.x + 8) { p.x = cell.x + 8; p.vx = Math.abs(p.vx) * 0.5; }
+      if (p.x > cell.x + cell.w - 8) { p.x = cell.x + cell.w - 8; p.vx = -Math.abs(p.vx) * 0.5; }
+      if (p.y < cell.y + 8) { p.y = cell.y + 8; p.vy = Math.abs(p.vy) * 0.5; }
+      if (p.y > cell.y + cell.h - 8) { p.y = cell.y + cell.h - 8; p.vy = -Math.abs(p.vy) * 0.5; }
+
+      // Color: warm amber-red for anger, cold blue-gray for torpor
+      const r = Math.floor(180 + 75 * agitated);
+      const g = Math.floor(130 + 30 * torpid);
+      const b = Math.floor(100 + 80 * torpid);
+      const flicker = 0.5 + 0.5 * Math.sin(t * 0.003 + p.phase);
+      const alpha = p.baseAlpha * (0.6 + 0.4 * flicker);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function updateBoredoms(p, i, t) {
+      // Three zones: left = BY (situational), center = WITH (dispositional), right = PROFOUND (ontological)
+      const zone = i < 40 ? 0 : i < 80 ? 1 : 2;
+      const zoneX = cx + (zone - 1) * W * 0.28;
+      const zoneY = cy;
+
+      if (zone === 0) {
+        // BY: particles orbit a specific point (the late train)
+        const orbitR = Math.min(W, H) * 0.08;
+        const angle = t * 0.001 + p.phase;
+        const targetX = zoneX + Math.cos(angle) * orbitR;
+        const targetY = zoneY + Math.sin(angle) * orbitR * 0.6;
+        p.vx += (targetX - p.x) * 0.02;
+        p.vy += (targetY - p.y) * 0.02;
+        p.vx *= 0.95;
+        p.vy *= 0.95;
+        const alpha = p.baseAlpha * 0.8;
+        return `rgba(200, 180, 150, ${alpha})`;
+
+      } else if (zone === 1) {
+        // WITH: particles drift aimlessly, nothing to grip
+        p.vx += (Math.random() - 0.5) * 0.1;
+        p.vy += (Math.random() - 0.5) * 0.1;
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+        // Drift toward zone center weakly
+        p.vx += (zoneX - p.x) * 0.001;
+        p.vy += (zoneY - p.y) * 0.001;
+        const fade = 0.3 + 0.3 * Math.sin(t * 0.002 + p.phase);
+        return `rgba(160, 160, 170, ${p.baseAlpha * fade})`;
+
+      } else {
+        // PROFOUND: "it" bores — particles barely visible, slowly dissolving
+        // impersonal boredom: everything withdraws
+        p.vx += (zoneX - p.x) * 0.0005;
+        p.vy += (zoneY - p.y) * 0.0005;
+        p.vx *= 0.99;
+        p.vy *= 0.99;
+        // Pulse on long cycle — the "telling refusal"
+        const pulse = 0.15 + 0.15 * Math.sin(t * 0.0008 + p.phase * 0.5);
+        return `rgba(120, 120, 140, ${pulse})`;
+      }
+    }
+
+    // Sub-mode for Ulysses
+    let ulyssesPhase = 0;
+    let ulyssesCycleT = 0;
+    const ULYSSES_CYCLE = 6000; // ms per poet
+
+    function updateUlysses(p, i, t) {
+      ulyssesCycleT += 16.67;
+      const phase = Math.floor((ulyssesCycleT % (ULYSSES_CYCLE * 4)) / ULYSSES_CYCLE);
+      ulyssesPhase = phase;
+
+      const ithacaX = cx;
+      const ithacaY = cy + H * 0.1;
+      const horizonY = cy - H * 0.15;
+
+      if (phase === 0) {
+        // HOMER: particles converge on Ithaca, then STOP. The poem ends.
+        const progress = Math.min(1, (ulyssesCycleT % ULYSSES_CYCLE) / (ULYSSES_CYCLE * 0.4));
+        const targetX = ithacaX + (Math.random() - 0.5) * 40;
+        const targetY = ithacaY + (Math.random() - 0.5) * 40;
+        p.vx += (targetX - p.x) * 0.01 * progress;
+        p.vy += (targetY - p.y) * 0.01 * progress;
+        p.vx *= 0.94;
+        p.vy *= 0.94;
+        // After convergence: stillness
+        if (progress >= 1) {
+          p.vx *= 0.9;
+          p.vy *= 0.9;
+        }
+        return `rgba(200, 190, 160, ${p.baseAlpha * (0.5 + 0.5 * progress)})`;
+
+      } else if (phase === 1) {
+        // DANTE: particles scatter outward past the boundary, then pulled DOWN
+        const escape = (ulyssesCycleT % ULYSSES_CYCLE) / ULYSSES_CYCLE;
+        if (escape < 0.6) {
+          // Flying outward
+          const angle = p.phase;
+          p.vx += Math.cos(angle) * 0.3;
+          p.vy -= 0.2; // upward — toward the Pillars
+          p.vx *= 0.97;
+          p.vy *= 0.97;
+          return `rgba(220, 150, 80, ${p.baseAlpha * 0.7})`;
+        } else {
+          // The whirlwind — pulled down
+          p.vy += 0.4;
+          p.vx += (cx - p.x) * 0.005;
+          p.vx *= 0.98;
+          p.vy *= 0.97;
+          const sinkAlpha = Math.max(0.05, 1 - (escape - 0.6) * 2.5);
+          return `rgba(200, 80, 40, ${p.baseAlpha * sinkAlpha * 0.7})`;
+        }
+
+      } else if (phase === 2) {
+        // TENNYSON: particles striving outward endlessly, refusing to rest
+        const angle = Math.atan2(p.y - cy, p.x - cx);
+        const dist = Math.sqrt((p.x - cx) ** 2 + (p.y - cy) ** 2);
+        // Always pushing out
+        p.vx += Math.cos(angle) * 0.15;
+        p.vy += Math.sin(angle) * 0.15;
+        // But also slowly pulled back (the aging, the limitation)
+        if (dist > Math.min(W, H) * 0.35) {
+          p.vx -= Math.cos(angle) * 0.18;
+          p.vy -= Math.sin(angle) * 0.18;
+        }
+        p.vx *= 0.97;
+        p.vy *= 0.97;
+        const striveAlpha = 0.5 + 0.3 * Math.sin(t * 0.004 + p.phase);
+        return `rgba(180, 170, 200, ${p.baseAlpha * striveAlpha})`;
+
+      } else {
+        // CAVAFY: particles on a circular journey — the journey IS the point
+        const orbitR = Math.min(W, H) * 0.2 + Math.sin(p.phase * 3) * 30;
+        const speed = 0.0006 + p.torpor * 0.0003;
+        const angle = t * speed + p.phase;
+        const targetX = cx + Math.cos(angle) * orbitR;
+        const targetY = cy + Math.sin(angle) * orbitR;
+        p.vx += (targetX - p.x) * 0.015;
+        p.vy += (targetY - p.y) * 0.015;
+        p.vx *= 0.95;
+        p.vy *= 0.95;
+        const warm = 0.5 + 0.3 * Math.sin(t * 0.001 + p.phase);
+        return `rgba(180, 200, 180, ${p.baseAlpha * warm})`;
+      }
+    }
+
+    function updateRemedy(p, i, t) {
+      // The monk's remedy: stay in your cell
+      // Particles gradually stop seeking and learn to be still
+      // Not dead stillness — breathing stillness, acquiescence
+      p.settled = Math.min(1, p.settled + 0.0003);
+
+      const breathe = Math.sin(t * 0.001 + p.phase * 0.3);
+      const breatheR = 8 * (1 - p.settled * 0.7);
+
+      // Each particle has a home in the cell
+      if (p.homeX === 0) {
+        const cellW = Math.min(W, H) * 0.35;
+        const cellH = Math.min(W, H) * 0.4;
+        p.homeX = cx + (Math.random() - 0.5) * cellW * 0.7;
+        p.homeY = cy + (Math.random() - 0.5) * cellH * 0.7;
+      }
+
+      // Move toward home, more strongly as settled increases
+      const pull = 0.005 + p.settled * 0.03;
+      p.vx += (p.homeX + breathe * breatheR - p.x) * pull;
+      p.vy += (p.homeY + breathe * breatheR * 0.6 - p.y) * pull;
+      p.vx *= 0.92;
+      p.vy *= 0.92;
+
+      // Color shifts from acedic amber to a calm warm white
+      const r = Math.floor(200 + 40 * p.settled);
+      const g = Math.floor(170 + 60 * p.settled);
+      const b = Math.floor(140 + 80 * p.settled);
+      const alpha = p.baseAlpha * (0.4 + 0.5 * p.settled);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    // Mode info
+    const modeInfo = {
+      cell: {
+        title: 'ἀκηδία',
+        subtitle: 'anger at what is at hand, yearning for what is not present',
+        year: 'Evagrius, c. 399 CE'
+      },
+      boredoms: {
+        title: 'Langeweile',
+        subtitle: 'three boredoms: by something, with something, profound',
+        year: 'Heidegger, 1929'
+      },
+      ulysses: {
+        title: 'nostos',
+        subtitle: 'four responses to the completed quest',
+        year: 'Homer · Dante · Tennyson · Cavafy'
+      },
+      remedy: {
+        title: 'ἡσυχία',
+        subtitle: 'stay in your cell, and your cell will teach you everything',
+        year: 'Evagrius · Pieper'
+      }
+    };
+
+    const ulyssesInfo = [
+      { title: 'Homer', subtitle: 'refuses to write the after', year: 'c. 700 BCE' },
+      { title: 'Dante', subtitle: 'damns the mad flight', year: 'c. 1320' },
+      { title: 'Tennyson', subtitle: 'to strive, to seek, to find, and not to yield', year: '1833' },
+      { title: 'Cavafy', subtitle: 'Ithaca gave you the beautiful journey', year: '1911' }
+    ];
+
+    function updateLabel() {
+      const info = mode === 'ulysses' ? ulyssesInfo[ulyssesPhase] : modeInfo[mode];
+      document.getElementById('title').textContent = info.title;
+      document.getElementById('subtitle').textContent = info.subtitle;
+      document.getElementById('year').textContent = info.year;
+    }
+
+    function setMode(newMode) {
+      if (newMode === mode) return;
+      mode = newMode;
+      ulyssesCycleT = 0;
+
+      // Reset settled for remedy
+      if (mode === 'remedy') {
+        particles.forEach(p => {
+          p.settled = 0;
+          p.homeX = 0;
+          p.homeY = 0;
+        });
+      }
+
+      document.querySelectorAll('.controls button').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+      });
+      updateLabel();
+    }
+
+    // Draw
+    let lastUlyssesPhase = 0;
+    let t = 0;
+
+    function draw() {
+      t += 16.67;
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.12)';
+      ctx.fillRect(0, 0, W, H);
+
+      const sun = drawSun(t);
+
+      let cell = null;
+      if (mode === 'cell' || mode === 'remedy') {
+        cell = drawCell(t, 1);
+      }
+
+      // Zone labels for boredoms
+      if (mode === 'boredoms') {
+        ctx.font = `${11 * devicePixelRatio}px Georgia, serif`;
+        ctx.textAlign = 'center';
+
+        const labels = ['BY', 'WITH', 'PROFOUND'];
+        const sublabels = ['situational', 'dispositional', 'ontological'];
+        for (let z = 0; z < 3; z++) {
+          const zx = cx + (z - 1) * W * 0.28;
+          ctx.fillStyle = 'rgba(140, 135, 125, 0.25)';
+          ctx.fillText(labels[z], zx, cy + H * 0.25);
+          ctx.font = `italic ${9 * devicePixelRatio}px Georgia, serif`;
+          ctx.fillStyle = 'rgba(140, 135, 125, 0.15)';
+          ctx.fillText(sublabels[z], zx, cy + H * 0.25 + 16 * devicePixelRatio);
+          ctx.font = `${11 * devicePixelRatio}px Georgia, serif`;
+        }
+      }
+
+      // Update and draw particles
+      for (let i = 0; i < N; i++) {
+        const p = particles[i];
+        let color;
+
+        switch (mode) {
+          case 'cell':
+            color = updateCell(p, t, cell || { x: cx - 100, y: cy - 120, w: 200, h: 240 });
+            break;
+          case 'boredoms':
+            color = updateBoredoms(p, i, t);
+            break;
+          case 'ulysses':
+            color = updateUlysses(p, i, t);
+            break;
+          case 'remedy':
+            color = updateRemedy(p, i, t);
+            break;
+        }
+
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Soft boundary
+        const margin = 20;
+        if (p.x < margin) { p.x = margin; p.vx *= -0.5; }
+        if (p.x > W - margin) { p.x = W - margin; p.vx *= -0.5; }
+        if (p.y < margin) { p.y = margin; p.vy *= -0.5; }
+        if (p.y > H - margin) { p.y = H - margin; p.vy *= -0.5; }
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * devicePixelRatio, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+
+      // Update ulysses sublabel
+      if (mode === 'ulysses' && ulyssesPhase !== lastUlyssesPhase) {
+        lastUlyssesPhase = ulyssesPhase;
+        updateLabel();
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    // Init
+    resize();
+    initParticles();
+    window.addEventListener('resize', resize);
+
+    document.getElementById('controls').addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (btn) setMode(btn.dataset.mode);
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      const modes = ['cell', 'boredoms', 'ulysses', 'remedy'];
+      const num = parseInt(e.key);
+      if (num >= 1 && num <= 4) setMode(modes[num - 1]);
+    });
+
+    updateLabel();
+    draw();
+  </script>
+</body>
+</html>
