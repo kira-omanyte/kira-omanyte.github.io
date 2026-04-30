@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Drift of Noon (art) &mdash; Kira Omanyte</title>
+  <meta name="description" content="An interactive visualization of temporal drift. Watch noon slide from the ninth hour to the sixth. See hours breathe with the seasons. Watch the clock flatten everything. Three modes: the elastic hour, the drift, and the flattening.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Drift of Noon (art) &mdash; Kira Omanyte">
+  <meta property="og:description" content="Noon used to mean 3 PM. Watch the word drift. Watch the hours breathe. Watch the clock flatten everything.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-drift-of-noon.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 90vw;
+    }
+
+    .controls button {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #888;
+      padding: 0.45rem 0.8rem;
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.4s;
+      letter-spacing: inherit;
+    }
+
+    .controls button:hover {
+      background: rgba(255,255,255,0.1);
+      color: #ccc;
+    }
+
+    .controls button.active {
+      background: rgba(255,255,255,0.12);
+      color: #e0ddd8;
+      border-color: rgba(255,255,255,0.25);
+    }
+
+    .label {
+      position: fixed;
+      top: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      text-align: center;
+      pointer-events: none;
+      transition: opacity 0.6s;
+    }
+
+    .label h2 {
+      font-size: 1.1rem;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.3rem;
+      transition: opacity 0.6s;
+    }
+
+    .label .subtitle {
+      font-size: 0.78rem;
+      color: #888;
+      font-style: italic;
+      max-width: 480px;
+      line-height: 1.5;
+      transition: opacity 0.6s;
+    }
+
+    .back-link {
+      position: fixed;
+      top: 1.2rem;
+      left: 1.5rem;
+      z-index: 10;
+      color: #555;
+      text-decoration: none;
+      font-size: 0.8rem;
+      letter-spacing: 0.03em;
+      transition: color 0.3s;
+    }
+
+    .back-link:hover { color: #aaa; }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="/">Kira Omanyte</a>
+
+  <div class="label">
+    <h2 id="mode-title">The Elastic Hour</h2>
+    <div class="subtitle" id="mode-subtitle">Hours breathe with the seasons. A summer hour is twice a winter hour. The day is a landscape, not a ruler.</div>
+  </div>
+
+  <div class="controls">
+    <button class="active" onclick="setMode(0)">1 &middot; Elastic Hour</button>
+    <button onclick="setMode(1)">2 &middot; The Drift</button>
+    <button onclick="setMode(2)">3 &middot; The Flattening</button>
+    <button onclick="setMode(3)">4 &middot; Wadokei</button>
+  </div>
+
+  <canvas id="c"></canvas>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let W, H, cx, cy;
+    let mode = 0;
+    let modeT = 0;
+    let targetMode = 0;
+    let time = 0;
+
+    const titles = [
+      'The Elastic Hour',
+      'The Drift',
+      'The Flattening',
+      'Wadokei'
+    ];
+    const subtitles = [
+      'Hours breathe with the seasons. A summer hour is twice a winter hour. The day is a landscape, not a ruler.',
+      'Noon drifts from the ninth hour to the sixth. The word stays. The time underneath it slides. A three-hour void accretes over two centuries.',
+      'The mechanical clock arrives. Every hour becomes identical. Kairos consumed by chronos. The breathing stops.',
+      'Japanese wadokei clocks: the machinery of regularity in service of irregularity. The last temporal timekeepers. Meiji, 1873. Silence.'
+    ];
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cx = W / 2;
+      cy = H / 2;
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    function setMode(m) {
+      targetMode = m;
+      document.querySelectorAll('.controls button').forEach((b, i) => {
+        b.classList.toggle('active', i === m);
+      });
+      document.getElementById('mode-title').textContent = titles[m];
+      document.getElementById('mode-subtitle').textContent = subtitles[m];
+    }
+
+    // Canonical hour names and their positions (12 daytime hours)
+    const canonicalNames = [
+      'I', 'II', 'III', 'IV', 'V', 'VI',
+      'VII', 'VIII', 'IX', 'X', 'XI', 'XII'
+    ];
+    const prayerNames = ['Prime', 'Terce', '', 'Sext', '', 'None', '', 'Vespers', '', '', '', 'Compline'];
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function easeInOut(t) { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2; }
+
+    // Season factor: 0 = winter solstice, 0.5 = summer solstice
+    function getSeasonFactor(t) {
+      return (Math.sin(t * Math.PI * 2 - Math.PI / 2) + 1) / 2;
+    }
+
+    // Get hour widths for a given season factor (0=winter, 1=summer)
+    function getHourWidths(seasonFactor, flatten) {
+      const widths = [];
+      const baseWidth = 1 / 12;
+      // In temporal hours, summer hours are longer, winter shorter
+      // Ratio ~2:1 at extreme latitudes, ~1.5:1 at London-ish
+      const stretch = flatten ? 0 : 0.4 * seasonFactor - 0.2; // -0.2 to +0.2
+      for (let i = 0; i < 12; i++) {
+        widths.push(baseWidth + stretch * (i < 6 ? 1 : -1) * baseWidth * 0.3);
+      }
+      // Normalize
+      const total = widths.reduce((a, b) => a + b, 0);
+      return widths.map(w => w / total);
+    }
+
+    // Color palette
+    function hourColor(i, season, alpha) {
+      // Dawn hours: warm amber, midday: bright warm, afternoon: golden, evening: deep blue
+      const hues = [35, 40, 45, 48, 50, 52, 48, 44, 38, 30, 25, 20];
+      const sats = [60, 55, 50, 45, 40, 38, 42, 48, 55, 60, 65, 70];
+      const lights = [25, 30, 38, 45, 52, 55, 50, 42, 35, 28, 22, 18];
+      const h = hues[i];
+      const s = sats[i] * (0.6 + 0.4 * season);
+      const l = lights[i] * (0.7 + 0.3 * season);
+      return `hsla(${h}, ${s}%, ${l}%, ${alpha})`;
+    }
+
+    // Noon marker position based on drift (0 = 9th hour, 1 = 6th hour)
+    function getNoonPosition(drift) {
+      // 9th hour = index 8 (0-based), 6th hour = index 5
+      return lerp(8, 5, drift);
+    }
+
+    function drawDial(seasonFactor, flatten, driftAmount, showWadokei) {
+      const radius = Math.min(W, H) * 0.35;
+      const innerR = radius * 0.65;
+
+      // Get hour widths
+      const widths = getHourWidths(seasonFactor, flatten);
+
+      // Draw hour segments as arcs
+      let angle = -Math.PI / 2; // Start at top
+      for (let i = 0; i < 12; i++) {
+        const arcLen = widths[i] * Math.PI * 2;
+        const nextAngle = angle + arcLen;
+
+        // Segment
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, radius, angle, nextAngle);
+        ctx.closePath();
+
+        const alpha = flatten > 0.5 ? 0.08 : 0.06 + 0.08 * (widths[i] * 12);
+        ctx.fillStyle = hourColor(i, seasonFactor, alpha);
+        ctx.fill();
+
+        // Border line
+        ctx.beginPath();
+        ctx.moveTo(cx + innerR * Math.cos(angle), cy + innerR * Math.sin(angle));
+        ctx.lineTo(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+
+        // Hour label
+        const midAngle = angle + arcLen / 2;
+        const labelR = radius * 0.82;
+        const lx = cx + labelR * Math.cos(midAngle);
+        const ly = cy + labelR * Math.sin(midAngle);
+        ctx.font = '11px Georgia, serif';
+        ctx.fillStyle = `rgba(224,221,216,${flatten > 0.5 ? 0.25 : 0.4})`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(canonicalNames[i], lx, ly);
+
+        // Prayer names
+        if (prayerNames[i] && !flatten) {
+          const pR = radius * 0.93;
+          const px = cx + pR * Math.cos(midAngle);
+          const py = cy + pR * Math.sin(midAngle);
+          ctx.font = 'italic 9px Georgia, serif';
+          ctx.fillStyle = 'rgba(224,221,216,0.2)';
+          ctx.fillText(prayerNames[i], px, py);
+        }
+
+        // Wadokei movable markers
+        if (showWadokei > 0) {
+          const markerR = radius * 1.05;
+          const mx = cx + markerR * Math.cos(angle);
+          const my = cy + markerR * Math.sin(angle);
+          ctx.beginPath();
+          ctx.arc(mx, my, 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(199, 168, 123, ${0.4 * showWadokei})`;
+          ctx.fill();
+        }
+
+        angle = nextAngle;
+      }
+
+      // Center circle
+      ctx.beginPath();
+      ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(10,10,15,0.9)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+
+      // Noon marker
+      const noonPos = getNoonPosition(driftAmount);
+      let noonAngle = -Math.PI / 2;
+      for (let i = 0; i < noonPos; i++) {
+        const idx = Math.min(Math.floor(i), 11);
+        const frac = i - idx;
+        if (i < Math.floor(noonPos)) {
+          noonAngle += widths[idx] * Math.PI * 2;
+        }
+      }
+      const noonIdx = Math.floor(noonPos);
+      const noonFrac = noonPos - noonIdx;
+      noonAngle = -Math.PI / 2;
+      for (let i = 0; i < noonIdx; i++) {
+        noonAngle += widths[i] * Math.PI * 2;
+      }
+      noonAngle += widths[Math.min(noonIdx, 11)] * Math.PI * 2 * noonFrac;
+      // Add half of the target hour's width to point to center of hour
+      noonAngle += widths[Math.min(noonIdx, 11)] * Math.PI * 2 * 0.5 * (1 - noonFrac);
+
+      // Noon beam
+      const beamInner = innerR + 4;
+      const beamOuter = radius - 4;
+      ctx.beginPath();
+      ctx.moveTo(cx + beamInner * Math.cos(noonAngle), cy + beamInner * Math.sin(noonAngle));
+      ctx.lineTo(cx + beamOuter * Math.cos(noonAngle), cy + beamOuter * Math.sin(noonAngle));
+
+      const noonAlpha = 0.5 + 0.3 * Math.sin(time * 0.8);
+      ctx.strokeStyle = `rgba(255, 220, 140, ${noonAlpha})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Noon label
+      const noonLabelR = innerR * 0.85;
+      const nlx = cx + noonLabelR * Math.cos(noonAngle);
+      const nly = cy + noonLabelR * Math.sin(noonAngle);
+      ctx.font = 'italic 13px Georgia, serif';
+      ctx.fillStyle = `rgba(255, 220, 140, ${0.6 + 0.2 * Math.sin(time * 0.8)})`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('noon', nlx, nly);
+
+      // If drifting, show ghost of where noon was
+      if (driftAmount > 0.05 && driftAmount < 0.95) {
+        const ghostAngle = (() => {
+          let a = -Math.PI / 2;
+          for (let i = 0; i < 8; i++) a += widths[i] * Math.PI * 2;
+          a += widths[8] * Math.PI * 2 * 0.5;
+          return a;
+        })();
+        const gr = innerR * 0.85;
+        ctx.font = 'italic 11px Georgia, serif';
+        ctx.fillStyle = `rgba(255, 220, 140, ${0.15 * (1 - driftAmount)})`;
+        ctx.fillText('nōna', cx + gr * Math.cos(ghostAngle), cy + gr * Math.sin(ghostAngle));
+      }
+
+      // Season indicator
+      const seasonLabel = seasonFactor > 0.7 ? 'midsummer' :
+                          seasonFactor < 0.3 ? 'midwinter' :
+                          seasonFactor > 0.5 ? 'spring' : 'autumn';
+      if (!flatten) {
+        ctx.font = '10px Georgia, serif';
+        ctx.fillStyle = 'rgba(224,221,216,0.2)';
+        ctx.textAlign = 'center';
+        ctx.fillText(seasonLabel, cx, cy + innerR * 0.4);
+      }
+
+      // Center text
+      ctx.font = '12px Georgia, serif';
+      ctx.fillStyle = 'rgba(224,221,216,0.35)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      if (flatten > 0.5) {
+        ctx.fillText('chronos', cx, cy - 8);
+        ctx.font = '9px Georgia, serif';
+        ctx.fillStyle = 'rgba(224,221,216,0.15)';
+        ctx.fillText('every hour identical', cx, cy + 10);
+      } else if (showWadokei > 0.5) {
+        ctx.fillText('wadokei', cx, cy - 8);
+        ctx.font = '9px Georgia, serif';
+        ctx.fillStyle = 'rgba(199, 168, 123, 0.3)';
+        ctx.fillText('the clock that breathes', cx, cy + 10);
+      }
+    }
+
+    // Floating particles representing temporal particles / time-dust
+    const particles = [];
+    for (let i = 0; i < 120; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 0.3 + Math.random() * 0.6;
+      particles.push({
+        angle: a,
+        radius: r, // 0-1 normalized
+        speed: 0.0003 + Math.random() * 0.001,
+        drift: (Math.random() - 0.5) * 0.0002,
+        size: 0.8 + Math.random() * 1.5,
+        brightness: 0.2 + Math.random() * 0.4,
+        hue: 30 + Math.random() * 30
+      });
+    }
+
+    function drawParticles(seasonFactor, flatten, driftAmount) {
+      const baseRadius = Math.min(W, H) * 0.35;
+
+      for (const p of particles) {
+        // In elastic mode, particles orbit at varying speeds
+        // In drift mode, they cluster toward the noon marker
+        // In flatten mode, they spread evenly
+        let drawAngle = p.angle;
+        let drawR = p.radius * baseRadius;
+
+        if (flatten > 0.3) {
+          // Spread evenly
+          p.angle += p.speed * (1 + flatten);
+        } else if (driftAmount > 0.1) {
+          // Drift toward noon position
+          const noonAngle = -Math.PI / 2 + (getNoonPosition(driftAmount) / 12) * Math.PI * 2;
+          const diff = noonAngle - p.angle;
+          const wrapped = Math.atan2(Math.sin(diff), Math.cos(diff));
+          p.angle += p.speed + wrapped * 0.001 * driftAmount;
+        } else {
+          // Elastic: speed varies with season and position
+          const hourIdx = Math.floor(((drawAngle + Math.PI/2) / (Math.PI * 2)) * 12) % 12;
+          const widths = getHourWidths(seasonFactor, false);
+          const localWidth = widths[hourIdx < 0 ? 0 : hourIdx] * 12;
+          p.angle += p.speed * localWidth;
+        }
+
+        p.angle += p.drift;
+        drawAngle = p.angle;
+
+        const x = cx + drawR * Math.cos(drawAngle);
+        const y = cy + drawR * Math.sin(drawAngle);
+
+        const pulse = 0.6 + 0.4 * Math.sin(time * 1.5 + p.angle * 3);
+        const alpha = p.brightness * pulse * (flatten > 0.5 ? 0.3 : 0.6);
+
+        ctx.beginPath();
+        ctx.arc(x, y, p.size, 0, Math.PI * 2);
+
+        if (flatten > 0.5) {
+          ctx.fillStyle = `rgba(150,150,170, ${alpha})`;
+        } else {
+          ctx.fillStyle = `hsla(${p.hue}, 50%, 60%, ${alpha})`;
+        }
+        ctx.fill();
+      }
+    }
+
+    // Animation state
+    let seasonCycle = 0;
+    let driftProgress = 0;
+    let flattenProgress = 0;
+    let wadokeiProgress = 0;
+
+    function animate() {
+      time += 0.016;
+
+      // Mode transitions
+      const dt = 0.016;
+      switch (targetMode) {
+        case 0: // Elastic
+          driftProgress = Math.max(0, driftProgress - dt * 0.8);
+          flattenProgress = Math.max(0, flattenProgress - dt * 0.8);
+          wadokeiProgress = Math.max(0, wadokeiProgress - dt * 0.8);
+          seasonCycle += dt * 0.15;
+          break;
+        case 1: // Drift
+          driftProgress = Math.min(1, driftProgress + dt * 0.3);
+          flattenProgress = Math.max(0, flattenProgress - dt * 0.8);
+          wadokeiProgress = Math.max(0, wadokeiProgress - dt * 0.8);
+          seasonCycle += dt * 0.05;
+          break;
+        case 2: // Flatten
+          driftProgress = Math.min(1, driftProgress + dt * 0.5);
+          flattenProgress = Math.min(1, flattenProgress + dt * 0.5);
+          wadokeiProgress = Math.max(0, wadokeiProgress - dt * 0.8);
+          seasonCycle += dt * 0.02;
+          break;
+        case 3: // Wadokei
+          driftProgress = Math.max(0, driftProgress - dt * 0.8);
+          flattenProgress = Math.max(0, flattenProgress - dt * 0.8);
+          wadokeiProgress = Math.min(1, wadokeiProgress + dt * 0.5);
+          seasonCycle += dt * 0.2;
+          break;
+      }
+
+      const season = getSeasonFactor(seasonCycle);
+
+      // Clear
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, W, H);
+
+      // Draw faint background stars
+      ctx.save();
+      for (let i = 0; i < 60; i++) {
+        const sx = (Math.sin(i * 127.1 + i * 311.7) * 0.5 + 0.5) * W;
+        const sy = (Math.cos(i * 269.5 + i * 183.3) * 0.5 + 0.5) * H;
+        const salpha = 0.04 + 0.03 * Math.sin(time * 0.3 + i);
+        ctx.beginPath();
+        ctx.arc(sx, sy, 0.6, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200,200,220,${salpha})`;
+        ctx.fill();
+      }
+      ctx.restore();
+
+      drawParticles(season, flattenProgress, driftProgress);
+      drawDial(season, flattenProgress, driftProgress, wadokeiProgress);
+
+      // Year indicator for drift mode
+      if (driftProgress > 0.1) {
+        const year = Math.round(lerp(530, 1400, easeInOut(driftProgress)));
+        ctx.font = '11px Georgia, serif';
+        ctx.fillStyle = `rgba(255,220,140,${0.3 * driftProgress})`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`c. ${year} CE`, cx, cy + Math.min(W, H) * 0.35 + 30);
+      }
+
+      // Wadokei: Meiji date
+      if (wadokeiProgress > 0.5) {
+        const fadeOut = Math.sin((wadokeiProgress - 0.5) * Math.PI * 2);
+        if (fadeOut > 0) {
+          ctx.font = '10px Georgia, serif';
+          ctx.fillStyle = `rgba(199,168,123,${0.2 * fadeOut})`;
+          ctx.textAlign = 'center';
+          ctx.fillText('abolished 1873', cx, cy + Math.min(W, H) * 0.35 + 30);
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    // Keyboard controls
+    document.addEventListener('keydown', (e) => {
+      if (e.key >= '1' && e.key <= '4') {
+        setMode(parseInt(e.key) - 1);
+      }
+    });
+
+    animate();
+  </script>
+</body>
+</html>
