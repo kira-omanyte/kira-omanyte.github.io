@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Fallow Field (art) &mdash; Kira Omanyte</title>
+  <meta name="description" content="An interactive visualization of three kinds of rest. Watch the three-field rotation. See the underground restoration. Watch the Norfolk trap unfold. Four modes: the three fields, the seventh year, the underground, and the depletion.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Fallow Field (art) &mdash; Kira Omanyte">
+  <meta property="og:description" content="Not making. Not being. Lying fallow. Watch the underground restoration that production cannot see.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-fallow-field.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 90vw;
+    }
+
+    .controls button {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #888;
+      padding: 0.45rem 0.8rem;
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.4s;
+      letter-spacing: inherit;
+    }
+
+    .controls button:hover {
+      background: rgba(255,255,255,0.1);
+      color: #ccc;
+    }
+
+    .controls button.active {
+      background: rgba(255,255,255,0.12);
+      color: #e0ddd8;
+      border-color: rgba(255,255,255,0.25);
+    }
+
+    .label {
+      position: fixed;
+      top: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      text-align: center;
+      pointer-events: none;
+      transition: opacity 0.6s;
+    }
+
+    .label h2 {
+      font-size: 1.1rem;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.3rem;
+      transition: opacity 0.6s;
+    }
+
+    .label .subtitle {
+      font-size: 0.78rem;
+      color: #888;
+      font-style: italic;
+      max-width: 480px;
+      line-height: 1.5;
+      transition: opacity 0.6s;
+    }
+
+    .back-link {
+      position: fixed;
+      top: 1.2rem;
+      left: 1.5rem;
+      z-index: 10;
+      color: #555;
+      text-decoration: none;
+      font-size: 0.8rem;
+      letter-spacing: 0.03em;
+      transition: color 0.3s;
+    }
+
+    .back-link:hover { color: #aaa; }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="/">Kira Omanyte</a>
+
+  <div class="label">
+    <h2 id="mode-title">The Three Fields</h2>
+    <div class="subtitle" id="mode-subtitle">Three zones in rotation: wheat grows, legumes fix, fallow rests. The resting third regenerates the working two.</div>
+  </div>
+
+  <div class="controls">
+    <button class="active" onclick="setMode(0)">1 &middot; Three Fields</button>
+    <button onclick="setMode(1)">2 &middot; Seventh Year</button>
+    <button onclick="setMode(2)">3 &middot; Underground</button>
+    <button onclick="setMode(3)">4 &middot; Norfolk Trap</button>
+  </div>
+
+  <canvas id="c"></canvas>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let W, H, cx, cy;
+    let mode = 0;
+    let targetMode = 0;
+    let time = 0;
+
+    const titles = [
+      'The Three Fields',
+      'The Seventh Year',
+      'The Underground',
+      'The Norfolk Trap'
+    ];
+    const subtitles = [
+      'Three zones in rotation: wheat grows, legumes fix, fallow rests. The resting third regenerates the working two.',
+      'Six years of cultivation. The seventh: sabbath. The land itself rests. The subject of the rest is the soil, not the farmer.',
+      'Beneath the still surface: mycorrhizal networks rebuilding, nitrogen fixing, organic matter decomposing. The invisible restoration.',
+      'Eliminate fallow. Every field planted every year. Short-term yield increases. Long-term soil depletion. Borrowing against the ground\u2019s future.'
+    ];
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cx = W / 2;
+      cy = H / 2;
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    function setMode(m) {
+      targetMode = m;
+      document.querySelectorAll('.controls button').forEach((b, i) => {
+        b.classList.toggle('active', i === m);
+      });
+      document.getElementById('mode-title').textContent = titles[m];
+      document.getElementById('mode-subtitle').textContent = subtitles[m];
+    }
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function easeInOut(t) { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2; }
+
+    // Particles for three-field system
+    class FieldParticle {
+      constructor() {
+        this.x = Math.random() * 2 - 1;
+        this.y = Math.random() * 2 - 1;
+        this.vx = (Math.random() - 0.5) * 0.002;
+        this.vy = (Math.random() - 0.5) * 0.002;
+        this.size = 0.8 + Math.random() * 2;
+        this.brightness = 0.3 + Math.random() * 0.5;
+        this.phase = Math.random() * Math.PI * 2;
+        this.type = Math.floor(Math.random() * 3); // 0=wheat, 1=legume, 2=fallow
+        this.depth = Math.random(); // 0=surface, 1=deep underground
+      }
+    }
+
+    const particles = [];
+    for (let i = 0; i < 300; i++) {
+      particles.push(new FieldParticle());
+    }
+
+    // Hyphae network nodes for underground mode
+    const hyphaeNodes = [];
+    for (let i = 0; i < 40; i++) {
+      hyphaeNodes.push({
+        x: (Math.random() - 0.5) * 1.4,
+        y: 0.1 + Math.random() * 0.7,
+        connections: [],
+        pulse: Math.random() * Math.PI * 2,
+        size: 2 + Math.random() * 3
+      });
+    }
+    // Connect nearby nodes
+    for (let i = 0; i < hyphaeNodes.length; i++) {
+      for (let j = i + 1; j < hyphaeNodes.length; j++) {
+        const dx = hyphaeNodes[i].x - hyphaeNodes[j].x;
+        const dy = hyphaeNodes[i].y - hyphaeNodes[j].y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < 0.35) {
+          hyphaeNodes[i].connections.push(j);
+          hyphaeNodes[j].connections.push(i);
+        }
+      }
+    }
+
+    // Nitrogen particles
+    const nitrogenParticles = [];
+    for (let i = 0; i < 25; i++) {
+      nitrogenParticles.push({
+        x: (Math.random() - 0.5) * 1.2,
+        baseY: 0.3 + Math.random() * 0.5,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.3 + Math.random() * 0.5,
+        size: 1.5 + Math.random() * 2
+      });
+    }
+
+    // Mode transition values
+    let modeBlend = [1, 0, 0, 0];
+    let rotationCycle = 0; // 0-3 for three-field rotation
+    let yearCycle = 0; // 0-7 for shemitah
+    let depletionLevel = 0;
+
+    function getFieldColor(fieldType, activity) {
+      // fieldType: 0=wheat (warm gold), 1=legume (green), 2=fallow (pale brown)
+      if (fieldType === 0) {
+        return { h: 42, s: 60 * activity, l: 20 + 35 * activity };
+      } else if (fieldType === 1) {
+        return { h: 100, s: 45 * activity, l: 18 + 30 * activity };
+      } else {
+        return { h: 35, s: 20, l: 14 + 10 * activity };
+      }
+    }
+
+    function drawThreeFields(blend) {
+      if (blend < 0.01) return;
+      const fieldW = W * 0.28;
+      const fieldH = H * 0.5;
+      const gap = W * 0.03;
+      const totalW = fieldW * 3 + gap * 2;
+      const startX = (W - totalW) / 2;
+      const startY = (H - fieldH) / 2;
+
+      // Rotation cycle determines which field has which role
+      const cycle = Math.floor(rotationCycle) % 3;
+      const roles = [
+        [(cycle + 0) % 3, (cycle + 1) % 3, (cycle + 2) % 3],
+      ][0];
+
+      const roleNames = ['wheat', 'legumes', 'fallow'];
+      const roleColors = [
+        { h: 42, s: 50, l: 45 },
+        { h: 100, s: 40, l: 35 },
+        { h: 35, s: 15, l: 22 }
+      ];
+
+      for (let f = 0; f < 3; f++) {
+        const fx = startX + f * (fieldW + gap);
+        const role = roles[f];
+        const rc = roleColors[role];
+        const activity = role === 2 ? 0.3 : 0.8;
+
+        // Field background
+        ctx.fillStyle = `hsla(${rc.h}, ${rc.s}%, ${rc.l}%, ${0.12 * blend})`;
+        ctx.fillRect(fx, startY, fieldW, fieldH);
+
+        // Field border
+        ctx.strokeStyle = `hsla(${rc.h}, ${rc.s}%, ${rc.l}%, ${0.2 * blend})`;
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(fx, startY, fieldW, fieldH);
+
+        // Label
+        ctx.font = 'italic 11px Georgia, serif';
+        ctx.fillStyle = `hsla(${rc.h}, ${rc.s}%, ${Math.min(rc.l + 30, 70)}%, ${0.5 * blend})`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(roleNames[role], fx + fieldW/2, startY + fieldH + 18);
+
+        // Particles in this field
+        for (const p of particles) {
+          if (p.type !== f) continue;
+          if (p.depth > 0.5) continue; // surface particles only
+
+          const px = fx + (p.x * 0.5 + 0.5) * fieldW;
+          const py = startY + (p.y * 0.5 + 0.5) * fieldH;
+
+          let speed = role === 2 ? 0.2 : 1.0;
+          p.x += p.vx * speed;
+          p.y += p.vy * speed;
+
+          // Bounce
+          if (p.x < -1 || p.x > 1) p.vx *= -1;
+          if (p.y < -1 || p.y > 1) p.vy *= -1;
+          p.x = Math.max(-1, Math.min(1, p.x));
+          p.y = Math.max(-1, Math.min(1, p.y));
+
+          const pulse = 0.6 + 0.4 * Math.sin(time * 1.5 + p.phase);
+          const alpha = p.brightness * pulse * activity * blend;
+
+          ctx.beginPath();
+          ctx.arc(px, py, p.size, 0, Math.PI * 2);
+
+          if (role === 0) {
+            ctx.fillStyle = `hsla(42, 55%, 55%, ${alpha})`;
+          } else if (role === 1) {
+            ctx.fillStyle = `hsla(100, 40%, 45%, ${alpha})`;
+          } else {
+            // Fallow: dim, slow, barely visible
+            ctx.fillStyle = `hsla(35, 15%, 35%, ${alpha * 0.4})`;
+          }
+          ctx.fill();
+
+          // Legume nitrogen connections
+          if (role === 1 && Math.random() < 0.003 * blend) {
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(px + (Math.random()-0.5) * 30, py + (Math.random()-0.5) * 30);
+            ctx.strokeStyle = `hsla(180, 40%, 50%, ${0.15 * blend})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Rotation indicator
+      const transitionFrac = rotationCycle - Math.floor(rotationCycle);
+      if (transitionFrac > 0.85) {
+        ctx.font = '9px Georgia, serif';
+        ctx.fillStyle = `rgba(224,221,216, ${0.3 * blend * (transitionFrac - 0.85) / 0.15})`;
+        ctx.textAlign = 'center';
+        ctx.fillText('rotating...', cx, startY - 15);
+      }
+    }
+
+    function drawSeventhYear(blend) {
+      if (blend < 0.01) return;
+      const radius = Math.min(W, H) * 0.32;
+      const yearInCycle = Math.floor(yearCycle) % 7;
+      const isSabbatical = yearInCycle === 6;
+
+      // Seven segments around a circle
+      for (let y = 0; y < 7; y++) {
+        const startAngle = (y / 7) * Math.PI * 2 - Math.PI / 2;
+        const endAngle = ((y + 1) / 7) * Math.PI * 2 - Math.PI / 2;
+
+        const isActive = y <= yearInCycle;
+        const isCurrent = y === yearInCycle;
+        const isRest = y === 6;
+
+        let h, s, l, alpha;
+        if (isRest) {
+          h = 35; s = 15; l = 18;
+          alpha = isCurrent ? 0.2 + 0.1 * Math.sin(time * 0.8) : 0.06;
+        } else {
+          h = 42 + y * 8; s = 40; l = isActive ? 30 + y * 3 : 15;
+          alpha = isCurrent ? 0.18 : (isActive ? 0.1 : 0.04);
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, radius, startAngle, endAngle);
+        ctx.closePath();
+        ctx.fillStyle = `hsla(${h}, ${s}%, ${l}%, ${alpha * blend})`;
+        ctx.fill();
+
+        // Border
+        ctx.beginPath();
+        ctx.moveTo(cx + radius * 0.4 * Math.cos(startAngle), cy + radius * 0.4 * Math.sin(startAngle));
+        ctx.lineTo(cx + radius * Math.cos(startAngle), cy + radius * Math.sin(startAngle));
+        ctx.strokeStyle = `rgba(255,255,255, ${0.06 * blend})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+
+        // Year label
+        const midAngle = (startAngle + endAngle) / 2;
+        const labelR = radius * 0.75;
+        ctx.font = isRest ? 'italic 12px Georgia, serif' : '11px Georgia, serif';
+        ctx.fillStyle = `rgba(224,221,216, ${(isCurrent ? 0.6 : 0.25) * blend})`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(isRest ? 'sabbath' : `year ${y + 1}`, cx + labelR * Math.cos(midAngle), cy + labelR * Math.sin(midAngle));
+      }
+
+      // Center
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * 0.35, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(10,10,15, ${0.9 * blend})`;
+      ctx.fill();
+
+      if (isSabbatical) {
+        ctx.font = 'italic 13px Georgia, serif';
+        ctx.fillStyle = `rgba(199, 168, 123, ${(0.4 + 0.2 * Math.sin(time * 0.6)) * blend})`;
+        ctx.textAlign = 'center';
+        ctx.fillText('the land rests', cx, cy - 8);
+        ctx.font = '9px Georgia, serif';
+        ctx.fillStyle = `rgba(199, 168, 123, ${0.25 * blend})`;
+        ctx.fillText('Leviticus 25:4', cx, cy + 10);
+      } else {
+        ctx.font = '12px Georgia, serif';
+        ctx.fillStyle = `rgba(224,221,216, ${0.3 * blend})`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`year ${yearInCycle + 1} of 7`, cx, cy);
+      }
+
+      // Sabbatical particles — slow, settling
+      if (isSabbatical) {
+        for (let i = 0; i < particles.length; i += 3) {
+          const p = particles[i];
+          const angle = p.phase + time * 0.1;
+          const r = radius * (0.4 + p.depth * 0.5);
+          const px = cx + r * Math.cos(angle);
+          const py = cy + r * Math.sin(angle);
+
+          const pulse = 0.4 + 0.3 * Math.sin(time * 0.5 + p.phase);
+          ctx.beginPath();
+          ctx.arc(px, py, p.size * 0.7, 0, Math.PI * 2);
+          ctx.fillStyle = `hsla(35, 20%, 40%, ${pulse * 0.3 * blend})`;
+          ctx.fill();
+        }
+      }
+    }
+
+    function drawUnderground(blend) {
+      if (blend < 0.01) return;
+
+      // Horizon line
+      const horizonY = cy * 0.55;
+      ctx.beginPath();
+      ctx.moveTo(0, horizonY);
+      ctx.lineTo(W, horizonY);
+      ctx.strokeStyle = `rgba(199, 168, 123, ${0.15 * blend})`;
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+
+      // Surface label
+      ctx.font = '9px Georgia, serif';
+      ctx.fillStyle = `rgba(224,221,216, ${0.2 * blend})`;
+      ctx.textAlign = 'left';
+      ctx.fillText('surface', 20, horizonY - 8);
+      ctx.fillText('nothing visible', 20, horizonY - 22);
+
+      // Above ground: stillness, barely any particles
+      for (let i = 0; i < 15; i++) {
+        const p = particles[i];
+        const px = cx + p.x * W * 0.4;
+        const py = horizonY - 20 - p.depth * horizonY * 0.5;
+        const alpha = 0.08 + 0.04 * Math.sin(time * 0.3 + p.phase);
+        ctx.beginPath();
+        ctx.arc(px, py, 1, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(199, 168, 123, ${alpha * blend})`;
+        ctx.fill();
+      }
+
+      // Underground zone
+      const underH = H - horizonY;
+
+      // Mycorrhizal network
+      const networkGrow = Math.min(1, time * 0.05); // grows over time
+      for (const node of hyphaeNodes) {
+        const nx = cx + node.x * W * 0.45;
+        const ny = horizonY + node.y * underH * 0.85;
+
+        // Draw connections (hyphae)
+        for (const ci of node.connections) {
+          const other = hyphaeNodes[ci];
+          const ox = cx + other.x * W * 0.45;
+          const oy = horizonY + other.y * underH * 0.85;
+
+          const pulse = 0.3 + 0.3 * Math.sin(time * 0.8 + node.pulse + other.pulse);
+          ctx.beginPath();
+          ctx.moveTo(nx, ny);
+          // Organic curve
+          const midX = (nx + ox) / 2 + Math.sin(time * 0.3 + node.pulse) * 8;
+          const midY = (ny + oy) / 2 + Math.cos(time * 0.4 + other.pulse) * 5;
+          ctx.quadraticCurveTo(midX, midY, ox, oy);
+          ctx.strokeStyle = `hsla(30, 25%, 40%, ${pulse * 0.25 * blend * networkGrow})`;
+          ctx.lineWidth = 0.6;
+          ctx.stroke();
+        }
+
+        // Node itself
+        const nodePulse = 0.5 + 0.5 * Math.sin(time * 1.2 + node.pulse);
+        ctx.beginPath();
+        ctx.arc(nx, ny, node.size * nodePulse, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(25, 30%, 45%, ${0.3 * blend * networkGrow})`;
+        ctx.fill();
+      }
+
+      // Nitrogen fixation particles — rising slowly
+      for (const np of nitrogenParticles) {
+        const nx = cx + np.x * W * 0.4;
+        const rawY = np.baseY + Math.sin(time * np.speed * 0.3 + np.phase) * 0.1;
+        const ny = horizonY + rawY * underH * 0.8;
+
+        // Glow
+        const glow = 0.4 + 0.4 * Math.sin(time * np.speed + np.phase);
+        ctx.beginPath();
+        ctx.arc(nx, ny, np.size + 2, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(180, 50%, 50%, ${0.06 * glow * blend})`;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(nx, ny, np.size, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(180, 45%, 55%, ${0.4 * glow * blend})`;
+        ctx.fill();
+      }
+
+      // Labels underground
+      ctx.font = 'italic 9px Georgia, serif';
+      ctx.fillStyle = `rgba(180, 160, 130, ${0.25 * blend})`;
+      ctx.textAlign = 'right';
+      ctx.fillText('mycorrhizal networks rebuilding', W - 20, horizonY + underH * 0.3);
+      ctx.fillText('nitrogen fixation', W - 20, horizonY + underH * 0.55);
+      ctx.fillText('organic matter decomposing', W - 20, horizonY + underH * 0.75);
+
+      // N2 label
+      ctx.font = '8px Georgia, serif';
+      ctx.fillStyle = `rgba(120, 200, 200, ${0.2 * blend})`;
+      ctx.textAlign = 'left';
+      ctx.fillText('N\u2082 \u2192 NH\u2084\u207A', 20, horizonY + underH * 0.5);
+    }
+
+    function drawNorfolkTrap(blend) {
+      if (blend < 0.01) return;
+
+      // Timeline flowing left to right
+      const timelineY = cy;
+      const startX = W * 0.08;
+      const endX = W * 0.92;
+      const timelineW = endX - startX;
+
+      // Depletion progresses over time in this mode
+      const depT = Math.min(1, depletionLevel);
+
+      // Soil health bar (diminishing)
+      const barH = H * 0.3;
+      const barTop = cy - barH / 2;
+
+      // Four phases: wheat, turnips, barley, clover — repeating, no rest
+      const phases = ['wheat', 'turnips', 'barley', 'clover'];
+      const phaseColors = [
+        { h: 42, s: 55, l: 45 },
+        { h: 25, s: 40, l: 35 },
+        { h: 50, s: 45, l: 40 },
+        { h: 120, s: 35, l: 35 }
+      ];
+
+      const numCycles = 8;
+      const phaseW = timelineW / (numCycles * 4);
+
+      for (let c = 0; c < numCycles; c++) {
+        for (let p = 0; p < 4; p++) {
+          const i = c * 4 + p;
+          const progress = i / (numCycles * 4);
+          const fx = startX + i * phaseW;
+          const pc = phaseColors[p];
+
+          // Yield height — starts high, decreases with depletion
+          const yieldFactor = 1 - depT * progress * 0.7;
+          const yH = barH * 0.4 * yieldFactor;
+
+          // Above ground: yield bar
+          ctx.fillStyle = `hsla(${pc.h}, ${pc.s}%, ${pc.l}%, ${0.15 * blend * (1 - progress * depT * 0.5)})`;
+          ctx.fillRect(fx, timelineY - yH, phaseW - 1, yH);
+
+          // Below ground: soil health bar (depleting)
+          const soilHealth = 1 - depT * progress * 0.9;
+          const soilH = barH * 0.35 * soilHealth;
+          const soilL = 30 * soilHealth + 10;
+          ctx.fillStyle = `hsla(25, ${20 + 15 * soilHealth}%, ${soilL}%, ${0.12 * blend})`;
+          ctx.fillRect(fx, timelineY + 2, phaseW - 1, soilH);
+        }
+      }
+
+      // Center line
+      ctx.beginPath();
+      ctx.moveTo(startX, timelineY);
+      ctx.lineTo(endX, timelineY);
+      ctx.strokeStyle = `rgba(199, 168, 123, ${0.2 * blend})`;
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+
+      // Labels
+      ctx.font = '9px Georgia, serif';
+      ctx.fillStyle = `rgba(224,221,216, ${0.3 * blend})`;
+      ctx.textAlign = 'left';
+      ctx.fillText('yield', startX, timelineY - barH * 0.35 - 8);
+      ctx.fillStyle = `rgba(180, 150, 110, ${0.25 * blend})`;
+      ctx.fillText('soil', startX, timelineY + barH * 0.3 + 14);
+
+      // No fallow indicator
+      if (depT > 0.3) {
+        ctx.font = 'italic 10px Georgia, serif';
+        ctx.fillStyle = `rgba(200, 120, 100, ${0.3 * depT * blend})`;
+        ctx.textAlign = 'center';
+        ctx.fillText('no fallow', cx, timelineY + barH * 0.45 + 25);
+      }
+
+      // Timeline arrow
+      ctx.beginPath();
+      ctx.moveTo(endX, timelineY);
+      ctx.lineTo(endX - 6, timelineY - 3);
+      ctx.moveTo(endX, timelineY);
+      ctx.lineTo(endX - 6, timelineY + 3);
+      ctx.strokeStyle = `rgba(224,221,216, ${0.15 * blend})`;
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+
+      // Year markers
+      ctx.font = '8px Georgia, serif';
+      ctx.fillStyle = `rgba(224,221,216, ${0.15 * blend})`;
+      ctx.textAlign = 'center';
+      for (let c = 0; c < numCycles; c++) {
+        const mx = startX + c * phaseW * 4 + phaseW * 2;
+        ctx.fillText(`cycle ${c + 1}`, mx, timelineY + barH * 0.5 + 8);
+      }
+
+      // Scattered depleting particles
+      for (let i = 0; i < particles.length; i += 2) {
+        const p = particles[i];
+        const progress = (p.x + 1) / 2;
+        const health = 1 - depT * progress * 0.8;
+        const px = startX + progress * timelineW;
+        const py = timelineY + 5 + p.depth * barH * 0.35 * health;
+
+        const pulse = 0.3 + 0.2 * Math.sin(time + p.phase);
+        ctx.beginPath();
+        ctx.arc(px, py, p.size * health * 0.6, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(25, ${20 * health}%, ${30 * health + 10}%, ${pulse * 0.3 * blend})`;
+        ctx.fill();
+      }
+
+      // Berry quote at depletion
+      if (depT > 0.7) {
+        ctx.font = 'italic 10px Georgia, serif';
+        ctx.fillStyle = `rgba(224,221,216, ${0.25 * (depT - 0.7) / 0.3 * blend})`;
+        ctx.textAlign = 'center';
+        ctx.fillText('"borrowing against the ground\u2019s future"', cx, cy + barH * 0.5 + 45);
+      }
+    }
+
+    function animate() {
+      time += 0.016;
+      ctx.clearRect(0, 0, W, H);
+
+      // Smooth mode transitions
+      const dt = 0.016;
+      for (let i = 0; i < 4; i++) {
+        const target = i === targetMode ? 1 : 0;
+        modeBlend[i] += (target - modeBlend[i]) * dt * 3;
+      }
+
+      // Mode-specific time progressions
+      if (targetMode === 0) {
+        rotationCycle += dt * 0.12;
+      } else if (targetMode === 1) {
+        yearCycle += dt * 0.15;
+      } else if (targetMode === 3) {
+        depletionLevel = Math.min(1, depletionLevel + dt * 0.08);
+      } else {
+        depletionLevel = Math.max(0, depletionLevel - dt * 0.3);
+      }
+
+      drawThreeFields(modeBlend[0]);
+      drawSeventhYear(modeBlend[1]);
+      drawUnderground(modeBlend[2]);
+      drawNorfolkTrap(modeBlend[3]);
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      const n = parseInt(e.key);
+      if (n >= 1 && n <= 4) setMode(n - 1);
+    });
+  </script>
+</body>
+</html>
