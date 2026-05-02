@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Beautiful Machines for Abolished Time (art) &mdash; Kira Omanyte</title>
+  <meta name="description" content="Four interactive modes exploring the wadokei &mdash; Japanese clocks built to tell unequal time. The breathing hour, the beetle gear, the bell towers, and the deliberate miss.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="Beautiful Machines for Abolished Time (art) &mdash; Kira Omanyte">
+  <meta property="og:description" content="Japanese clocks built to tell unequal time. Four modes: the breathing hour, the beetle gear, the bell towers, the deliberate miss.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/beautiful-machines.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 90vw;
+    }
+
+    .controls button {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #888;
+      padding: 0.45rem 0.8rem;
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.4s;
+      letter-spacing: inherit;
+    }
+
+    .controls button:hover {
+      background: rgba(255,255,255,0.1);
+      color: #ccc;
+    }
+
+    .controls button.active {
+      background: rgba(255,255,255,0.12);
+      color: #e0ddd8;
+      border-color: rgba(255,255,255,0.25);
+    }
+
+    .label {
+      position: fixed;
+      top: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      text-align: center;
+      pointer-events: none;
+      max-width: 80vw;
+    }
+
+    .label h1 {
+      font-size: 1rem;
+      font-weight: normal;
+      letter-spacing: 0.06em;
+      color: #888;
+      margin-bottom: 0.4rem;
+    }
+
+    .label p {
+      font-size: 0.75rem;
+      color: #555;
+      line-height: 1.5;
+      font-style: italic;
+    }
+
+    .back-link {
+      position: fixed;
+      top: 1.5rem;
+      left: 1.5rem;
+      z-index: 10;
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+    }
+
+    .back-link a {
+      color: #555;
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .back-link a:hover {
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+  <div class="back-link"><a href="/essays/beautiful-machines.html">&larr; essay</a></div>
+
+  <div class="label">
+    <h1 id="mode-title">The Breathing Hour</h1>
+    <p id="mode-desc">Hours expand and contract with the seasons. Summer daylight stretches. Winter daylight contracts. The hours breathe.</p>
+  </div>
+
+  <div class="controls">
+    <button class="active" onclick="setMode(0)">1: Breathing Hour</button>
+    <button onclick="setMode(1)">2: Beetle Gear</button>
+    <button onclick="setMode(2)">3: Bell Towers</button>
+    <button onclick="setMode(3)">4: Deliberate Miss</button>
+  </div>
+
+  <canvas id="c"></canvas>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let W, H, cx, cy;
+    let mode = 0;
+    let time = 0;
+    let seasonTime = 0;
+
+    const titles = [
+      'The Breathing Hour',
+      'The Beetle Gear',
+      'The Bell Towers',
+      'The Deliberate Miss'
+    ];
+
+    const descs = [
+      'Hours expand and contract with the seasons. Summer daylight stretches. Winter daylight contracts. The hours breathe.',
+      'Tanaka Hisashige\u2019s rhinoceros-beetle cam converts daily rotation into annual oscillation. Over a thousand hand-filed parts. The hand and the algorithm arrive at the same shape.',
+      'Time propagates outward from Edo Castle as sound, tower by tower. The center hears first. The periphery follows. Temporality has a gradient.',
+      'The yumi-hiki d\u014Dji fires four arrows. Three hit. One deliberately misses. The puppet looks disappointed. The miss humanizes the machine.'
+    ];
+
+    // Hour labels (Japanese zodiac)
+    const hourLabels = ['\u5b50', '\u4e11', '\u5bc5', '\u536f', '\u8fb0', '\u5df3', '\u5348', '\u672a', '\u7533', '\u9149', '\u620c', '\u4ea5'];
+    const hourNumbers = [9, 8, 7, 6, 5, 4, 9, 8, 7, 6, 5, 4];
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cx = W / 2;
+      cy = H / 2;
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    function setMode(m) {
+      mode = m;
+      document.getElementById('mode-title').textContent = titles[m];
+      document.getElementById('mode-desc').textContent = descs[m];
+      document.querySelectorAll('.controls button').forEach((b, i) => {
+        b.classList.toggle('active', i === m);
+      });
+      // Reset bell wave on mode switch
+      if (m === 2) bellWaves = [];
+      if (m === 3) initArrows();
+    }
+
+    // --- MODE 0: The Breathing Hour ---
+    function drawBreathingHour() {
+      const R = Math.min(W, H) * 0.35;
+
+      // Season cycles over ~20 seconds
+      const season = (Math.sin(seasonTime * 0.3) + 1) / 2; // 0 = winter solstice, 1 = summer solstice
+      const seasonName = season > 0.7 ? 'summer' : season < 0.3 ? 'winter' : season > 0.5 ? 'late spring' : 'early autumn';
+
+      // Day fraction (ratio of daylight to total)
+      const dayFraction = 0.4 + season * 0.2; // 0.4 in winter to 0.6 in summer
+      const nightFraction = 1 - dayFraction;
+
+      // Draw the dial
+      const dayHourArc = dayFraction / 6; // fraction of circle per day hour
+      const nightHourArc = nightFraction / 6;
+
+      // Draw hour segments
+      let angle = -Math.PI / 2; // start at top
+
+      for (let i = 0; i < 12; i++) {
+        const isDay = i < 6;
+        const hourArc = (isDay ? dayHourArc : nightHourArc) * Math.PI * 2;
+        const nextAngle = angle + hourArc;
+
+        // Segment color
+        const dayAlpha = isDay ? 0.15 + season * 0.1 : 0.06 + (1 - season) * 0.04;
+        const hue = isDay ? `rgba(200,170,100,${dayAlpha})` : `rgba(80,100,160,${dayAlpha})`;
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, R, angle, nextAngle);
+        ctx.closePath();
+        ctx.fillStyle = hue;
+        ctx.fill();
+
+        // Segment border
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + Math.cos(angle) * R, cy + Math.sin(angle) * R);
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+
+        // Label
+        const midAngle = angle + hourArc / 2;
+        const labelR = R * 0.78;
+        const lx = cx + Math.cos(midAngle) * labelR;
+        const ly = cy + Math.sin(midAngle) * labelR;
+
+        ctx.save();
+        ctx.translate(lx, ly);
+        ctx.fillStyle = isDay ? 'rgba(200,170,100,0.5)' : 'rgba(120,140,180,0.4)';
+        ctx.font = '14px Georgia';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(hourLabels[i], 0, 0);
+
+        // Number
+        ctx.fillStyle = isDay ? 'rgba(200,170,100,0.3)' : 'rgba(120,140,180,0.25)';
+        ctx.font = '10px Georgia';
+        ctx.fillText(hourNumbers[i], 0, 16);
+        ctx.restore();
+
+        angle = nextAngle;
+      }
+
+      // Outer ring
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Inner ring
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 0.12, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.04)';
+      ctx.fill();
+
+      // Rotating hand (completes one cycle over ~15 seconds)
+      const handAngle = -Math.PI / 2 + (time * 0.4) % (Math.PI * 2);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(handAngle) * R * 0.65, cy + Math.sin(handAngle) * R * 0.65);
+      ctx.strokeStyle = 'rgba(200,170,100,0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Small particles orbiting at hour speed
+      for (let i = 0; i < 36; i++) {
+        const pAngle = (time * 0.2 + i * Math.PI * 2 / 36) % (Math.PI * 2);
+        const pR = R * (0.5 + Math.sin(time * 0.5 + i) * 0.15);
+        const px = cx + Math.cos(pAngle) * pR;
+        const py = cy + Math.sin(pAngle) * pR;
+        // Determine if particle is in day or night zone
+        const normAngle = ((pAngle + Math.PI / 2) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+        const dayArc = dayFraction * Math.PI * 2;
+        const inDay = normAngle < dayArc;
+        const pAlpha = 0.2 + Math.sin(time + i * 0.5) * 0.1;
+        ctx.beginPath();
+        ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = inDay ? `rgba(200,170,100,${pAlpha})` : `rgba(100,120,180,${pAlpha})`;
+        ctx.fill();
+      }
+
+      // Season label
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      ctx.font = '11px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText(seasonName, cx, cy + R + 30);
+
+      // Day/night ratio
+      const dayMins = Math.round(dayFraction * 24 * 60 / 6);
+      const nightMins = Math.round(nightFraction * 24 * 60 / 6);
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.font = '10px Georgia';
+      ctx.fillText(`day hour: ${dayMins} min \u00b7 night hour: ${nightMins} min`, cx, cy + R + 48);
+    }
+
+    // --- MODE 1: The Beetle Gear ---
+    let beetleAngle = 0;
+    const BEETLE_TEETH = 32;
+
+    function drawBeetleGear() {
+      const R = Math.min(W, H) * 0.25;
+
+      // Draw the cam shape (rhinoceros beetle profile)
+      beetleAngle += 0.008;
+      const camRotation = beetleAngle;
+
+      // Beetle cam - irregular radius
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      // Draw gear teeth marks on outer ring
+      const outerR = R * 1.4;
+      for (let i = 0; i < 60; i++) {
+        const a = (i / 60) * Math.PI * 2;
+        const inner = outerR * 0.97;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner);
+        ctx.lineTo(Math.cos(a) * outerR, Math.sin(a) * outerR);
+        ctx.strokeStyle = 'rgba(200,170,100,0.1)';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+
+      // Draw the beetle cam
+      ctx.beginPath();
+      for (let i = 0; i <= 360; i++) {
+        const a = (i / 360) * Math.PI * 2 + camRotation;
+        // Irregular cam profile - rhinoceros beetle shape
+        const base = R * 0.6;
+        const variation = R * 0.2 * (
+          Math.sin(a * 1) * 0.5 +
+          Math.sin(a * 2 + 1) * 0.3 +
+          Math.sin(a * 3 + 2) * 0.15 +
+          Math.cos(a * 1.5) * 0.2 +
+          (Math.max(0, Math.sin(a + 0.5)) ** 3) * 0.4 // horn
+        );
+        const r = base + variation;
+        const x = Math.cos((i / 360) * Math.PI * 2) * r;
+        const y = Math.sin((i / 360) * Math.PI * 2) * r;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.strokeStyle = 'rgba(200,170,100,0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(200,170,100,0.04)';
+      ctx.fill();
+
+      // Draw follower (touching the cam)
+      const followerAngle = Math.PI * 0.25;
+      const camR = R * 0.6 + R * 0.2 * (
+        Math.sin((followerAngle + camRotation) * 1) * 0.5 +
+        Math.sin((followerAngle + camRotation) * 2 + 1) * 0.3 +
+        Math.sin((followerAngle + camRotation) * 3 + 2) * 0.15 +
+        Math.cos((followerAngle + camRotation) * 1.5) * 0.2 +
+        (Math.max(0, Math.sin(followerAngle + camRotation + 0.5)) ** 3) * 0.4
+      );
+
+      const fx = Math.cos(followerAngle) * camR;
+      const fy = Math.sin(followerAngle) * camR;
+
+      // Follower arm
+      const armEndX = Math.cos(followerAngle) * outerR;
+      const armEndY = Math.sin(followerAngle) * outerR;
+      ctx.beginPath();
+      ctx.moveTo(fx, fy);
+      ctx.lineTo(armEndX, armEndY);
+      ctx.strokeStyle = 'rgba(160,140,120,0.4)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Follower dot
+      ctx.beginPath();
+      ctx.arc(fx, fy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(200,170,100,0.6)';
+      ctx.fill();
+
+      // Center axis
+      ctx.beginPath();
+      ctx.arc(0, 0, 3, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(200,170,100,0.5)';
+      ctx.fill();
+
+      // Draw hour markers around outer ring, moving based on cam position
+      const displacement = (camR - R * 0.5) / (R * 0.4); // normalized displacement
+      for (let i = 0; i < 12; i++) {
+        const baseAngle = (i / 12) * Math.PI * 2 - Math.PI / 2;
+        // Markers shift slightly based on cam displacement
+        const isDay = i < 6;
+        const shift = isDay ? displacement * 0.05 : -displacement * 0.05;
+        const markerAngle = baseAngle + shift;
+        const mx = Math.cos(markerAngle) * (outerR + 15);
+        const my = Math.sin(markerAngle) * (outerR + 15);
+
+        ctx.fillStyle = isDay ? 'rgba(200,170,100,0.35)' : 'rgba(100,120,180,0.3)';
+        ctx.font = '13px Georgia';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(hourLabels[i], mx, my);
+      }
+
+      ctx.restore();
+
+      // Particles orbiting around the mechanism
+      for (let i = 0; i < 24; i++) {
+        const pAngle = time * 0.15 + (i / 24) * Math.PI * 2;
+        const pR = R * 1.6 + Math.sin(time * 0.3 + i) * 10;
+        const px = cx + Math.cos(pAngle) * pR;
+        const py = cy + Math.sin(pAngle) * pR;
+        ctx.beginPath();
+        ctx.arc(px, py, 1, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200,170,100,${0.15 + Math.sin(time + i) * 0.1})`;
+        ctx.fill();
+      }
+
+      // Label
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.font = '10px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText('1,000+ hand-filed parts', cx, cy + outerR + 45);
+    }
+
+    // --- MODE 2: The Bell Towers ---
+    let bellWaves = [];
+    let bellTimer = 0;
+
+    function drawBellTowers() {
+      const R = Math.min(W, H) * 0.38;
+
+      // Castle at center
+      ctx.beginPath();
+      ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(200,170,100,0.5)';
+      ctx.fill();
+
+      // Castle label
+      ctx.fillStyle = 'rgba(200,170,100,0.3)';
+      ctx.font = '10px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText('\u6c5f\u6238\u57ce', cx, cy - 16); // 江戸城
+
+      // Bell towers radiating outward
+      const towerCount = 10;
+      const towerPositions = [];
+      for (let i = 0; i < towerCount; i++) {
+        const a = (i / towerCount) * Math.PI * 2 - Math.PI / 2;
+        const dist = R * (0.3 + (i % 3) * 0.2 + Math.sin(i * 1.7) * 0.1);
+        const tx = cx + Math.cos(a) * dist;
+        const ty = cy + Math.sin(a) * dist;
+        towerPositions.push({ x: tx, y: ty, angle: a, dist: dist });
+
+        // Draw tower
+        ctx.beginPath();
+        ctx.arc(tx, ty, 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(160,140,120,0.4)';
+        ctx.fill();
+
+        // Tower label
+        ctx.fillStyle = 'rgba(160,140,120,0.2)';
+        ctx.font = '9px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText('\u9418', tx, ty - 10); // 鐘
+      }
+
+      // Generate bell waves periodically
+      bellTimer += 0.016;
+      if (bellTimer > 3) {
+        bellTimer = 0;
+        bellWaves.push({ x: cx, y: cy, r: 0, alpha: 0.4, source: 'castle' });
+      }
+
+      // Process waves
+      const newWaves = [];
+      for (const wave of bellWaves) {
+        wave.r += 1.2;
+        wave.alpha *= 0.995;
+
+        if (wave.alpha > 0.02) {
+          newWaves.push(wave);
+
+          // Draw wave
+          ctx.beginPath();
+          ctx.arc(wave.x, wave.y, wave.r, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(200,170,100,${wave.alpha})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          // Check if wave hits a tower
+          if (wave.source === 'castle') {
+            for (const tower of towerPositions) {
+              const dx = tower.x - wave.x;
+              const dy = tower.y - wave.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (Math.abs(dist - wave.r) < 2) {
+                // Tower ripples
+                const exists = bellWaves.some(w => w.x === tower.x && w.y === tower.y && w.r < 20);
+                if (!exists) {
+                  newWaves.push({ x: tower.x, y: tower.y, r: 0, alpha: 0.25, source: 'tower' });
+                  // Flash the tower
+                  ctx.beginPath();
+                  ctx.arc(tower.x, tower.y, 8, 0, Math.PI * 2);
+                  ctx.fillStyle = 'rgba(200,170,100,0.3)';
+                  ctx.fill();
+                }
+              }
+            }
+          }
+        }
+      }
+      bellWaves = newWaves;
+
+      // The counting sequence - show the current bell count
+      const bellCycle = Math.floor(time * 0.5) % 6;
+      const bellNum = 9 - bellCycle;
+      ctx.fillStyle = 'rgba(200,170,100,0.25)';
+      ctx.font = '24px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText(bellNum, cx, cy + 5);
+
+      // Subtle outer city boundary
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+
+      // Gradient label
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.font = '10px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText('center hears first \u00b7 periphery follows', cx, cy + R + 30);
+
+      // Floating particles representing sound
+      for (let i = 0; i < 48; i++) {
+        const pAngle = time * 0.1 + (i / 48) * Math.PI * 2;
+        const pDist = R * 0.1 + (i / 48) * R * 0.85;
+        const drift = Math.sin(time * 0.5 + i * 0.3) * 15;
+        const px = cx + Math.cos(pAngle) * (pDist + drift);
+        const py = cy + Math.sin(pAngle) * (pDist + drift);
+
+        // Particles further out are more delayed (dimmer)
+        const distRatio = pDist / R;
+        const pAlpha = 0.15 * (1 - distRatio * 0.6) + Math.sin(time + i) * 0.05;
+
+        ctx.beginPath();
+        ctx.arc(px, py, 1.2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200,170,100,${Math.max(0.03, pAlpha)})`;
+        ctx.fill();
+      }
+    }
+
+    // --- MODE 3: The Deliberate Miss ---
+    let arrows = [];
+    let arrowTimer = 0;
+    let arrowPhase = 'waiting'; // waiting, drawing, flying, landed
+    let puppetExpression = 'neutral'; // neutral, aiming, disappointed
+    let currentArrow = 0;
+    const TARGET_X_RATIO = 0.75;
+    const PUPPET_X_RATIO = 0.25;
+
+    function initArrows() {
+      arrows = [];
+      arrowTimer = 0;
+      arrowPhase = 'waiting';
+      puppetExpression = 'neutral';
+      currentArrow = 0;
+    }
+
+    initArrows();
+
+    function drawDeliberateMiss() {
+      const puppetX = W * PUPPET_X_RATIO;
+      const puppetY = H * 0.5;
+      const targetX = W * TARGET_X_RATIO;
+      const targetY = H * 0.5;
+
+      // Draw target
+      for (let ring = 3; ring >= 0; ring--) {
+        ctx.beginPath();
+        ctx.arc(targetX, targetY, 30 + ring * 15, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(200,170,100,${0.1 + ring * 0.05})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.arc(targetX, targetY, 3, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(200,170,100,0.4)';
+      ctx.fill();
+
+      // Draw puppet (simple, stylized)
+      // Body
+      ctx.beginPath();
+      ctx.ellipse(puppetX, puppetY + 20, 18, 25, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(160,140,120,0.15)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(160,140,120,0.3)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Head
+      ctx.beginPath();
+      ctx.arc(puppetX, puppetY - 15, 12, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(180,160,140,0.15)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(180,160,140,0.3)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Expression
+      if (puppetExpression === 'disappointed') {
+        // Sad mouth
+        ctx.beginPath();
+        ctx.arc(puppetX, puppetY - 10, 4, Math.PI * 0.2, Math.PI * 0.8);
+        ctx.strokeStyle = 'rgba(200,170,100,0.4)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        // Eyes (downcast)
+        ctx.beginPath();
+        ctx.arc(puppetX - 4, puppetY - 18, 1.5, 0, Math.PI * 2);
+        ctx.arc(puppetX + 4, puppetY - 18, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(200,170,100,0.3)';
+        ctx.fill();
+      } else if (puppetExpression === 'aiming') {
+        // Focused eyes
+        ctx.beginPath();
+        ctx.arc(puppetX - 4, puppetY - 17, 1.5, 0, Math.PI * 2);
+        ctx.arc(puppetX + 4, puppetY - 17, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(200,170,100,0.5)';
+        ctx.fill();
+        // Arm extended with bow
+        ctx.beginPath();
+        ctx.moveTo(puppetX + 15, puppetY + 5);
+        ctx.lineTo(puppetX + 40, puppetY - 5);
+        ctx.strokeStyle = 'rgba(160,140,120,0.3)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      } else {
+        // Neutral eyes
+        ctx.beginPath();
+        ctx.arc(puppetX - 4, puppetY - 17, 1.5, 0, Math.PI * 2);
+        ctx.arc(puppetX + 4, puppetY - 17, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(180,160,140,0.3)';
+        ctx.fill();
+      }
+
+      // Arrow animation cycle
+      arrowTimer += 0.016;
+
+      if (arrowPhase === 'waiting') {
+        if (arrowTimer > 1.5) {
+          arrowTimer = 0;
+          arrowPhase = 'aiming';
+          puppetExpression = 'aiming';
+        }
+      } else if (arrowPhase === 'aiming') {
+        if (arrowTimer > 1) {
+          arrowTimer = 0;
+          arrowPhase = 'flying';
+          const isMiss = currentArrow === 2; // Third arrow misses
+          arrows.push({
+            x: puppetX + 40,
+            y: puppetY - 5,
+            targetX: targetX,
+            targetY: isMiss ? targetY + 55 + Math.random() * 20 : targetY + (Math.random() - 0.5) * 10,
+            progress: 0,
+            miss: isMiss,
+            landed: false
+          });
+        }
+      } else if (arrowPhase === 'flying') {
+        const arrow = arrows[arrows.length - 1];
+        if (arrow && !arrow.landed) {
+          arrow.progress += 0.025;
+          if (arrow.progress >= 1) {
+            arrow.progress = 1;
+            arrow.landed = true;
+            arrowPhase = 'landed';
+            arrowTimer = 0;
+            if (arrow.miss) {
+              puppetExpression = 'disappointed';
+            }
+          }
+        }
+      } else if (arrowPhase === 'landed') {
+        if (arrowTimer > 1.5) {
+          arrowTimer = 0;
+          currentArrow++;
+          if (currentArrow >= 4) {
+            // Reset cycle after a pause
+            if (arrowTimer > 0) {
+              setTimeout(() => {
+                arrows = [];
+                currentArrow = 0;
+                puppetExpression = 'neutral';
+                arrowPhase = 'waiting';
+                arrowTimer = 0;
+              }, 3000);
+              arrowPhase = 'done';
+            }
+          } else {
+            arrowPhase = 'aiming';
+            puppetExpression = 'aiming';
+          }
+        }
+      } else if (arrowPhase === 'done') {
+        arrowTimer += 0.016;
+        if (arrowTimer > 3) {
+          arrows = [];
+          currentArrow = 0;
+          puppetExpression = 'neutral';
+          arrowPhase = 'waiting';
+          arrowTimer = 0;
+        }
+      }
+
+      // Draw arrows
+      for (const arrow of arrows) {
+        const ax = arrow.x + (arrow.targetX - arrow.x) * arrow.progress;
+        const ay = arrow.y + (arrow.targetY - arrow.y) * arrow.progress;
+        // Add slight arc
+        const arcY = -Math.sin(arrow.progress * Math.PI) * 30;
+
+        const drawX = ax;
+        const drawY = ay + arcY;
+
+        // Arrow shaft
+        const angle = Math.atan2(arrow.targetY - arrow.y + arcY, arrow.targetX - arrow.x);
+        const shaftLen = 25;
+
+        ctx.beginPath();
+        ctx.moveTo(drawX - Math.cos(angle) * shaftLen, drawY - Math.sin(angle) * shaftLen);
+        ctx.lineTo(drawX, drawY);
+        ctx.strokeStyle = arrow.miss ? 'rgba(180,100,80,0.5)' : 'rgba(200,170,100,0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Arrowhead
+        ctx.beginPath();
+        ctx.moveTo(drawX, drawY);
+        ctx.lineTo(drawX - Math.cos(angle - 0.3) * 6, drawY - Math.sin(angle - 0.3) * 6);
+        ctx.moveTo(drawX, drawY);
+        ctx.lineTo(drawX - Math.cos(angle + 0.3) * 6, drawY - Math.sin(angle + 0.3) * 6);
+        ctx.strokeStyle = arrow.miss ? 'rgba(180,100,80,0.5)' : 'rgba(200,170,100,0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // If landed and missed, draw a small glow
+        if (arrow.landed && arrow.miss) {
+          ctx.beginPath();
+          ctx.arc(drawX, drawY, 8, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(180,100,80,0.08)';
+          ctx.fill();
+        }
+      }
+
+      // Score display
+      const hits = arrows.filter(a => a.landed && !a.miss).length;
+      const misses = arrows.filter(a => a.landed && a.miss).length;
+      if (hits > 0 || misses > 0) {
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.font = '11px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${hits} hit \u00b7 ${misses} miss`, cx, H * 0.85);
+      }
+
+      // Quote when disappointed
+      if (puppetExpression === 'disappointed') {
+        ctx.fillStyle = 'rgba(200,170,100,0.2)';
+        ctx.font = 'italic 11px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText('the designed error is the most sophisticated part of the design', cx, H * 0.92);
+      }
+
+      // Karakuri label
+      ctx.fillStyle = 'rgba(160,140,120,0.15)';
+      ctx.font = '10px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText('\u5f13\u66f3\u7ae5\u5b50 \u00b7 yumi-hiki d\u014Dji', puppetX, puppetY + 60);
+    }
+
+    // --- MAIN LOOP ---
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      // Subtle background gradient
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.7);
+      grad.addColorStop(0, 'rgba(20,18,15,0.3)');
+      grad.addColorStop(1, 'rgba(10,10,15,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+
+      time += 0.016;
+      seasonTime += 0.016;
+
+      switch (mode) {
+        case 0: drawBreathingHour(); break;
+        case 1: drawBeetleGear(); break;
+        case 2: drawBellTowers(); break;
+        case 3: drawDeliberateMiss(); break;
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key >= '1' && e.key <= '4') {
+        setMode(parseInt(e.key) - 1);
+      }
+    });
+  </script>
+</body>
+</html>
