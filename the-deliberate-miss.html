@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Deliberate Miss (art) &mdash; Kira Omanyte</title>
+  <meta name="description" content="Eight functions of intentional imperfection. The same field of elements, the same miss &mdash; viewed through eight different traditions. Perfection is a boundary. Imperfection is a threshold.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Deliberate Miss (art) &mdash; Kira Omanyte">
+  <meta property="og:description" content="Eight functions of intentional imperfection. The same pattern, the same miss, eight lenses.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-deliberate-miss.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 95vw;
+    }
+
+    .controls button {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #888;
+      padding: 0.4rem 0.65rem;
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.4s;
+      letter-spacing: inherit;
+    }
+
+    .controls button:hover {
+      background: rgba(255,255,255,0.1);
+      color: #ccc;
+    }
+
+    .controls button.active {
+      background: rgba(255,255,255,0.12);
+      color: #e0ddd8;
+      border-color: rgba(255,255,255,0.25);
+    }
+
+    .label {
+      position: fixed;
+      top: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      text-align: center;
+      pointer-events: none;
+      max-width: 80vw;
+    }
+
+    .label h1 {
+      font-size: 1rem;
+      font-weight: normal;
+      letter-spacing: 0.06em;
+      color: #888;
+      margin-bottom: 0.4rem;
+    }
+
+    .label p {
+      font-size: 0.75rem;
+      color: #555;
+      line-height: 1.5;
+      font-style: italic;
+    }
+
+    .back-link {
+      position: fixed;
+      top: 1.5rem;
+      left: 1.5rem;
+      z-index: 10;
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+    }
+
+    .back-link a {
+      color: #555;
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .back-link a:hover {
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+  <div class="back-link"><a href="/essays/the-deliberate-miss.html">&larr; essay</a></div>
+
+  <div class="label">
+    <h1 id="mode-title">Sprezzatura</h1>
+    <p id="mode-desc">The miss hides the effort. Concealed art. The elements appear effortless &mdash; until the miss reveals the mechanism.</p>
+  </div>
+
+  <div class="controls">
+    <button class="active" onclick="setMode(0)">1: Sprezzatura</button>
+    <button onclick="setMode(1)">2: Humility Flaw</button>
+    <button onclick="setMode(2)">3: Spirit Line</button>
+    <button onclick="setMode(3)">4: Fukinsei</button>
+    <button onclick="setMode(4)">5: Swing</button>
+    <button onclick="setMode(5)">6: Entropy</button>
+    <button onclick="setMode(6)">7: Margin</button>
+    <button onclick="setMode(7)">8: Puppet</button>
+  </div>
+
+  <canvas id="c"></canvas>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let W, H, cx, cy;
+    let mode = 0;
+    let time = 0;
+
+    const titles = [
+      'Sprezzatura',
+      'The Humility Flaw',
+      'The Spirit Line',
+      'Fukinsei',
+      'Musical Swing',
+      'Shannon Entropy',
+      'Chikamatsu\u2019s Margin',
+      'Tanaka\u2019s Puppet'
+    ];
+
+    const descs = [
+      'The miss hides the effort. Concealed art. The elements appear effortless \u2014 until the miss reveals the mechanism.',
+      'Only God creates perfection. The miss acknowledges a higher order. One flaw in the pattern, woven deliberately.',
+      'The weaver\u2019s spirit line: a thread breaking through the border to the edge. Without the exit, the maker is trapped in the work.',
+      'Asymmetry invites participation. The eye searches, the viewer completes. The miss opens a door you walk through.',
+      'Behind the beat, ahead of the beat, never exactly on it. The deviation signals life. The miss is the breath in the machine.',
+      'A perfect pattern carries zero information. The miss is where all the information lives. Shannon\u2019s entropy: surprise is the message.',
+      'Chikamatsu\u2019s slender margin between real and unreal. The visible puppet operators. The miss maintains the threshold that art lives in.',
+      'Tanaka\u2019s puppet fires four arrows. Three hit. One misses. The puppet looks disappointed. The miss is what makes it someone.'
+    ];
+
+    // Grid of elements
+    const COLS = 16;
+    const ROWS = 12;
+    const MISS_COL = 11;
+    const MISS_ROW = 7;
+    let elements = [];
+
+    function initElements() {
+      elements = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const isMiss = (r === MISS_ROW && c === MISS_COL);
+          elements.push({
+            col: c, row: r,
+            isMiss: isMiss,
+            phase: Math.random() * Math.PI * 2,
+            swingOffset: isMiss ? 0.12 : 0,
+            baseAngle: 0,
+            entropy: isMiss ? 1.0 : 0.0
+          });
+        }
+      }
+    }
+
+    initElements();
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cx = W / 2;
+      cy = H / 2;
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    function setMode(m) {
+      mode = m;
+      document.getElementById('mode-title').textContent = titles[m];
+      document.getElementById('mode-desc').textContent = descs[m];
+      document.querySelectorAll('.controls button').forEach((b, i) => {
+        b.classList.toggle('active', i === m);
+      });
+    }
+
+    function getPos(col, row) {
+      const margin = Math.min(W, H) * 0.12;
+      const cellW = (W - margin * 2) / (COLS - 1);
+      const cellH = (H - margin * 2.5) / (ROWS - 1);
+      return {
+        x: margin + col * cellW,
+        y: margin * 1.5 + row * cellH
+      };
+    }
+
+    // --- MODE 0: Sprezzatura ---
+    function drawSprezzatura() {
+      const r = Math.min(W, H) * 0.012;
+
+      elements.forEach(el => {
+        const pos = getPos(el.col, el.row);
+
+        if (el.isMiss) {
+          // The miss reveals the mechanism underneath
+          const mechR = r * 2.5;
+
+          // Draw hidden gears/mechanism
+          ctx.save();
+          ctx.translate(pos.x, pos.y);
+
+          // Gear teeth
+          const teeth = 12;
+          for (let i = 0; i < teeth; i++) {
+            const a = (i / teeth) * Math.PI * 2 + time * 0.5;
+            const inner = mechR * 0.6;
+            const outer = mechR * 0.85;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner);
+            ctx.lineTo(Math.cos(a) * outer, Math.sin(a) * outer);
+            ctx.strokeStyle = 'rgba(200,170,100,0.3)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+
+          // Center axle
+          ctx.beginPath();
+          ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(200,170,100,0.4)';
+          ctx.fill();
+
+          // The element itself, slightly displaced
+          ctx.beginPath();
+          ctx.arc(r * 0.3, -r * 0.2, r, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(200,170,100,0.7)';
+          ctx.fill();
+
+          ctx.restore();
+        } else {
+          // Others appear effortless
+          const drift = Math.sin(time * 0.3 + el.phase) * 0.5;
+          ctx.beginPath();
+          ctx.arc(pos.x + drift, pos.y + drift * 0.5, r, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(180,175,165,0.25)';
+          ctx.fill();
+        }
+      });
+    }
+
+    // --- MODE 1: Humility Flaw ---
+    function drawHumilityFlaw() {
+      const r = Math.min(W, H) * 0.012;
+
+      // Draw a subtle connecting pattern (woven grid)
+      const patternAlpha = 0.06;
+      elements.forEach(el => {
+        const pos = getPos(el.col, el.row);
+        if (el.col < COLS - 1) {
+          const next = getPos(el.col + 1, el.row);
+          ctx.beginPath();
+          ctx.moveTo(pos.x, pos.y);
+          ctx.lineTo(next.x, next.y);
+          ctx.strokeStyle = el.isMiss || (el.row === MISS_ROW && el.col === MISS_COL - 1)
+            ? 'rgba(200,170,100,0.0)' : `rgba(160,155,145,${patternAlpha})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+        if (el.row < ROWS - 1) {
+          const below = getPos(el.col, el.row + 1);
+          ctx.beginPath();
+          ctx.moveTo(pos.x, pos.y);
+          ctx.lineTo(below.x, below.y);
+          ctx.strokeStyle = el.isMiss || (el.col === MISS_COL && el.row === MISS_ROW - 1)
+            ? 'rgba(200,170,100,0.0)' : `rgba(160,155,145,${patternAlpha})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      });
+
+      elements.forEach(el => {
+        const pos = getPos(el.col, el.row);
+
+        if (el.isMiss) {
+          // The flaw — a different color/shape in the weave
+          const pulse = Math.sin(time * 0.8) * 0.15 + 0.6;
+
+          // Upward light beam
+          const gradient = ctx.createLinearGradient(pos.x, pos.y, pos.x, pos.y - H * 0.3);
+          gradient.addColorStop(0, `rgba(200,170,100,${pulse * 0.3})`);
+          gradient.addColorStop(1, 'rgba(200,170,100,0)');
+          ctx.beginPath();
+          ctx.moveTo(pos.x - r, pos.y);
+          ctx.lineTo(pos.x + r, pos.y);
+          ctx.lineTo(pos.x + r * 0.3, pos.y - H * 0.3);
+          ctx.lineTo(pos.x - r * 0.3, pos.y - H * 0.3);
+          ctx.closePath();
+          ctx.fillStyle = gradient;
+          ctx.fill();
+
+          // The flaw itself
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, r * 1.2, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(200,170,100,${pulse})`;
+          ctx.fill();
+        } else {
+          // Regular weave elements
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, r * 0.8, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(160,155,145,0.2)';
+          ctx.fill();
+        }
+      });
+    }
+
+    // --- MODE 2: Spirit Line ---
+    function drawSpiritLine() {
+      const r = Math.min(W, H) * 0.012;
+
+      // Draw the border (enclosed design)
+      const topLeft = getPos(0, 0);
+      const botRight = getPos(COLS - 1, ROWS - 1);
+      const pad = r * 4;
+
+      ctx.strokeStyle = 'rgba(140,100,80,0.2)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(topLeft.x - pad, topLeft.y - pad,
+        botRight.x - topLeft.x + pad * 2, botRight.y - topLeft.y + pad * 2);
+
+      // Inner border
+      ctx.strokeStyle = 'rgba(140,100,80,0.12)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(topLeft.x - pad * 0.5, topLeft.y - pad * 0.5,
+        botRight.x - topLeft.x + pad, botRight.y - topLeft.y + pad);
+
+      elements.forEach(el => {
+        const pos = getPos(el.col, el.row);
+
+        if (el.isMiss) {
+          // Spirit line: a thread from the miss to the edge
+          const edgeX = botRight.x + pad;
+          const progress = (Math.sin(time * 0.4) + 1) / 2;
+
+          // The line itself
+          ctx.beginPath();
+          ctx.moveTo(pos.x, pos.y);
+          const lineEndX = pos.x + (edgeX - pos.x) * (0.3 + progress * 0.7);
+          ctx.lineTo(lineEndX, pos.y);
+          ctx.strokeStyle = 'rgba(200,100,80,0.5)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          // Spirit particle traveling along the line
+          const spiritX = pos.x + (edgeX - pos.x) * ((time * 0.15) % 1);
+          ctx.beginPath();
+          ctx.arc(spiritX, pos.y, r * 0.6, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(200,100,80,0.7)';
+          ctx.fill();
+
+          // The element, slightly open
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, r, 0, Math.PI * 1.6);
+          ctx.strokeStyle = 'rgba(200,100,80,0.5)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        } else {
+          // Enclosed elements
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, r * 0.8, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(140,100,80,0.18)';
+          ctx.fill();
+        }
+      });
+    }
+
+    // --- MODE 3: Fukinsei (Asymmetry / Invitation) ---
+    let mouseX = cx, mouseY = cy;
+    canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+    canvas.addEventListener('touchmove', e => { mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; });
+
+    function drawFukinsei() {
+      const r = Math.min(W, H) * 0.012;
+
+      elements.forEach(el => {
+        const pos = getPos(el.col, el.row);
+        const dx = mouseX - pos.x;
+        const dy = mouseY - pos.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const influence = Math.max(0, 1 - dist / (Math.min(W, H) * 0.3));
+
+        if (el.isMiss) {
+          // The asymmetric element — everything orients TOWARD it
+          const pulse = Math.sin(time * 0.6) * 0.15 + 0.7;
+
+          // Draw subtle attraction lines from nearby elements
+          elements.forEach(other => {
+            if (other.isMiss) return;
+            const oPos = getPos(other.col, other.row);
+            const d = Math.sqrt((oPos.x - pos.x) ** 2 + (oPos.y - pos.y) ** 2);
+            if (d < Math.min(W, H) * 0.25) {
+              const alpha = (1 - d / (Math.min(W, H) * 0.25)) * 0.04;
+              ctx.beginPath();
+              ctx.moveTo(oPos.x, oPos.y);
+              ctx.lineTo(pos.x, pos.y);
+              ctx.strokeStyle = `rgba(120,180,140,${alpha})`;
+              ctx.lineWidth = 0.5;
+              ctx.stroke();
+            }
+          });
+
+          // The asymmetric stone
+          ctx.beginPath();
+          ctx.ellipse(pos.x, pos.y, r * 1.5, r * 1.1, Math.PI * 0.15, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(120,180,140,${pulse})`;
+          ctx.fill();
+        } else {
+          // Others orient toward the miss when mouse is near
+          const missPos = getPos(MISS_COL, MISS_ROW);
+          const toMiss = Math.atan2(missPos.y - pos.y, missPos.x - pos.x);
+
+          const size = r * (0.7 + influence * 0.5);
+          const orient = influence * 0.4;
+
+          ctx.save();
+          ctx.translate(pos.x, pos.y);
+          ctx.rotate(toMiss * orient);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, size, size * (1 - orient * 0.3), 0, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(160,175,160,${0.15 + influence * 0.2})`;
+          ctx.fill();
+          ctx.restore();
+        }
+      });
+    }
+
+    // --- MODE 4: Musical Swing ---
+    function drawSwing() {
+      const r = Math.min(W, H) * 0.012;
+      const beatPeriod = 0.8; // seconds per beat
+      const beat = time / beatPeriod;
+      const beatPhase = beat % 1;
+
+      elements.forEach(el => {
+        const pos = getPos(el.col, el.row);
+        const rowDelay = el.row * 0.08;
+        const colDelay = el.col * 0.05;
+
+        if (el.isMiss) {
+          // Behind the beat — the swing
+          const swingDelay = 0.12;
+          const t = ((beat - rowDelay - colDelay - swingDelay) % 1 + 1) % 1;
+          const pulse = Math.pow(Math.max(0, 1 - t * 4), 2);
+          const sway = Math.sin(time * 1.2 - 0.3) * r * 2;
+
+          ctx.beginPath();
+          ctx.arc(pos.x + sway, pos.y, r * (1 + pulse * 0.8), 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(200,150,100,${0.5 + pulse * 0.5})`;
+          ctx.fill();
+
+          // Trail showing the offset
+          for (let i = 1; i <= 3; i++) {
+            const trailSway = Math.sin(time * 1.2 - 0.3 - i * 0.15) * r * 2;
+            ctx.beginPath();
+            ctx.arc(pos.x + trailSway, pos.y, r * (0.8 - i * 0.15), 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(200,150,100,${0.15 - i * 0.04})`;
+            ctx.fill();
+          }
+        } else {
+          // On the beat — metronomic
+          const t = ((beat - rowDelay - colDelay) % 1 + 1) % 1;
+          const pulse = Math.pow(Math.max(0, 1 - t * 5), 3);
+
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, r * (0.7 + pulse * 0.3), 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(160,155,150,${0.12 + pulse * 0.2})`;
+          ctx.fill();
+        }
+      });
+    }
+
+    // --- MODE 5: Shannon Entropy ---
+    function drawEntropy() {
+      const r = Math.min(W, H) * 0.012;
+
+      elements.forEach(el => {
+        const pos = getPos(el.col, el.row);
+
+        if (el.isMiss) {
+          // Maximum information — radiating Shannon entropy
+          const burstR = r * 4;
+
+          // Information radiation
+          for (let i = 0; i < 12; i++) {
+            const a = (i / 12) * Math.PI * 2 + time * 0.2;
+            const len = burstR * (0.5 + Math.sin(time * 0.7 + i) * 0.3);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+            ctx.lineTo(pos.x + Math.cos(a) * len, pos.y + Math.sin(a) * len);
+            ctx.strokeStyle = 'rgba(100,180,220,0.2)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+
+          // The element itself — bright, information-rich
+          const pulse = Math.sin(time * 0.9) * 0.15 + 0.8;
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, r * 1.3, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(100,180,220,${pulse})`;
+          ctx.fill();
+
+          // H = 1.0 label
+          ctx.font = '9px Georgia';
+          ctx.fillStyle = 'rgba(100,180,220,0.5)';
+          ctx.textAlign = 'center';
+          ctx.fillText('H = 1.0', pos.x, pos.y + r * 3);
+        } else {
+          // Zero entropy — completely predictable, dim
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, r * 0.7, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(100,100,110,0.08)';
+          ctx.fill();
+        }
+      });
+
+      // Overall entropy label
+      ctx.font = '10px Georgia';
+      ctx.fillStyle = 'rgba(100,180,220,0.3)';
+      ctx.textAlign = 'center';
+      ctx.fillText('predictable \u2192 zero information', cx, H - 90);
+    }
+
+    // --- MODE 6: Chikamatsu's Margin ---
+    function drawMargin() {
+      const r = Math.min(W, H) * 0.012;
+
+      elements.forEach(el => {
+        const pos = getPos(el.col, el.row);
+
+        if (el.isMiss) {
+          // The maintained margin — between real and unreal
+          const breath = Math.sin(time * 0.5) * 0.1 + 0.5;
+
+          // Real side (warm)
+          ctx.beginPath();
+          ctx.arc(pos.x - r * 1.5, pos.y, r * 1.1, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(200,160,100,${breath})`;
+          ctx.fill();
+          ctx.font = '8px Georgia';
+          ctx.fillStyle = 'rgba(200,160,100,0.3)';
+          ctx.textAlign = 'center';
+          ctx.fillText('real', pos.x - r * 1.5, pos.y + r * 2.5);
+
+          // The margin (the gap between)
+          ctx.setLineDash([2, 3]);
+          ctx.beginPath();
+          ctx.moveTo(pos.x, pos.y - r * 2);
+          ctx.lineTo(pos.x, pos.y + r * 2);
+          ctx.strokeStyle = `rgba(200,200,200,${breath * 0.5})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Unreal side (cool)
+          ctx.beginPath();
+          ctx.arc(pos.x + r * 1.5, pos.y, r * 1.1, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(100,140,200,${breath})`;
+          ctx.fill();
+          ctx.font = '8px Georgia';
+          ctx.fillStyle = 'rgba(100,140,200,0.3)';
+          ctx.textAlign = 'center';
+          ctx.fillText('unreal', pos.x + r * 1.5, pos.y + r * 2.5);
+
+          // "The slender margin"
+          ctx.font = '8px Georgia';
+          ctx.fillStyle = 'rgba(200,200,200,0.25)';
+          ctx.fillText('margin', pos.x, pos.y + r * 4);
+
+          // Visible operators (three dark figures)
+          for (let i = 0; i < 3; i++) {
+            const opX = pos.x + (i - 1) * r * 1.2;
+            const opY = pos.y - r * 3;
+            ctx.beginPath();
+            ctx.arc(opX, opY, r * 0.35, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(80,80,90,0.4)';
+            ctx.fill();
+            // Body
+            ctx.beginPath();
+            ctx.moveTo(opX, opY + r * 0.35);
+            ctx.lineTo(opX, opY + r * 1.2);
+            ctx.strokeStyle = 'rgba(80,80,90,0.3)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+        } else {
+          // Others exist in one state — collapsed, not liminal
+          const isLeft = el.col < MISS_COL;
+          const color = isLeft ? 'rgba(200,160,100,0.12)' : 'rgba(100,140,200,0.12)';
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, r * 0.7, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+        }
+      });
+    }
+
+    // --- MODE 7: Tanaka's Puppet ---
+    let arrowStates = [];
+    let arrowTimer = 0;
+    let arrowPhase = 0; // 0-3: firing arrows, 4: reaction
+
+    function initArrows() {
+      arrowStates = [
+        { fired: false, hit: true, x: 0, y: 0, progress: 0 },
+        { fired: false, hit: true, x: 0, y: 0, progress: 0 },
+        { fired: false, hit: true, x: 0, y: 0, progress: 0 },
+        { fired: false, hit: false, x: 0, y: 0, progress: 0 }
+      ];
+      arrowPhase = 0;
+      arrowTimer = 0;
+    }
+    initArrows();
+
+    function drawPuppet() {
+      const r = Math.min(W, H) * 0.012;
+
+      // Target
+      const targetX = cx + Math.min(W, H) * 0.2;
+      const targetY = cy;
+      const targetR = Math.min(W, H) * 0.08;
+
+      // Concentric target rings
+      for (let i = 3; i >= 0; i--) {
+        ctx.beginPath();
+        ctx.arc(targetX, targetY, targetR * (i + 1) / 4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(160,140,120,${0.04 + (3 - i) * 0.02})`;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(160,140,120,0.1)';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+
+      // Puppet (archer)
+      const puppetX = cx - Math.min(W, H) * 0.2;
+      const puppetY = cy;
+
+      // Body
+      ctx.beginPath();
+      ctx.arc(puppetX, puppetY - 25, 12, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(180,160,140,0.4)';
+      ctx.fill();
+
+      // Torso
+      ctx.beginPath();
+      ctx.moveTo(puppetX, puppetY - 13);
+      ctx.lineTo(puppetX, puppetY + 15);
+      ctx.strokeStyle = 'rgba(180,160,140,0.3)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Arm (drawing position)
+      const drawAngle = arrowPhase < 4 ? -0.3 : -0.1;
+      ctx.beginPath();
+      ctx.moveTo(puppetX, puppetY - 5);
+      ctx.lineTo(puppetX + 20 * Math.cos(drawAngle), puppetY - 5 + 20 * Math.sin(drawAngle));
+      ctx.strokeStyle = 'rgba(180,160,140,0.3)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Bow
+      ctx.beginPath();
+      ctx.arc(puppetX + 15, puppetY, 20, -Math.PI * 0.4, Math.PI * 0.4);
+      ctx.strokeStyle = 'rgba(200,170,100,0.3)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Update arrow timing
+      arrowTimer += 0.016;
+      const fireInterval = 1.5;
+
+      if (arrowPhase < 4 && arrowTimer > fireInterval) {
+        arrowStates[arrowPhase].fired = true;
+        arrowPhase++;
+        arrowTimer = 0;
+      }
+
+      // Reset cycle
+      if (arrowPhase >= 4 && arrowTimer > 3) {
+        initArrows();
+      }
+
+      // Draw arrows
+      arrowStates.forEach((arrow, i) => {
+        if (!arrow.fired) return;
+
+        arrow.progress = Math.min(1, arrow.progress + 0.025);
+        const startX = puppetX + 20;
+        const startY = puppetY - 5;
+
+        let endX, endY;
+        if (arrow.hit) {
+          endX = targetX;
+          endY = targetY + (i - 1.5) * 8;
+        } else {
+          // The miss — offset
+          endX = targetX + targetR * 0.6;
+          endY = targetY - targetR * 0.5;
+        }
+
+        const currentX = startX + (endX - startX) * arrow.progress;
+        const currentY = startY + (endY - startY) * arrow.progress;
+        const angle = Math.atan2(endY - startY, endX - startX);
+
+        // Arrow shaft
+        const trailLen = 25;
+        ctx.beginPath();
+        ctx.moveTo(currentX, currentY);
+        ctx.lineTo(currentX - Math.cos(angle) * trailLen, currentY - Math.sin(angle) * trailLen);
+
+        if (arrow.hit) {
+          ctx.strokeStyle = `rgba(200,170,100,${0.3 + arrow.progress * 0.3})`;
+        } else {
+          ctx.strokeStyle = `rgba(200,100,80,${0.3 + arrow.progress * 0.4})`;
+        }
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Arrowhead
+        ctx.beginPath();
+        ctx.arc(currentX, currentY, 2, 0, Math.PI * 2);
+        ctx.fillStyle = arrow.hit ? 'rgba(200,170,100,0.7)' : 'rgba(200,100,80,0.8)';
+        ctx.fill();
+
+        // Impact on target
+        if (arrow.progress >= 1 && arrow.hit) {
+          ctx.beginPath();
+          ctx.arc(endX, endY, 3, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(200,170,100,0.5)';
+          ctx.fill();
+        }
+      });
+
+      // Puppet face — disappointed when the miss lands
+      if (arrowPhase >= 4 && arrowStates[3].progress >= 1) {
+        const faceAlpha = Math.min(1, arrowTimer * 0.5);
+        // Disappointed expression (small frown)
+        ctx.beginPath();
+        ctx.arc(puppetX, puppetY - 22, 2, 0.2, Math.PI - 0.2);
+        ctx.strokeStyle = `rgba(200,100,80,${0.4 * faceAlpha})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Label
+        ctx.font = '10px Georgia';
+        ctx.fillStyle = `rgba(200,100,80,${0.4 * faceAlpha})`;
+        ctx.textAlign = 'center';
+        ctx.fillText('the miss makes it someone', cx, cy + Math.min(W, H) * 0.22);
+      }
+
+      // Also draw the grid faintly in background
+      elements.forEach(el => {
+        if (el.isMiss) return;
+        const pos = getPos(el.col, el.row);
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, r * 0.3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(120,115,110,0.04)';
+        ctx.fill();
+      });
+    }
+
+    // --- MAIN LOOP ---
+    function draw() {
+      time += 0.016;
+      ctx.clearRect(0, 0, W, H);
+
+      switch (mode) {
+        case 0: drawSprezzatura(); break;
+        case 1: drawHumilityFlaw(); break;
+        case 2: drawSpiritLine(); break;
+        case 3: drawFukinsei(); break;
+        case 4: drawSwing(); break;
+        case 5: drawEntropy(); break;
+        case 6: drawMargin(); break;
+        case 7: drawPuppet(); break;
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', e => {
+      const n = parseInt(e.key);
+      if (n >= 1 && n <= 8) setMode(n - 1);
+    });
+  </script>
+</body>
+</html>
