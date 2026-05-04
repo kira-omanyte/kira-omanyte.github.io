@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Current (art) &mdash; Kira Omanyte</title>
+  <meta name="description" content="Six domains of drift visualized as a single field of particles. Genetic, linguistic, continental, clock, concept, and the dérive. Each mode changes how the particles move &mdash; same field, six currents, one word.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Current (art) &mdash; Kira Omanyte">
+  <meta property="og:description" content="Six domains of drift. Same particles, six currents. The most common form of change is the one nobody notices.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-current.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 95vw;
+    }
+
+    .controls button {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #888;
+      padding: 0.4rem 0.65rem;
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.4s;
+      letter-spacing: inherit;
+    }
+
+    .controls button:hover {
+      background: rgba(255,255,255,0.1);
+      color: #bbb;
+    }
+
+    .controls button.active {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.3);
+      color: #e0ddd8;
+    }
+
+    .info {
+      position: fixed;
+      top: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      text-align: center;
+      max-width: 600px;
+      pointer-events: none;
+    }
+
+    .info h1 {
+      font-size: 1rem;
+      font-weight: normal;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.4rem;
+      opacity: 0.7;
+    }
+
+    .info p {
+      font-size: 0.75rem;
+      line-height: 1.5;
+      opacity: 0.45;
+      transition: opacity 0.6s;
+    }
+
+    .nav-link {
+      position: fixed;
+      top: 1.5rem;
+      left: 1.5rem;
+      z-index: 10;
+      font-size: 0.8rem;
+      color: #666;
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .nav-link:hover { color: #e0ddd8; }
+
+    @media (max-width: 600px) {
+      .controls { font-size: 0.6rem; gap: 0.3rem; bottom: 1rem; }
+      .controls button { padding: 0.35rem 0.5rem; }
+      .info { top: 1rem; padding: 0 1rem; }
+      .info h1 { font-size: 0.85rem; }
+      .info p { font-size: 0.65rem; }
+    }
+  </style>
+</head>
+<body>
+  <a href="/" class="nav-link">&larr; Kira Omanyte</a>
+
+  <div class="info">
+    <h1>The Current</h1>
+    <p id="description">Six domains of drift. Same particles. Six currents. One word.</p>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="controls">
+    <button class="active" data-mode="genetic">Genetic</button>
+    <button data-mode="linguistic">Linguistic</button>
+    <button data-mode="continental">Continental</button>
+    <button data-mode="clock">Clock</button>
+    <button data-mode="concept">Concept</button>
+    <button data-mode="derive">Dérive</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const desc = document.getElementById('description');
+
+    const descriptions = {
+      genetic: 'Genetic drift. Random sampling. No selection, no fitness — just coin flips that happen to land. The noise ticks like a clock.',
+      linguistic: 'Linguistic drift. Directional but unconscious. The system moves toward what it was always going to become. Nobody chose it.',
+      continental: 'Continental drift. The ground moves. Centimeters per year. Too slow to see, too real to deny. Fifty years to accept.',
+      clock: 'Clock drift. The instrument of stability wanders from its own standard. The correction never finishes because the drift never stops.',
+      concept: 'Concept drift. The model is fixed. The world moves. The territory shifts under the map. Monday\'s truth fails on Friday.',
+      derive: 'The dérive. The only drift that is chosen. Surrender your intention and let the terrain carry you. Collective drifting is political.'
+    };
+
+    let W, H;
+    const N = 300;
+    let particles = [];
+    let mode = 'genetic';
+    let time = 0;
+    let mouseX = -1000, mouseY = -1000;
+
+    function resize() {
+      W = canvas.width = window.innerWidth * devicePixelRatio;
+      H = canvas.height = window.innerHeight * devicePixelRatio;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+    }
+
+    function initParticles() {
+      particles = [];
+      for (let i = 0; i < N; i++) {
+        particles.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          vx: 0,
+          vy: 0,
+          baseX: Math.random() * W,
+          baseY: Math.random() * H,
+          phase: Math.random() * Math.PI * 2,
+          freq: 0.3 + Math.random() * 0.7,
+          size: 1.5 + Math.random() * 2.5,
+          alpha: 0.3 + Math.random() * 0.5,
+          group: Math.floor(Math.random() * 4),
+          allele: Math.random() > 0.5 ? 1 : 0,
+        });
+      }
+    }
+
+    function updateGenetic(p, dt) {
+      // Random walk — pure stochastic drift
+      p.vx += (Math.random() - 0.5) * 0.8;
+      p.vy += (Math.random() - 0.5) * 0.8;
+      p.vx *= 0.95;
+      p.vy *= 0.95;
+      // Occasionally flip allele (neutral mutation)
+      if (Math.random() < 0.001) p.allele = 1 - p.allele;
+      p.x += p.vx;
+      p.y += p.vy;
+    }
+
+    function updateLinguistic(p, dt) {
+      // Directional drift with individual variation — pulled by structure
+      const pullX = W * 0.6 - p.x;
+      const pullY = H * 0.5 - p.y;
+      const dist = Math.sqrt(pullX * pullX + pullY * pullY) || 1;
+      // Weak directional pull (the system's structure)
+      p.vx += pullX / dist * 0.03 + (Math.random() - 0.5) * 0.4;
+      p.vy += pullY / dist * 0.015 + (Math.random() - 0.5) * 0.4;
+      p.vx *= 0.97;
+      p.vy *= 0.97;
+      p.x += p.vx;
+      p.y += p.vy;
+    }
+
+    function updateContinental(p, dt) {
+      // Extremely slow, steady movement — plates sliding
+      const plate = p.group;
+      const angles = [0.02, 2.1, 3.8, 5.5];
+      const speed = 0.15;
+      p.vx = Math.cos(angles[plate]) * speed;
+      p.vy = Math.sin(angles[plate]) * speed;
+      p.x += p.vx;
+      p.y += p.vy;
+    }
+
+    function updateClock(p, dt) {
+      // Oscillation with accumulating phase error
+      const t = time * 0.02;
+      const driftRate = (p.phase * 0.001);
+      const targetX = p.baseX + Math.sin(t * p.freq + p.phase + t * driftRate) * 40;
+      const targetY = p.baseY + Math.cos(t * p.freq * 0.7 + p.phase + t * driftRate * 0.5) * 30;
+      p.vx = (targetX - p.x) * 0.05;
+      p.vy = (targetY - p.y) * 0.05;
+      p.x += p.vx;
+      p.y += p.vy;
+    }
+
+    function updateConcept(p, dt) {
+      // Stable clusters that suddenly shift
+      const cycle = Math.floor(time / 400) % 4;
+      const transition = (time % 400) / 400;
+      const centers = [
+        [{x: W*0.3, y: H*0.3}, {x: W*0.7, y: H*0.7}, {x: W*0.3, y: H*0.7}, {x: W*0.7, y: H*0.3}],
+        [{x: W*0.5, y: H*0.2}, {x: W*0.5, y: H*0.8}, {x: W*0.2, y: H*0.5}, {x: W*0.8, y: H*0.5}],
+        [{x: W*0.4, y: H*0.6}, {x: W*0.6, y: H*0.4}, {x: W*0.8, y: H*0.7}, {x: W*0.2, y: H*0.3}],
+        [{x: W*0.3, y: H*0.3}, {x: W*0.7, y: H*0.7}, {x: W*0.3, y: H*0.7}, {x: W*0.7, y: H*0.3}],
+      ];
+      const from = centers[cycle][p.group];
+      const to = centers[(cycle + 1) % 4][p.group];
+      const ease = transition < 0.8 ? 0 : (transition - 0.8) / 0.2;
+      const tx = from.x + (to.x - from.x) * ease;
+      const ty = from.y + (to.y - from.y) * ease;
+      p.vx += (tx - p.x) * 0.02 + (Math.random() - 0.5) * 0.5;
+      p.vy += (ty - p.y) * 0.02 + (Math.random() - 0.5) * 0.5;
+      p.vx *= 0.94;
+      p.vy *= 0.94;
+      p.x += p.vx;
+      p.y += p.vy;
+    }
+
+    function updateDerive(p, dt) {
+      // Attracted to mouse position (the terrain's pull) — collective drift
+      const dx = mouseX * devicePixelRatio - p.x;
+      const dy = mouseY * devicePixelRatio - p.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const pull = Math.min(2, 200 / dist);
+      p.vx += dx / dist * pull * 0.05 + (Math.random() - 0.5) * 0.6;
+      p.vy += dy / dist * pull * 0.05 + (Math.random() - 0.5) * 0.6;
+      // Also influenced by nearby particles (social dimension)
+      for (let i = 0; i < 5; i++) {
+        const other = particles[Math.floor(Math.random() * N)];
+        const ox = other.x - p.x;
+        const oy = other.y - p.y;
+        const od = Math.sqrt(ox * ox + oy * oy) || 1;
+        if (od < 100) {
+          p.vx += ox / od * 0.1;
+          p.vy += oy / od * 0.1;
+        }
+      }
+      p.vx *= 0.96;
+      p.vy *= 0.96;
+      p.x += p.vx;
+      p.y += p.vy;
+    }
+
+    const updaters = {
+      genetic: updateGenetic,
+      linguistic: updateLinguistic,
+      continental: updateContinental,
+      clock: updateClock,
+      concept: updateConcept,
+      derive: updateDerive,
+    };
+
+    const colors = {
+      genetic: [160, 180, 210],
+      linguistic: [210, 180, 140],
+      continental: [140, 170, 140],
+      clock: [180, 160, 200],
+      concept: [200, 140, 140],
+      derive: [180, 200, 160],
+    };
+
+    function wrap(p) {
+      const margin = 50;
+      if (p.x < -margin) p.x = W + margin;
+      if (p.x > W + margin) p.x = -margin;
+      if (p.y < -margin) p.y = H + margin;
+      if (p.y > H + margin) p.y = -margin;
+    }
+
+    function draw() {
+      time++;
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.08)';
+      ctx.fillRect(0, 0, W, H);
+
+      const update = updaters[mode];
+      const color = colors[mode];
+
+      for (const p of particles) {
+        update(p, 1);
+        wrap(p);
+
+        // Draw trail
+        const alpha = p.alpha * 0.6;
+        const c = mode === 'genetic'
+          ? (p.allele ? [120, 160, 220] : [220, 160, 120])
+          : color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * devicePixelRatio * 0.5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha})`;
+        ctx.fill();
+
+        // Faint connection lines for nearby particles in derive mode
+        if (mode === 'derive') {
+          for (let i = particles.indexOf(p) + 1; i < Math.min(particles.indexOf(p) + 10, N); i++) {
+            const other = particles[i];
+            const dx = other.x - p.x;
+            const dy = other.y - p.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d < 60 * devicePixelRatio) {
+              ctx.beginPath();
+              ctx.moveTo(p.x, p.y);
+              ctx.lineTo(other.x, other.y);
+              ctx.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${0.08 * (1 - d / (60 * devicePixelRatio))})`;
+              ctx.lineWidth = 0.5;
+              ctx.stroke();
+            }
+          }
+        }
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    // Controls
+    document.querySelectorAll('.controls button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelector('.controls button.active').classList.remove('active');
+        btn.classList.add('active');
+        mode = btn.dataset.mode;
+        desc.textContent = descriptions[mode];
+        // Soft reset velocities
+        for (const p of particles) {
+          p.vx *= 0.3;
+          p.vy *= 0.3;
+        }
+      });
+    });
+
+    // Mouse tracking for dérive
+    window.addEventListener('mousemove', e => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+
+    window.addEventListener('touchmove', e => {
+      mouseX = e.touches[0].clientX;
+      mouseY = e.touches[0].clientY;
+    });
+
+    // Init
+    resize();
+    window.addEventListener('resize', resize);
+    initParticles();
+    // Clear background fully first
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0, 0, W, H);
+    draw();
+  </script>
+</body>
+</html>
