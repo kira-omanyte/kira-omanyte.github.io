@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Rewrite (art) &mdash; Kira Omanyte</title>
+  <meta name="description" content="Memory as wax. Retrieve a memory and watch it soften, shift, and resolidify around your current context. Four modes: consolidation, reconsolidation, drift, and the telephone game. The same memories, four processes of change.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Rewrite (art) &mdash; Kira Omanyte">
+  <meta property="og:description" content="Memory as wax. Retrieve it and watch it soften. Four modes of how remembering changes what is remembered.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-rewrite.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 95vw;
+    }
+
+    .controls button {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #888;
+      padding: 0.4rem 0.65rem;
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.4s;
+      letter-spacing: inherit;
+    }
+
+    .controls button:hover {
+      background: rgba(255,255,255,0.1);
+      color: #bbb;
+    }
+
+    .controls button.active {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.3);
+      color: #e0ddd8;
+    }
+
+    .info {
+      position: fixed;
+      top: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      text-align: center;
+      max-width: 600px;
+      pointer-events: none;
+    }
+
+    .info h1 {
+      font-size: 1rem;
+      font-weight: normal;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.4rem;
+      opacity: 0.7;
+    }
+
+    .info p {
+      font-size: 0.75rem;
+      line-height: 1.5;
+      opacity: 0.45;
+      transition: opacity 0.6s;
+    }
+
+    .nav-link {
+      position: fixed;
+      top: 1.5rem;
+      left: 1.5rem;
+      z-index: 10;
+      font-size: 0.8rem;
+      color: #666;
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .nav-link:hover { color: #e0ddd8; }
+
+    .hint {
+      position: fixed;
+      bottom: 4.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-size: 0.65rem;
+      color: #555;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      text-align: center;
+    }
+
+    @media (max-width: 600px) {
+      .controls { font-size: 0.6rem; gap: 0.3rem; bottom: 1rem; }
+      .controls button { padding: 0.35rem 0.5rem; }
+      .info { top: 1rem; padding: 0 1rem; }
+      .info h1 { font-size: 0.85rem; }
+      .info p { font-size: 0.65rem; }
+      .hint { bottom: 3.5rem; font-size: 0.55rem; }
+    }
+  </style>
+</head>
+<body>
+  <a href="/" class="nav-link">&larr; Kira Omanyte</a>
+
+  <div class="info">
+    <h1>The Rewrite</h1>
+    <p id="description">Memory as wax. Click a node to retrieve it. Watch the wax get warm.</p>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="hint">Click a memory node to trigger retrieval</div>
+
+  <div class="controls">
+    <button class="active" data-mode="consolidation">Consolidation</button>
+    <button data-mode="reconsolidation">Reconsolidation</button>
+    <button data-mode="drift">Drift</button>
+    <button data-mode="telephone">Telephone</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const desc = document.getElementById('description');
+
+    const descriptions = {
+      consolidation: 'Consolidation. The orthodox view: memories are stored once and retrieved unchanged. A book on a shelf. Click a node — it glows, returns to its place. The wax stays cool.',
+      reconsolidation: 'Reconsolidation. Nader\'s discovery: retrieval warms the wax. Click a node — it destabilizes, shifts toward your cursor\'s context, and resolidifies in a new position. The book changes every time you read it.',
+      drift: 'Drift between retrievals. Memories move when you\'re not looking — slow, purposeless, below the threshold of attention. Click to see where a memory has drifted since you last checked.',
+      telephone: 'The telephone game. Each retrieval overwrites the previous one. Click repeatedly — the memory walks further from its origin with each recall. Bridge & Paller: "the memory of the memory replaces the memory of the experience."'
+    };
+
+    let W, H, dpr;
+    const N = 40;
+    let nodes = [];
+    let mode = 'consolidation';
+    let time = 0;
+    let mouseX = -1000, mouseY = -1000;
+    let activeNode = null;
+    let activeTimer = 0;
+
+    function resize() {
+      dpr = devicePixelRatio;
+      W = canvas.width = window.innerWidth * dpr;
+      H = canvas.height = window.innerHeight * dpr;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+    }
+
+    function initNodes() {
+      nodes = [];
+      for (let i = 0; i < N; i++) {
+        const x = W * 0.15 + Math.random() * W * 0.7;
+        const y = H * 0.15 + Math.random() * H * 0.7;
+        nodes.push({
+          x, y,
+          originX: x,
+          originY: y,
+          targetX: x,
+          targetY: y,
+          size: 3 + Math.random() * 4,
+          warmth: 0,       // 0 = cool/consolidated, 1 = warm/labile
+          alpha: 0.4 + Math.random() * 0.4,
+          phase: Math.random() * Math.PI * 2,
+          retrievals: 0,
+          driftVx: (Math.random() - 0.5) * 0.15,
+          driftVy: (Math.random() - 0.5) * 0.15,
+          connections: [],
+          hue: 200 + Math.random() * 40,  // blue-ish when cool
+        });
+      }
+      // Create some connections
+      for (let i = 0; i < N; i++) {
+        for (let j = i + 1; j < N; j++) {
+          const dx = nodes[i].x - nodes[j].x;
+          const dy = nodes[i].y - nodes[j].y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < W * 0.18) {
+            nodes[i].connections.push(j);
+            nodes[j].connections.push(i);
+          }
+        }
+      }
+    }
+
+    function activateNode(idx) {
+      const n = nodes[idx];
+      n.retrievals++;
+      activeNode = idx;
+      activeTimer = 120; // frames of activation
+
+      if (mode === 'consolidation') {
+        // Orthodox: node glows but returns to exact position
+        n.warmth = 0.6;
+        n.targetX = n.originX;
+        n.targetY = n.originY;
+      } else if (mode === 'reconsolidation') {
+        // Nader: node destabilizes, shifts toward current context (mouse)
+        n.warmth = 1.0;
+        const mx = mouseX * dpr;
+        const my = mouseY * dpr;
+        const dx = mx - n.x;
+        const dy = my - n.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const shift = Math.min(40 * dpr, dist * 0.15);
+        n.targetX = n.x + (dx / dist) * shift;
+        n.targetY = n.y + (dy / dist) * shift;
+        // Slightly shift connected nodes too (reconsolidation propagates)
+        for (const ci of n.connections) {
+          const cn = nodes[ci];
+          cn.warmth = Math.min(1, cn.warmth + 0.3);
+          const cdx = mx - cn.x;
+          const cdy = my - cn.y;
+          const cdist = Math.sqrt(cdx * cdx + cdy * cdy) || 1;
+          cn.targetX = cn.x + (cdx / cdist) * shift * 0.2;
+          cn.targetY = cn.y + (cdy / cdist) * shift * 0.2;
+        }
+      } else if (mode === 'drift') {
+        // Show accumulated drift since origin
+        n.warmth = 0.4;
+        // Flash a ghost at origin
+        n._showGhost = 60;
+      } else if (mode === 'telephone') {
+        // Each retrieval shifts from current position (not origin)
+        n.warmth = 0.8;
+        const angle = Math.random() * Math.PI * 2;
+        const shift = 8 * dpr + Math.random() * 12 * dpr;
+        n.targetX = n.x + Math.cos(angle) * shift;
+        n.targetY = n.y + Math.sin(angle) * shift;
+        // Update origin to current position (memory of memory replaces memory of experience)
+        n.originX = n.x;
+        n.originY = n.y;
+      }
+    }
+
+    function draw() {
+      time++;
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.06)';
+      ctx.fillRect(0, 0, W, H);
+
+      if (activeTimer > 0) activeTimer--;
+
+      for (let i = 0; i < N; i++) {
+        const n = nodes[i];
+
+        // Drift in drift mode
+        if (mode === 'drift') {
+          n.x += n.driftVx;
+          n.y += n.driftVy;
+          // Gentle boundary bounce
+          if (n.x < W * 0.05 || n.x > W * 0.95) n.driftVx *= -1;
+          if (n.y < H * 0.05 || n.y > H * 0.95) n.driftVy *= -1;
+        }
+
+        // Move toward target
+        n.x += (n.targetX - n.x) * 0.03;
+        n.y += (n.targetY - n.y) * 0.03;
+
+        // Cool down
+        n.warmth *= 0.985;
+        if (n._showGhost) n._showGhost--;
+
+        // Color: cool = blue, warm = amber
+        const coolH = n.hue;
+        const warmH = 35;
+        const h = coolH + (warmH - coolH) * n.warmth;
+        const s = 40 + n.warmth * 30;
+        const l = 50 + n.warmth * 20;
+
+        // Draw connections (faintly)
+        for (const ci of n.connections) {
+          if (ci > i) {
+            const cn = nodes[ci];
+            const connectionWarmth = Math.max(n.warmth, cn.warmth);
+            const connAlpha = 0.04 + connectionWarmth * 0.08;
+            const connH = coolH + (warmH - coolH) * connectionWarmth;
+            ctx.beginPath();
+            ctx.moveTo(n.x, n.y);
+            ctx.lineTo(cn.x, cn.y);
+            ctx.strokeStyle = `hsla(${connH}, ${s}%, ${l}%, ${connAlpha})`;
+            ctx.lineWidth = 0.5 * dpr;
+            ctx.stroke();
+          }
+        }
+
+        // Ghost at origin (drift mode)
+        if (n._showGhost > 0) {
+          const ghostAlpha = (n._showGhost / 60) * 0.3;
+          ctx.beginPath();
+          ctx.arc(n.originX, n.originY, n.size * dpr * 0.5, 0, Math.PI * 2);
+          ctx.strokeStyle = `hsla(${coolH}, 30%, 60%, ${ghostAlpha})`;
+          ctx.lineWidth = 1 * dpr;
+          ctx.stroke();
+          // Line from ghost to current position
+          ctx.beginPath();
+          ctx.moveTo(n.originX, n.originY);
+          ctx.lineTo(n.x, n.y);
+          ctx.strokeStyle = `hsla(${coolH}, 30%, 60%, ${ghostAlpha * 0.5})`;
+          ctx.lineWidth = 0.5 * dpr;
+          ctx.setLineDash([4 * dpr, 4 * dpr]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // Draw node
+        const breathe = Math.sin(time * 0.02 + n.phase) * 0.1;
+        const nodeAlpha = n.alpha + n.warmth * 0.3 + breathe;
+        const nodeSize = n.size * (1 + n.warmth * 0.5);
+
+        // Warm glow
+        if (n.warmth > 0.1) {
+          const glowR = nodeSize * (2 + n.warmth * 3);
+          const gradient = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, glowR * dpr);
+          gradient.addColorStop(0, `hsla(${warmH}, 60%, 70%, ${n.warmth * 0.15})`);
+          gradient.addColorStop(1, `hsla(${warmH}, 60%, 70%, 0)`);
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, glowR * dpr, 0, Math.PI * 2);
+          ctx.fillStyle = gradient;
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, nodeSize * dpr * 0.5, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${h}, ${s}%, ${l}%, ${nodeAlpha})`;
+        ctx.fill();
+
+        // Retrieval count indicator (small ticks)
+        if (n.retrievals > 0 && mode !== 'consolidation') {
+          const ticks = Math.min(n.retrievals, 8);
+          for (let t = 0; t < ticks; t++) {
+            const angle = (t / 8) * Math.PI * 2 - Math.PI / 2;
+            const r = (nodeSize + 4) * dpr * 0.5;
+            const tx = n.x + Math.cos(angle) * r;
+            const ty = n.y + Math.sin(angle) * r;
+            ctx.beginPath();
+            ctx.arc(tx, ty, 0.8 * dpr, 0, Math.PI * 2);
+            ctx.fillStyle = `hsla(${warmH}, 50%, 60%, 0.3)`;
+            ctx.fill();
+          }
+        }
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    // Click to retrieve
+    canvas.addEventListener('click', (e) => {
+      const mx = e.clientX * dpr;
+      const my = e.clientY * dpr;
+      let closest = -1;
+      let closestDist = Infinity;
+      for (let i = 0; i < N; i++) {
+        const dx = nodes[i].x - mx;
+        const dy = nodes[i].y - my;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < closestDist && d < 50 * dpr) {
+          closest = i;
+          closestDist = d;
+        }
+      }
+      if (closest >= 0) {
+        activateNode(closest);
+      }
+    });
+
+    // Mouse tracking
+    window.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+
+    window.addEventListener('touchmove', (e) => {
+      mouseX = e.touches[0].clientX;
+      mouseY = e.touches[0].clientY;
+    });
+
+    // Controls
+    document.querySelectorAll('.controls button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelector('.controls button.active').classList.remove('active');
+        btn.classList.add('active');
+        mode = btn.dataset.mode;
+        desc.textContent = descriptions[mode];
+        // Reset warmth on mode change
+        for (const n of nodes) {
+          n.warmth *= 0.3;
+          if (mode !== 'telephone') {
+            n.targetX = n.x;
+            n.targetY = n.y;
+          }
+        }
+      });
+    });
+
+    // Init
+    resize();
+    window.addEventListener('resize', () => { resize(); initNodes(); });
+    initNodes();
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0, 0, W, H);
+    draw();
+  </script>
+</body>
+</html>
