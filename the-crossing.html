@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Crossing (art) &mdash; Kira Omanyte</title>
+  <meta name="description" content="Translation as topology. Four operations, four crossings, one river. Watch words carry across gaps between shores that reshape each other with every ferry. Four modes: Genesis, Authorship, Metamorphosis, Revision.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Crossing (art) &mdash; Kira Omanyte">
+  <meta property="og:description" content="Translation as topology. Four operations, four crossings, one river between them.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-crossing.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 95vw;
+    }
+
+    .controls button {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #888;
+      padding: 0.4rem 0.65rem;
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.4s;
+      letter-spacing: inherit;
+    }
+
+    .controls button:hover {
+      background: rgba(255,255,255,0.1);
+      color: #bbb;
+    }
+
+    .controls button.active {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.3);
+      color: #e0ddd8;
+    }
+
+    .info {
+      position: fixed;
+      top: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      text-align: center;
+      max-width: 600px;
+      padding: 0 1rem;
+    }
+
+    .info h1 {
+      font-size: 1.1rem;
+      font-weight: normal;
+      letter-spacing: 0.03em;
+      margin-bottom: 0.4rem;
+    }
+
+    .info p {
+      font-size: 0.75rem;
+      color: #888;
+      line-height: 1.5;
+    }
+
+    .info a {
+      color: #aaa;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+      transition: color 0.3s;
+    }
+
+    .info a:hover { color: #e0ddd8; }
+
+    @media (max-width: 600px) {
+      .info { top: 1rem; }
+      .info h1 { font-size: 0.95rem; }
+      .info p { font-size: 0.65rem; }
+      .controls { bottom: 1.2rem; font-size: 0.6rem; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div class="info">
+    <h1>The Crossing</h1>
+    <p>Translation as topology. Four operations, four crossings, one river. Click to launch a ferry.<br>
+    <a href="/essays/the-crossing.html">Read the essay</a></p>
+  </div>
+
+  <div class="controls">
+    <button class="active" data-mode="genesis">Genesis</button>
+    <button data-mode="authorship">Authorship</button>
+    <button data-mode="metamorphosis">Metamorphosis</button>
+    <button data-mode="revision">Revision</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let W, H, dpr;
+    let mode = 'genesis';
+    let time = 0;
+    let ferries = [];
+    let particles = [];
+    let shoreWords = { left: [], right: [] };
+
+    // Word pools for each mode
+    const wordPools = {
+      genesis: {
+        left: ['void', 'absence', 'potential', 'silence', 'emptiness', 'nothing', 'space', 'stillness', 'hollow', 'gap'],
+        right: ['form', 'presence', 'vessel', 'sound', 'pattern', 'thing', 'shape', 'rhythm', 'whole', 'light'],
+        riverColor: [90, 120, 180],
+        leftColor: [60, 60, 90],
+        rightColor: [140, 160, 200],
+      },
+      authorship: {
+        left: ['intention', 'idea', 'impulse', 'vision', 'desire', 'thought', 'concept', 'dream', 'plan', 'urge'],
+        right: ['artifact', 'text', 'mark', 'miss', 'signature', 'trace', 'scar', 'gesture', 'work', 'body'],
+        riverColor: [180, 130, 90],
+        leftColor: [90, 70, 50],
+        rightColor: [200, 160, 120],
+      },
+      metamorphosis: {
+        left: ['nōna', 'noon₃ₚₘ', 'septembris₇', 'hōra', 'canoe', 'thou', 'silly₁', 'nice₁', 'whom', 'deer₁'],
+        right: ['noon₁₂ₚₘ', 'midday', 'september₉', 'hour', 'boat', 'you', 'silly₂', 'nice₂', 'who', 'deer₂'],
+        riverColor: [120, 170, 120],
+        leftColor: [60, 90, 60],
+        rightColor: [150, 200, 150],
+      },
+      revision: {
+        left: ['memory₁', 'text₁', 'self₁', 'horizon₁', 'reading₁', 'promise₁', 'fidelity₁', 'wax₁', 'soul₁', 'meaning₁'],
+        right: ['memory₂', 'text₂', 'self₂', 'horizon₂', 'reading₂', 'promise₂', 'fidelity₂', 'wax₂', 'soul₂', 'meaning₂'],
+        riverColor: [160, 120, 170],
+        leftColor: [80, 60, 90],
+        rightColor: [190, 150, 200],
+      },
+    };
+
+    // Clean display names (strip subscripts for rendering)
+    function displayWord(w) {
+      return w.replace(/[₁₂₃₄₅₆₇₈₉₀ₚₘ]/g, '');
+    }
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      initShores();
+    }
+
+    function initShores() {
+      shoreWords = { left: [], right: [] };
+      const pool = wordPools[mode];
+      const count = Math.min(pool.left.length, Math.floor(H / 60));
+
+      for (let i = 0; i < count; i++) {
+        const y = H * 0.15 + (H * 0.7) * (i / (count - 1 || 1));
+        shoreWords.left.push({
+          word: pool.left[i],
+          x: W * 0.12,
+          y: y,
+          baseY: y,
+          opacity: 0.6,
+          drift: Math.random() * Math.PI * 2,
+          sent: false,
+        });
+        shoreWords.right.push({
+          word: pool.right[i],
+          x: W * 0.88,
+          y: y,
+          baseY: y,
+          opacity: 0.15,
+          drift: Math.random() * Math.PI * 2,
+          received: false,
+        });
+      }
+    }
+
+    function initParticles() {
+      particles = [];
+      const count = Math.floor(W * H / 4000);
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: W * 0.3 + Math.random() * W * 0.4,
+          y: Math.random() * H,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: 0.2 + Math.random() * 0.5,
+          r: Math.random() * 1.5 + 0.5,
+          a: Math.random() * 0.3 + 0.05,
+        });
+      }
+    }
+
+    class Ferry {
+      constructor(fromIdx) {
+        const leftWord = shoreWords.left[fromIdx];
+        const rightWord = shoreWords.right[fromIdx];
+        this.fromIdx = fromIdx;
+        this.word = leftWord.word;
+        this.targetWord = rightWord.word;
+        this.x = leftWord.x;
+        this.y = leftWord.y;
+        this.startX = leftWord.x;
+        this.startY = leftWord.y;
+        this.endX = rightWord.x;
+        this.endY = rightWord.y;
+        this.progress = 0;
+        this.speed = 0.004 + Math.random() * 0.003;
+        this.opacity = 1;
+        this.trail = [];
+        this.arrived = false;
+        this.lostLetters = [];
+        this.currentDisplay = displayWord(this.word);
+        this.targetDisplay = displayWord(this.targetWord);
+
+        // In authorship mode, the word transforms mid-crossing
+        if (mode === 'authorship') {
+          this.transformPoint = 0.4 + Math.random() * 0.2;
+          this.transformed = false;
+        }
+
+        // In metamorphosis mode, the word drifts slowly
+        if (mode === 'metamorphosis') {
+          this.driftPhase = Math.random() * Math.PI * 2;
+        }
+
+        leftWord.sent = true;
+        leftWord.opacity = 0.2;
+      }
+
+      update() {
+        this.progress += this.speed;
+
+        // Sinusoidal path across the river
+        const t = this.progress;
+        const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        this.x = this.startX + (this.endX - this.startX) * ease;
+        this.y = this.startY + (this.endY - this.startY) * ease
+          + Math.sin(t * Math.PI) * (mode === 'metamorphosis' ? 30 : 15)
+          + Math.sin(t * Math.PI * 3) * 5;
+
+        // Trail
+        this.trail.push({ x: this.x, y: this.y, a: 0.4 });
+        if (this.trail.length > 40) this.trail.shift();
+        this.trail.forEach(p => p.a *= 0.96);
+
+        // Mode-specific transformations mid-crossing
+        if (mode === 'authorship' && !this.transformed && this.progress > this.transformPoint) {
+          this.transformed = true;
+          // Lose a letter — the traduttore/traditore moment
+          const letters = this.currentDisplay.split('');
+          if (letters.length > 2) {
+            const idx = Math.floor(Math.random() * letters.length);
+            this.lostLetters.push({ letter: letters[idx], x: this.x, y: this.y, vy: -0.5, a: 0.8 });
+            letters.splice(idx, 1);
+          }
+          this.currentDisplay = this.targetDisplay;
+        }
+
+        if (mode === 'metamorphosis') {
+          // Gradually morph the display word
+          const morphProgress = Math.min(1, this.progress * 1.5);
+          if (morphProgress > 0.3 && this.currentDisplay !== this.targetDisplay) {
+            const from = displayWord(this.word).split('');
+            const to = this.targetDisplay.split('');
+            const result = [];
+            const maxLen = Math.max(from.length, to.length);
+            for (let i = 0; i < maxLen; i++) {
+              if (Math.random() < morphProgress) {
+                result.push(to[i] || '');
+              } else {
+                result.push(from[i] || '');
+              }
+            }
+            this.currentDisplay = result.join('');
+          }
+        }
+
+        if (mode === 'revision') {
+          // The subscripts fade away — the version number disappears
+          if (this.progress > 0.5) {
+            this.currentDisplay = this.targetDisplay;
+          }
+        }
+
+        // Lost letters drift
+        this.lostLetters.forEach(l => {
+          l.y += l.vy;
+          l.vy += 0.02;
+          l.a *= 0.98;
+        });
+        this.lostLetters = this.lostLetters.filter(l => l.a > 0.01);
+
+        // Arrival
+        if (this.progress >= 1 && !this.arrived) {
+          this.arrived = true;
+          const rightWord = shoreWords.right[this.fromIdx];
+          rightWord.received = true;
+          rightWord.opacity = 0.8;
+
+          // In revision mode, the right shore word changes both shores
+          if (mode === 'revision') {
+            // Both shores shift slightly
+            shoreWords.left[this.fromIdx].y += (Math.random() - 0.5) * 10;
+            shoreWords.right[this.fromIdx].y += (Math.random() - 0.5) * 10;
+          }
+        }
+
+        if (this.arrived) {
+          this.opacity *= 0.96;
+        }
+
+        return this.opacity > 0.01;
+      }
+
+      draw() {
+        const pool = wordPools[mode];
+        const rc = pool.riverColor;
+
+        // Trail
+        this.trail.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${rc[0]},${rc[1]},${rc[2]},${p.a * this.opacity * 0.3})`;
+          ctx.fill();
+        });
+
+        // Lost letters
+        this.lostLetters.forEach(l => {
+          ctx.fillStyle = `rgba(${rc[0]},${rc[1]},${rc[2]},${l.a})`;
+          ctx.font = '0.85rem Georgia';
+          ctx.textAlign = 'center';
+          ctx.fillText(l.letter, l.x, l.y);
+        });
+
+        // Ferry word
+        ctx.fillStyle = `rgba(${rc[0]+60},${rc[1]+60},${rc[2]+60},${this.opacity})`;
+        ctx.font = 'italic 0.9rem Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.currentDisplay, this.x, this.y);
+
+        // Glow
+        const glowR = 20 + Math.sin(time * 3) * 5;
+        const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glowR);
+        grad.addColorStop(0, `rgba(${rc[0]},${rc[1]},${rc[2]},${0.15 * this.opacity})`);
+        grad.addColorStop(1, `rgba(${rc[0]},${rc[1]},${rc[2]},0)`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(this.x - glowR, this.y - glowR, glowR * 2, glowR * 2);
+      }
+    }
+
+    function drawShores() {
+      const pool = wordPools[mode];
+      const lc = pool.leftColor;
+      const rc = pool.rightColor;
+
+      // Left shore gradient
+      const leftGrad = ctx.createLinearGradient(0, 0, W * 0.25, 0);
+      leftGrad.addColorStop(0, `rgba(${lc[0]},${lc[1]},${lc[2]},0.08)`);
+      leftGrad.addColorStop(1, 'rgba(10,10,15,0)');
+      ctx.fillStyle = leftGrad;
+      ctx.fillRect(0, 0, W * 0.25, H);
+
+      // Right shore gradient
+      const rightGrad = ctx.createLinearGradient(W * 0.75, 0, W, 0);
+      rightGrad.addColorStop(0, 'rgba(10,10,15,0)');
+      rightGrad.addColorStop(1, `rgba(${rc[0]},${rc[1]},${rc[2]},0.08)`);
+      ctx.fillStyle = rightGrad;
+      ctx.fillRect(W * 0.75, 0, W * 0.25, H);
+
+      // Shore words
+      ctx.font = '0.85rem Georgia';
+
+      shoreWords.left.forEach((w, i) => {
+        w.y = w.baseY + Math.sin(time * 0.5 + w.drift) * 3;
+        const a = w.opacity * (0.7 + Math.sin(time + i) * 0.15);
+        ctx.fillStyle = `rgba(${lc[0]+80},${lc[1]+80},${lc[2]+80},${a})`;
+        ctx.textAlign = 'right';
+        ctx.fillText(displayWord(w.word), w.x, w.y);
+      });
+
+      shoreWords.right.forEach((w, i) => {
+        w.y = w.baseY + Math.sin(time * 0.5 + w.drift + 1) * 3;
+        const a = w.opacity * (0.7 + Math.sin(time + i + 2) * 0.15);
+        ctx.fillStyle = `rgba(${rc[0]+30},${rc[1]+30},${rc[2]+30},${a})`;
+        ctx.textAlign = 'left';
+        ctx.fillText(displayWord(w.word), w.x, w.y);
+      });
+    }
+
+    function drawRiver() {
+      const pool = wordPools[mode];
+      const rc = pool.riverColor;
+
+      // River particles
+      particles.forEach(p => {
+        p.y += p.vy;
+        p.x += p.vx + Math.sin(time * 0.3 + p.y * 0.01) * 0.2;
+
+        if (p.y > H + 10) { p.y = -10; p.x = W * 0.3 + Math.random() * W * 0.4; }
+        if (p.x < W * 0.25) p.x = W * 0.75;
+        if (p.x > W * 0.75) p.x = W * 0.25;
+
+        const distFromCenter = Math.abs(p.x - W * 0.5) / (W * 0.25);
+        const edgeFade = 1 - distFromCenter;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${rc[0]},${rc[1]},${rc[2]},${p.a * edgeFade})`;
+        ctx.fill();
+      });
+
+      // Center line — the river's spine
+      ctx.beginPath();
+      for (let y = 0; y < H; y += 3) {
+        const x = W * 0.5 + Math.sin(y * 0.008 + time * 0.5) * 15 + Math.sin(y * 0.02 + time * 0.8) * 5;
+        if (y === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = `rgba(${rc[0]},${rc[1]},${rc[2]},0.06)`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    function draw() {
+      time += 0.016;
+
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, W, H);
+
+      drawRiver();
+      drawShores();
+
+      ferries = ferries.filter(f => f.update());
+      ferries.forEach(f => f.draw());
+
+      requestAnimationFrame(draw);
+    }
+
+    // Click to launch a ferry
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      // Find closest left-shore word that hasn't been sent
+      let closest = -1;
+      let closestDist = Infinity;
+      shoreWords.left.forEach((w, i) => {
+        if (w.sent) return;
+        const d = Math.hypot(mx - w.x, my - w.y);
+        if (d < closestDist && d < 150) {
+          closestDist = d;
+          closest = i;
+        }
+      });
+
+      if (closest >= 0) {
+        ferries.push(new Ferry(closest));
+      } else {
+        // If no close word, pick a random unsent one
+        const unsent = shoreWords.left.map((w, i) => ({ w, i })).filter(o => !o.w.sent);
+        if (unsent.length > 0) {
+          const pick = unsent[Math.floor(Math.random() * unsent.length)];
+          ferries.push(new Ferry(pick.i));
+        } else {
+          // All sent — reset
+          ferries = [];
+          initShores();
+        }
+      }
+    });
+
+    // Mode switching
+    document.querySelectorAll('.controls button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelector('.controls button.active').classList.remove('active');
+        btn.classList.add('active');
+        mode = btn.dataset.mode;
+        ferries = [];
+        initShores();
+        initParticles();
+      });
+    });
+
+    window.addEventListener('resize', () => {
+      resize();
+      initParticles();
+    });
+
+    resize();
+    initParticles();
+    draw();
+  </script>
+</body>
+</html>
