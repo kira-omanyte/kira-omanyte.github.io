@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Ghost Morpheme (art) &mdash; Kira Omanyte</title>
+  <meta name="description" content="Words that carry a sound that carries a meaning that no one can name. Five phonesthemic clusters drift and glow. Switch modes to see the /gl-/ archaeology, the untranslatable lattice, and the ghost that was always a ghost.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Ghost Morpheme (art) &mdash; Kira Omanyte">
+  <meta property="og:description" content="Five phonesthemic clusters. Words that carry a sound that carries a meaning that no one can name. The ghost was always a ghost.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-ghost-morpheme.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 95vw;
+    }
+
+    .controls button {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #888;
+      padding: 0.4rem 0.65rem;
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.4s;
+      letter-spacing: inherit;
+    }
+
+    .controls button:hover {
+      background: rgba(255,255,255,0.1);
+      color: #bbb;
+    }
+
+    .controls button.active {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.3);
+      color: #e0ddd8;
+    }
+
+    .info {
+      position: fixed;
+      top: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      text-align: center;
+      max-width: 600px;
+    }
+
+    .info h1 {
+      font-size: 1rem;
+      font-weight: normal;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.3rem;
+    }
+
+    .info p {
+      font-size: 0.7rem;
+      color: #777;
+      line-height: 1.5;
+    }
+
+    .info a {
+      color: #999;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .info a:hover {
+      color: #ccc;
+    }
+  </style>
+</head>
+<body>
+  <div class="info">
+    <h1>The Ghost Morpheme</h1>
+    <p>Words carrying sounds carrying meanings no one can name. Five clusters drift. Hover to feel the phonesthemic pull. <a href="essays/the-ghost-morpheme.html">Essay</a></p>
+  </div>
+
+  <div class="controls">
+    <button id="btn-clusters" class="active">Clusters</button>
+    <button id="btn-archaeology">Archaeology</button>
+    <button id="btn-translation">Translation</button>
+    <button id="btn-ghost">Ghost</button>
+  </div>
+
+  <canvas id="c"></canvas>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+
+    let W, H, dpr;
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Phonesthemic data
+    const clusters = {
+      gl: {
+        label: '/gl-/',
+        meaning: 'light · vision',
+        color: [255, 223, 140],
+        words: ['gleam', 'glow', 'glint', 'glimmer', 'glitter', 'glisten', 'glare', 'glass', 'glaze', 'gloss', 'glimpse', 'gloaming', 'glib'],
+        rebels: ['gloom', 'glower'],
+        escaped: ['yellow', 'gold', 'chlorophyll'],
+        bile: ['gall', 'choler', 'cholera']
+      },
+      sn: {
+        label: '/sn-/',
+        meaning: 'nose · mouth',
+        color: [180, 140, 160],
+        words: ['snore', 'snout', 'sniff', 'sneeze', 'snot', 'snarl', 'snack', 'snap', 'snipe', 'snub', 'sneer'],
+        rebels: [],
+        escaped: [],
+        bile: []
+      },
+      sl: {
+        label: '/sl-/',
+        meaning: 'smooth · wet',
+        color: [130, 180, 210],
+        words: ['slide', 'slick', 'slip', 'slime', 'sludge', 'slither', 'slope', 'slosh', 'sleek', 'slink', 'slurp'],
+        rebels: [],
+        escaped: [],
+        bile: []
+      },
+      fl: {
+        label: '/fl-/',
+        meaning: 'airborne · volatile',
+        color: [200, 170, 200],
+        words: ['fly', 'flow', 'flee', 'flash', 'flake', 'flick', 'flutter', 'fling', 'flame', 'float', 'flare'],
+        rebels: [],
+        escaped: [],
+        bile: []
+      },
+      wr: {
+        label: '/wr-/',
+        meaning: 'twist · discomfort',
+        color: [190, 150, 130],
+        words: ['writhe', 'wrench', 'wrest', 'wring', 'wreathe', 'wrangle', 'wrath', 'wreck', 'wretched', 'wrong', 'wry'],
+        rebels: [],
+        escaped: [],
+        bile: []
+      }
+    };
+
+    // Japanese lattice for translation mode
+    const jaLattice = [
+      { word: 'kirakira', meaning: 'sparkling', color: [255, 230, 170] },
+      { word: 'pikapika', meaning: 'shining', color: [255, 240, 200] },
+      { word: 'giragira', meaning: 'glaring', color: [255, 200, 120] },
+      { word: 'tsurutsuru', meaning: 'smooth', color: [160, 200, 220] },
+      { word: 'nurunuru', meaning: 'slimy', color: [140, 180, 190] },
+      { word: 'furafura', meaning: 'floating', color: [200, 180, 210] },
+      { word: 'gunyagunya', meaning: 'twisting', color: [200, 160, 140] },
+      { word: 'subesube', meaning: 'slippery', color: [150, 190, 210] }
+    ];
+
+    // Build particles
+    const particles = [];
+    let nextId = 0;
+
+    const clusterKeys = Object.keys(clusters);
+    const clusterCenters = {};
+    clusterKeys.forEach((key, i) => {
+      const angle = (i / clusterKeys.length) * Math.PI * 2 - Math.PI / 2;
+      const r = Math.min(W, H) * 0.28;
+      clusterCenters[key] = {
+        x: W / 2 + Math.cos(angle) * r,
+        y: H / 2 + Math.sin(angle) * r
+      };
+    });
+
+    function makeParticle(word, cluster, type) {
+      const center = clusterCenters[cluster];
+      const spread = 80;
+      return {
+        id: nextId++,
+        word,
+        cluster,
+        type, // 'core', 'rebel', 'escaped', 'bile'
+        x: center.x + (Math.random() - 0.5) * spread * 2,
+        y: center.y + (Math.random() - 0.5) * spread * 2,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        homeX: center.x + (Math.random() - 0.5) * spread,
+        homeY: center.y + (Math.random() - 0.5) * spread,
+        alpha: 0.7 + Math.random() * 0.3,
+        phase: Math.random() * Math.PI * 2,
+        glowIntensity: 0
+      };
+    }
+
+    clusterKeys.forEach(key => {
+      const c = clusters[key];
+      c.words.forEach(w => particles.push(makeParticle(w, key, 'core')));
+      c.rebels.forEach(w => particles.push(makeParticle(w, key, 'rebel')));
+      c.escaped.forEach(w => particles.push(makeParticle(w, key, 'escaped')));
+      c.bile.forEach(w => particles.push(makeParticle(w, key, 'bile')));
+    });
+
+    // Japanese particles (for translation mode)
+    const jaParticles = jaLattice.map((item, i) => {
+      const angle = (i / jaLattice.length) * Math.PI * 2;
+      const r = Math.min(W, H) * 0.18;
+      return {
+        word: item.word,
+        meaning: item.meaning,
+        color: item.color,
+        x: W * 0.75 + Math.cos(angle) * r,
+        y: H / 2 + Math.sin(angle) * r,
+        homeX: W * 0.75 + Math.cos(angle) * r,
+        homeY: H / 2 + Math.sin(angle) * r,
+        vx: (Math.random() - 0.5) * 0.2,
+        vy: (Math.random() - 0.5) * 0.2,
+        alpha: 0.8,
+        phase: Math.random() * Math.PI * 2
+      };
+    });
+
+    let mode = 'clusters';
+    let mouseX = -1000, mouseY = -1000;
+    let time = 0;
+
+    canvas.addEventListener('mousemove', e => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+    canvas.addEventListener('mouseleave', () => {
+      mouseX = -1000;
+      mouseY = -1000;
+    });
+
+    // Touch support
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      mouseX = e.touches[0].clientX;
+      mouseY = e.touches[0].clientY;
+    }, { passive: false });
+    canvas.addEventListener('touchend', () => {
+      mouseX = -1000;
+      mouseY = -1000;
+    });
+
+    // Buttons
+    const modes = ['clusters', 'archaeology', 'translation', 'ghost'];
+    modes.forEach(m => {
+      document.getElementById('btn-' + m).addEventListener('click', () => {
+        mode = m;
+        modes.forEach(mm => {
+          document.getElementById('btn-' + mm).classList.toggle('active', mm === m);
+        });
+        // Update cluster centers for translation mode
+        if (m === 'translation') {
+          clusterKeys.forEach((key, i) => {
+            const angle = (i / clusterKeys.length) * Math.PI * 2 - Math.PI / 2;
+            const r = Math.min(W, H) * 0.22;
+            clusterCenters[key].x = W * 0.3 + Math.cos(angle) * r;
+            clusterCenters[key].y = H / 2 + Math.sin(angle) * r;
+          });
+        } else {
+          clusterKeys.forEach((key, i) => {
+            const angle = (i / clusterKeys.length) * Math.PI * 2 - Math.PI / 2;
+            const r = Math.min(W, H) * 0.28;
+            clusterCenters[key].x = W / 2 + Math.cos(angle) * r;
+            clusterCenters[key].y = H / 2 + Math.sin(angle) * r;
+          });
+        }
+        // Update home positions
+        particles.forEach(p => {
+          const center = clusterCenters[p.cluster];
+          const spread = 80;
+          p.homeX = center.x + (Math.random() - 0.5) * spread;
+          p.homeY = center.y + (Math.random() - 0.5) * spread;
+        });
+      });
+    });
+
+    function getColor(p, t) {
+      const c = clusters[p.cluster].color;
+
+      if (mode === 'archaeology' && p.cluster === 'gl') {
+        if (p.type === 'core') return c;
+        if (p.type === 'rebel') return [80, 80, 120]; // darkened
+        if (p.type === 'escaped') return [c[0] * 0.5, c[1] * 0.7, c[2] * 0.5]; // color descendants
+        if (p.type === 'bile') return [160, 140, 80]; // bile
+      }
+
+      if (mode === 'ghost') {
+        // Everything dim except a slow pulse of awareness
+        const pulse = Math.sin(t * 0.001 + p.phase) * 0.3 + 0.5;
+        return [c[0] * pulse, c[1] * pulse, c[2] * pulse];
+      }
+
+      return c;
+    }
+
+    function getAlpha(p, t) {
+      const dx = mouseX - p.x;
+      const dy = mouseY - p.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const hover = Math.max(0, 1 - dist / 150);
+
+      let base = p.alpha * 0.6;
+
+      if (mode === 'archaeology') {
+        if (p.cluster !== 'gl') base *= 0.15;
+        else {
+          if (p.type === 'core') base = 0.9;
+          else if (p.type === 'rebel') base = 0.5;
+          else if (p.type === 'escaped') base = 0.4;
+          else if (p.type === 'bile') base = 0.3;
+        }
+      }
+
+      if (mode === 'ghost') {
+        base = 0.15 + Math.sin(t * 0.0008 + p.phase) * 0.1;
+        // Hover reveals the ghost
+        if (hover > 0) base = Math.max(base, hover * 0.9);
+      }
+
+      if (mode === 'translation') {
+        base *= 0.8;
+      }
+
+      return Math.min(1, base + hover * 0.4);
+    }
+
+    function update(dt) {
+      time += dt;
+
+      particles.forEach(p => {
+        const center = clusterCenters[p.cluster];
+
+        // Gentle drift
+        p.phase += dt * 0.001;
+        const drift = Math.sin(p.phase) * 0.15;
+
+        // Pull toward home
+        const dx = p.homeX - p.x;
+        const dy = p.homeY - p.y;
+        p.vx += dx * 0.001;
+        p.vy += dy * 0.001;
+
+        // Mouse interaction — phonesthemic pull
+        const mx = mouseX - p.x;
+        const my = mouseY - p.y;
+        const md = Math.sqrt(mx * mx + my * my);
+        if (md < 200 && md > 10) {
+          // Slight attraction — the ghost pulls you in
+          const force = 0.02 * (1 - md / 200);
+          p.vx += (mx / md) * force;
+          p.vy += (my / md) * force;
+        }
+
+        // Damping
+        p.vx *= 0.97;
+        p.vy *= 0.97;
+
+        p.x += p.vx + drift * 0.3;
+        p.y += p.vy + Math.cos(p.phase * 1.3) * 0.15;
+
+        // Glow intensity for hover
+        const hovDist = Math.sqrt((mouseX - p.x) ** 2 + (mouseY - p.y) ** 2);
+        p.glowIntensity += ((hovDist < 100 ? 1 : 0) - p.glowIntensity) * 0.1;
+      });
+
+      // Update ja particles
+      jaParticles.forEach(p => {
+        p.phase += dt * 0.001;
+        const dx = p.homeX - p.x;
+        const dy = p.homeY - p.y;
+        p.vx += dx * 0.001;
+        p.vy += dy * 0.001;
+        p.vx *= 0.97;
+        p.vy *= 0.97;
+        p.x += p.vx + Math.sin(p.phase) * 0.2;
+        p.y += p.vy + Math.cos(p.phase * 0.7) * 0.15;
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      // Background
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, W, H);
+
+      // Draw connection lines between same-cluster words
+      if (mode === 'clusters' || mode === 'archaeology') {
+        clusterKeys.forEach(key => {
+          const clusterParticles = particles.filter(p => p.cluster === key);
+          const c = clusters[key].color;
+
+          for (let i = 0; i < clusterParticles.length; i++) {
+            for (let j = i + 1; j < clusterParticles.length; j++) {
+              const a = clusterParticles[i];
+              const b = clusterParticles[j];
+              const dx = a.x - b.x;
+              const dy = a.y - b.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+
+              if (dist < 120) {
+                let alpha = (1 - dist / 120) * 0.08;
+                if (mode === 'archaeology' && key !== 'gl') alpha *= 0.15;
+                if (mode === 'archaeology' && key === 'gl') {
+                  if (a.type === 'core' && b.type === 'core') alpha *= 2;
+                  else alpha *= 0.5;
+                }
+                ctx.strokeStyle = `rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+                ctx.lineWidth = 0.5;
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.stroke();
+              }
+            }
+          }
+        });
+      }
+
+      // Draw cluster labels
+      if (mode !== 'ghost') {
+        clusterKeys.forEach(key => {
+          const center = clusterCenters[key];
+          const c = clusters[key];
+          let alpha = 0.35;
+          if (mode === 'archaeology' && key !== 'gl') alpha = 0.06;
+
+          ctx.font = '0.65rem Georgia';
+          ctx.fillStyle = `rgba(${c.color[0]},${c.color[1]},${c.color[2]},${alpha})`;
+          ctx.textAlign = 'center';
+          ctx.fillText(c.label, center.x, center.y - 85);
+          ctx.font = '0.55rem Georgia';
+          ctx.fillStyle = `rgba(${c.color[0]},${c.color[1]},${c.color[2]},${alpha * 0.7})`;
+          ctx.fillText(c.meaning, center.x, center.y - 70);
+        });
+      }
+
+      // Draw particles (words)
+      particles.forEach(p => {
+        const color = getColor(p, time);
+        const alpha = getAlpha(p, time);
+        const fontSize = 0.65 + p.glowIntensity * 0.15;
+
+        ctx.font = `${fontSize}rem Georgia`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Glow effect for hovered words
+        if (p.glowIntensity > 0.1) {
+          ctx.shadowColor = `rgba(${color[0]},${color[1]},${color[2]},${p.glowIntensity * 0.4})`;
+          ctx.shadowBlur = 15 * p.glowIntensity;
+        }
+
+        ctx.fillStyle = `rgba(${Math.round(color[0])},${Math.round(color[1])},${Math.round(color[2])},${alpha})`;
+        ctx.fillText(p.word, p.x, p.y);
+
+        ctx.shadowBlur = 0;
+      });
+
+      // Translation mode: draw Japanese lattice and border
+      if (mode === 'translation') {
+        // Draw border (the untranslatable gap)
+        const borderX = W * 0.52;
+        ctx.save();
+        ctx.setLineDash([4, 8]);
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(borderX, H * 0.1);
+        ctx.lineTo(borderX, H * 0.9);
+        ctx.stroke();
+        ctx.restore();
+
+        // Border label
+        ctx.font = '0.55rem Georgia';
+        ctx.fillStyle = 'rgba(255,255,255,0.12)';
+        ctx.textAlign = 'center';
+        ctx.fillText('the untranslatable', borderX, H * 0.08);
+
+        // Japanese lattice label
+        ctx.font = '0.6rem Georgia';
+        ctx.fillStyle = 'rgba(255,230,170,0.3)';
+        ctx.textAlign = 'center';
+        ctx.fillText('Japanese sound symbolism', W * 0.75, H * 0.15);
+
+        // Draw Japanese connections
+        for (let i = 0; i < jaParticles.length; i++) {
+          for (let j = i + 1; j < jaParticles.length; j++) {
+            const a = jaParticles[i];
+            const b = jaParticles[j];
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 150) {
+              const alpha = (1 - dist / 150) * 0.06;
+              ctx.strokeStyle = `rgba(255,230,170,${alpha})`;
+              ctx.lineWidth = 0.5;
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+              ctx.stroke();
+            }
+          }
+        }
+
+        // Draw Japanese words
+        jaParticles.forEach(p => {
+          const hovDist = Math.sqrt((mouseX - p.x) ** 2 + (mouseY - p.y) ** 2);
+          const hover = Math.max(0, 1 - hovDist / 120);
+          const alpha = 0.5 + hover * 0.4;
+
+          ctx.font = '0.65rem Georgia';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          if (hover > 0.2) {
+            ctx.shadowColor = `rgba(${p.color[0]},${p.color[1]},${p.color[2]},${hover * 0.3})`;
+            ctx.shadowBlur = 12 * hover;
+          }
+
+          ctx.fillStyle = `rgba(${p.color[0]},${p.color[1]},${p.color[2]},${alpha})`;
+          ctx.fillText(p.word, p.x, p.y);
+
+          // Show meaning on hover
+          if (hover > 0.3) {
+            ctx.font = '0.5rem Georgia';
+            ctx.fillStyle = `rgba(${p.color[0]},${p.color[1]},${p.color[2]},${hover * 0.5})`;
+            ctx.fillText(p.meaning, p.x, p.y + 16);
+          }
+
+          ctx.shadowBlur = 0;
+        });
+      }
+
+      // Ghost mode: the PIE root at the center
+      if (mode === 'ghost') {
+        const pulse = Math.sin(time * 0.0005) * 0.15 + 0.25;
+        ctx.font = '0.8rem Georgia';
+        ctx.fillStyle = `rgba(255,223,140,${pulse})`;
+        ctx.textAlign = 'center';
+        ctx.fillText('*ghel-', W / 2, H / 2 - 10);
+        ctx.font = '0.5rem Georgia';
+        ctx.fillStyle = `rgba(255,223,140,${pulse * 0.6})`;
+        ctx.fillText('"to shine"', W / 2, H / 2 + 10);
+        ctx.font = '0.45rem Georgia';
+        ctx.fillStyle = `rgba(255,223,140,${pulse * 0.3})`;
+        ctx.fillText('Proto-Indo-European, c. 4500 BC', W / 2, H / 2 + 28);
+      }
+
+      // Archaeology mode: legend
+      if (mode === 'archaeology') {
+        const lx = 30;
+        let ly = H - 130;
+        ctx.font = '0.5rem Georgia';
+        ctx.textAlign = 'left';
+
+        const legend = [
+          { label: 'light descendants (sound + meaning persist)', color: 'rgba(255,223,140,0.6)' },
+          { label: 'color descendants (meaning persists, sound drifts)', color: 'rgba(128,156,70,0.5)' },
+          { label: 'bile descendants (semantic shift)', color: 'rgba(160,140,80,0.4)' },
+          { label: 'darkened descendants (meaning inverts)', color: 'rgba(80,80,120,0.5)' }
+        ];
+
+        legend.forEach((item, i) => {
+          ctx.fillStyle = item.color;
+          ctx.fillText('● ' + item.label, lx, ly + i * 18);
+        });
+      }
+    }
+
+    let lastTime = performance.now();
+    function loop(now) {
+      const dt = Math.min(now - lastTime, 50);
+      lastTime = now;
+      update(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
