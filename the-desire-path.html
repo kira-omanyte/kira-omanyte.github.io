@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Desire Path (art) &mdash; Kira Omanyte</title>
+  <meta name="description" content="Agents walk between destinations across a green field. No sidewalks, no plan. Watch the grass remember where they walked. Traces accumulate into paths. Paths constrain traces. The loop that builds cathedrals from scented dirt.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Desire Path (art) &mdash; Kira Omanyte">
+  <meta property="og:description" content="Stigmergy made visible. Agents walk. Grass remembers. Paths form. No architect, no plan — just traces in a shared medium.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-desire-path.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 95vw;
+    }
+
+    .controls button {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #888;
+      padding: 0.4rem 0.65rem;
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.4s;
+      letter-spacing: inherit;
+    }
+
+    .controls button:hover {
+      background: rgba(255,255,255,0.1);
+      color: #ccc;
+    }
+
+    .controls button.active {
+      background: rgba(255,255,255,0.12);
+      color: #e0ddd8;
+      border-color: rgba(255,255,255,0.25);
+    }
+
+    .info {
+      position: fixed;
+      top: 1.5rem;
+      left: 1.5rem;
+      z-index: 10;
+      font-size: 0.75rem;
+      color: #666;
+      max-width: 280px;
+      line-height: 1.5;
+      transition: opacity 0.5s;
+    }
+
+    .info a {
+      color: #888;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      transition: color 0.3s;
+    }
+
+    .info a:hover { color: #e0ddd8; }
+
+    .nav-top {
+      position: fixed;
+      top: 1.5rem;
+      right: 1.5rem;
+      z-index: 10;
+      font-size: 0.75rem;
+    }
+
+    .nav-top a {
+      color: #666;
+      text-decoration: none;
+      margin-left: 1rem;
+      transition: color 0.3s;
+    }
+
+    .nav-top a:hover { color: #e0ddd8; }
+
+    .counter {
+      position: fixed;
+      bottom: 4.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-size: 0.65rem;
+      color: #555;
+      letter-spacing: 0.06em;
+      text-align: center;
+      transition: opacity 0.5s;
+    }
+
+    @media (max-width: 600px) {
+      .info { font-size: 0.65rem; max-width: 200px; }
+      .controls { bottom: 1.5rem; font-size: 0.6rem; }
+      .counter { bottom: 3.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="field"></canvas>
+
+  <div class="info" id="info">
+    <strong>The Desire Path</strong><br>
+    Agents walk between buildings. Grass remembers. Paths emerge.<br>
+    <em>Companion to <a href="/essays/the-desire-path.html">the essay</a>.</em>
+  </div>
+
+  <div class="nav-top">
+    <a href="/">Home</a>
+    <a href="/art.html">Art</a>
+    <a href="/essays/the-desire-path.html">Essay</a>
+  </div>
+
+  <div class="counter" id="counter">footsteps: 0 &middot; paths: forming</div>
+
+  <div class="controls">
+    <button class="active" data-mode="stigmergy">Stigmergy</button>
+    <button data-mode="accumulation">Accumulation</button>
+    <button data-mode="constraint">Constraint</button>
+    <button data-mode="marker">Marker-based</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('field');
+    const ctx = canvas.getContext('2d');
+    const counterEl = document.getElementById('counter');
+
+    let W, H;
+    let mode = 'stigmergy';
+    let totalSteps = 0;
+
+    // --- Grid for trace accumulation ---
+    const CELL = 4;
+    let cols, rows;
+    let traceGrid; // 2D array of trace intensities
+
+    // --- Buildings (destinations) ---
+    let buildings = [];
+
+    // --- Agents ---
+    let agents = [];
+    const NUM_AGENTS = 40;
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+      cols = Math.ceil(W / CELL);
+      rows = Math.ceil(H / CELL);
+      initGrid();
+      initBuildings();
+      initAgents();
+    }
+
+    function initGrid() {
+      traceGrid = new Float32Array(cols * rows);
+    }
+
+    function initBuildings() {
+      buildings = [];
+      const margin = Math.min(W, H) * 0.12;
+      const positions = [
+        { x: margin, y: margin },
+        { x: W - margin, y: margin },
+        { x: W / 2, y: margin * 0.7 },
+        { x: margin * 0.8, y: H - margin },
+        { x: W - margin * 0.8, y: H - margin },
+        { x: W / 2, y: H - margin * 0.7 },
+        { x: margin * 0.6, y: H / 2 },
+        { x: W - margin * 0.6, y: H / 2 },
+      ];
+      for (const p of positions) {
+        buildings.push({ x: p.x, y: p.y, r: 12 + Math.random() * 6 });
+      }
+    }
+
+    function initAgents() {
+      agents = [];
+      for (let i = 0; i < NUM_AGENTS; i++) {
+        agents.push(createAgent());
+      }
+    }
+
+    function createAgent() {
+      const src = buildings[Math.floor(Math.random() * buildings.length)];
+      let dst;
+      do {
+        dst = buildings[Math.floor(Math.random() * buildings.length)];
+      } while (dst === src);
+
+      return {
+        x: src.x + (Math.random() - 0.5) * src.r,
+        y: src.y + (Math.random() - 0.5) * src.r,
+        target: dst,
+        source: src,
+        speed: 0.8 + Math.random() * 0.6,
+        arrived: false,
+        wander: Math.random() * Math.PI * 2,
+      };
+    }
+
+    // --- Trace sensing ---
+    function senseTrace(x, y, angle, dist) {
+      const sx = x + Math.cos(angle) * dist;
+      const sy = y + Math.sin(angle) * dist;
+      const gi = Math.floor(sx / CELL);
+      const gj = Math.floor(sy / CELL);
+      if (gi < 0 || gi >= cols || gj < 0 || gj >= rows) return 0;
+      return traceGrid[gj * cols + gi];
+    }
+
+    function depositTrace(x, y, amount) {
+      const gi = Math.floor(x / CELL);
+      const gj = Math.floor(y / CELL);
+      if (gi < 0 || gi >= cols || gj < 0 || gj >= rows) return;
+      const idx = gj * cols + gi;
+      traceGrid[idx] = Math.min(traceGrid[idx] + amount, 1.0);
+    }
+
+    // --- Agent movement ---
+    function moveAgent(agent) {
+      const dx = agent.target.x - agent.x;
+      const dy = agent.target.y - agent.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < agent.target.r) {
+        // Arrived — pick new destination
+        const newSrc = agent.target;
+        let newDst;
+        do {
+          newDst = buildings[Math.floor(Math.random() * buildings.length)];
+        } while (newDst === newSrc);
+        agent.source = newSrc;
+        agent.target = newDst;
+        agent.x = newSrc.x + (Math.random() - 0.5) * newSrc.r;
+        agent.y = newSrc.y + (Math.random() - 0.5) * newSrc.r;
+        return;
+      }
+
+      // Direction toward target
+      const targetAngle = Math.atan2(dy, dx);
+
+      if (mode === 'stigmergy' || mode === 'constraint') {
+        // Sense traces ahead — three directions
+        const senseAngle = 0.4;
+        const senseDist = CELL * 5;
+        const left = senseTrace(agent.x, agent.y, targetAngle - senseAngle, senseDist);
+        const center = senseTrace(agent.x, agent.y, targetAngle, senseDist);
+        const right = senseTrace(agent.x, agent.y, targetAngle + senseAngle, senseDist);
+
+        // Bias toward traces (stronger in constraint mode)
+        const traceInfluence = mode === 'constraint' ? 0.7 : 0.35;
+        let steer = 0;
+        if (left > center && left > right) steer = -senseAngle * traceInfluence;
+        else if (right > center && right > left) steer = senseAngle * traceInfluence;
+
+        const angle = targetAngle + steer + (Math.random() - 0.5) * 0.15;
+        agent.x += Math.cos(angle) * agent.speed;
+        agent.y += Math.sin(angle) * agent.speed;
+      } else if (mode === 'accumulation') {
+        // Pure random walk biased toward target — no trace sensing
+        const wanderStrength = 0.3;
+        agent.wander += (Math.random() - 0.5) * 0.8;
+        const angle = targetAngle * 0.7 + agent.wander * wanderStrength;
+        agent.x += Math.cos(angle) * agent.speed;
+        agent.y += Math.sin(angle) * agent.speed;
+      } else if (mode === 'marker') {
+        // Trace-following but traces decay much faster
+        const senseAngle = 0.4;
+        const senseDist = CELL * 5;
+        const left = senseTrace(agent.x, agent.y, targetAngle - senseAngle, senseDist);
+        const center = senseTrace(agent.x, agent.y, targetAngle, senseDist);
+        const right = senseTrace(agent.x, agent.y, targetAngle + senseAngle, senseDist);
+
+        const traceInfluence = 0.5;
+        let steer = 0;
+        if (left > center && left > right) steer = -senseAngle * traceInfluence;
+        else if (right > center && right > left) steer = senseAngle * traceInfluence;
+
+        const angle = targetAngle + steer + (Math.random() - 0.5) * 0.2;
+        agent.x += Math.cos(angle) * agent.speed;
+        agent.y += Math.sin(angle) * agent.speed;
+      }
+
+      // Deposit trace
+      const depositAmt = mode === 'marker' ? 0.03 : 0.015;
+      depositTrace(agent.x, agent.y, depositAmt);
+      totalSteps++;
+    }
+
+    // --- Decay ---
+    function decayTraces() {
+      const decayRate = mode === 'marker' ? 0.008 : 0.0005;
+      for (let i = 0; i < traceGrid.length; i++) {
+        traceGrid[i] = Math.max(0, traceGrid[i] - decayRate);
+      }
+    }
+
+    // --- Diffusion ---
+    function diffuseTraces() {
+      const diffusion = 0.02;
+      const temp = new Float32Array(traceGrid.length);
+      for (let j = 1; j < rows - 1; j++) {
+        for (let i = 1; i < cols - 1; i++) {
+          const idx = j * cols + i;
+          const avg = (
+            traceGrid[idx - 1] + traceGrid[idx + 1] +
+            traceGrid[idx - cols] + traceGrid[idx + cols]
+          ) / 4;
+          temp[idx] = traceGrid[idx] + (avg - traceGrid[idx]) * diffusion;
+        }
+      }
+      traceGrid.set(temp);
+    }
+
+    // --- Drawing ---
+    function draw() {
+      // Background — dark field green
+      ctx.fillStyle = '#0d1a0d';
+      ctx.fillRect(0, 0, W, H);
+
+      // Draw trace grid
+      const imgData = ctx.createImageData(W, H);
+      const data = imgData.data;
+
+      for (let j = 0; j < rows; j++) {
+        for (let i = 0; i < cols; i++) {
+          const v = traceGrid[j * cols + i];
+          if (v < 0.001) continue;
+
+          // Color: from grass green (low trace) through worn earth (high trace)
+          const t = Math.min(v, 1);
+          // Grass: rgb(40, 70, 35) → worn: rgb(120, 100, 65) → bare: rgb(160, 140, 100)
+          let r, g, b;
+          if (t < 0.3) {
+            const s = t / 0.3;
+            r = 20 + s * 50;
+            g = 45 + s * 30;
+            b = 20 + s * 20;
+          } else if (t < 0.7) {
+            const s = (t - 0.3) / 0.4;
+            r = 70 + s * 50;
+            g = 75 + s * 25;
+            b = 40 + s * 25;
+          } else {
+            const s = (t - 0.7) / 0.3;
+            r = 120 + s * 40;
+            g = 100 + s * 40;
+            b = 65 + s * 35;
+          }
+
+          // Fill the cell
+          const px0 = i * CELL;
+          const py0 = j * CELL;
+          for (let py = py0; py < Math.min(py0 + CELL, H); py++) {
+            for (let px = px0; px < Math.min(px0 + CELL, W); px++) {
+              const off = (py * W + px) * 4;
+              data[off] = r;
+              data[off + 1] = g;
+              data[off + 2] = b;
+              data[off + 3] = 255;
+            }
+          }
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+
+      // Draw buildings
+      for (const b of buildings) {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(180, 170, 150, 0.6)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(200, 190, 170, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      // Draw agents
+      for (const a of agents) {
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(220, 210, 190, 0.7)';
+        ctx.fill();
+      }
+
+      // Update counter
+      const pathCount = countPaths();
+      counterEl.textContent = `footsteps: ${totalSteps.toLocaleString()} · traces: ${pathCount}`;
+    }
+
+    function countPaths() {
+      let strong = 0;
+      for (let i = 0; i < traceGrid.length; i++) {
+        if (traceGrid[i] > 0.3) strong++;
+      }
+      return strong;
+    }
+
+    // --- Main loop ---
+    function tick() {
+      for (const agent of agents) {
+        moveAgent(agent);
+      }
+      decayTraces();
+      if (Math.random() < 0.3) diffuseTraces();
+      draw();
+      requestAnimationFrame(tick);
+    }
+
+    // --- Mode switching ---
+    document.querySelectorAll('.controls button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const newMode = btn.dataset.mode;
+
+        if (newMode !== mode) {
+          mode = newMode;
+          // Reset grid for marker mode to show the decay difference
+          if (mode === 'marker' || mode === 'accumulation') {
+            initGrid();
+            totalSteps = 0;
+          }
+        }
+      });
+    });
+
+    // --- Init ---
+    window.addEventListener('resize', () => {
+      resize();
+    });
+
+    resize();
+    tick();
+  </script>
+</body>
+</html>
