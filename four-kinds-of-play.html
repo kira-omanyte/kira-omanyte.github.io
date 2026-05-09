@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Magic Circle (art) &mdash; Kira Omanyte</title>
+  <meta name="description" content="A bounded space where different rules apply. Sixty particles inside a circle, four modes of play. Agon competes. Alea submits. Mimicry transforms. Ilinx is missing. Watch the drift from paidia to ludus. Press H to laugh.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Magic Circle (art) &mdash; Kira Omanyte">
+  <meta property="og:description" content="Four kinds of play inside a magic circle. Agon competes, alea submits, mimicry transforms, ilinx is missing. Press H to laugh.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/four-kinds-of-play.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 95vw;
+    }
+
+    .controls button {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #888;
+      padding: 0.4rem 0.65rem;
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.4s;
+      letter-spacing: inherit;
+    }
+
+    .controls button:hover {
+      background: rgba(255,255,255,0.1);
+      color: #ccc;
+    }
+
+    .controls button.active {
+      background: rgba(255,255,255,0.12);
+      color: #e0ddd8;
+      border-color: rgba(255,255,255,0.25);
+    }
+
+    .info {
+      position: fixed;
+      top: 1.5rem;
+      left: 1.5rem;
+      z-index: 10;
+      font-size: 0.75rem;
+      color: #666;
+      max-width: 280px;
+      line-height: 1.5;
+    }
+
+    .info a {
+      color: #888;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .info a:hover {
+      color: #b89cd6;
+    }
+
+    .drift-label {
+      position: fixed;
+      bottom: 5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-size: 0.65rem;
+      color: #555;
+      letter-spacing: 0.06em;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    @media (prefers-color-scheme: light) {
+      body { background: #fafaf8; color: #1a1a1a; }
+      .info { color: #999; }
+      .info a { color: #777; border-bottom-color: rgba(0,0,0,0.15); }
+      .info a:hover { color: #6b4c8a; }
+      .controls button {
+        background: rgba(0,0,0,0.04);
+        border-color: rgba(0,0,0,0.1);
+        color: #999;
+      }
+      .controls button:hover { background: rgba(0,0,0,0.08); color: #666; }
+      .controls button.active {
+        background: rgba(0,0,0,0.08);
+        color: #1a1a1a;
+        border-color: rgba(0,0,0,0.2);
+      }
+      .drift-label { color: #aaa; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div class="info">
+    <strong>The Magic Circle</strong><br>
+    Four kinds of play inside a bounded space. Three are present. One is missing. Press H to laugh.<br><br>
+    <a href="/essays/the-magic-circle.html">Read the essay</a>
+  </div>
+
+  <div class="drift-label" id="drift-label"></div>
+
+  <div class="controls">
+    <button id="btn-agon" class="active" onclick="setMode('agon')">Ag&ocirc;n</button>
+    <button id="btn-alea" onclick="setMode('alea')">Alea</button>
+    <button id="btn-mimicry" onclick="setMode('mimicry')">Mimicry</button>
+    <button id="btn-ilinx" onclick="setMode('ilinx')">Ilinx</button>
+    <button id="btn-ha" onclick="doHa()">Ha</button>
+  </div>
+
+  <script>
+  (() => {
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let W, H, cx, cy, radius;
+    let mode = 'agon';
+    let driftLevel = 0;
+    let driftTarget = 0;
+    let haTimer = 0;
+    let time = 0;
+    let isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+      isDark = e.matches;
+    });
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cx = W / 2;
+      cy = H / 2;
+      radius = Math.min(W, H) * 0.35;
+    }
+
+    resize();
+    window.addEventListener('resize', resize);
+
+    const COLORS = {
+      agon:    { h: 0,   s: 65, l: 55 },
+      alea:    { h: 210, s: 55, l: 55 },
+      mimicry: { h: 145, s: 50, l: 50 },
+      ilinx:   { h: 280, s: 60, l: 60 },
+    };
+
+    const N = 60;
+    const particles = [];
+
+    for (let i = 0; i < N; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = Math.random() * radius * 0.85;
+      const cat = i < 15 ? 'agon' : i < 30 ? 'alea' : i < 45 ? 'mimicry' : 'ilinx';
+      particles.push({
+        x: cx + Math.cos(angle) * r,
+        y: cy + Math.sin(angle) * r,
+        vx: (Math.random() - 0.5) * 1.5,
+        vy: (Math.random() - 0.5) * 1.5,
+        baseRadius: 2.5 + Math.random() * 3,
+        category: cat,
+        phase: Math.random() * Math.PI * 2,
+        partner: -1,
+        score: 0,
+        mimicTarget: null,
+        mimicProgress: 0,
+      });
+    }
+
+    for (let i = 0; i < 15; i += 2) {
+      if (i + 1 < 15) {
+        particles[i].partner = i + 1;
+        particles[i + 1].partner = i;
+      }
+    }
+
+    function setMode(m) {
+      mode = m;
+      document.querySelectorAll('.controls button').forEach(b => {
+        if (b.id !== 'btn-ha') b.classList.remove('active');
+      });
+      const btn = document.getElementById('btn-' + m);
+      if (btn) btn.classList.add('active');
+      if (m === 'agon') driftTarget = 0.7;
+      else if (m === 'alea') driftTarget = 0.3;
+      else if (m === 'mimicry') driftTarget = 0.5;
+      else if (m === 'ilinx') driftTarget = 0.1;
+    }
+
+    function doHa() {
+      haTimer = 150;
+      driftTarget = 0;
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'h' || e.key === 'H') doHa();
+      if (e.key === '1') setMode('agon');
+      if (e.key === '2') setMode('alea');
+      if (e.key === '3') setMode('mimicry');
+      if (e.key === '4') setMode('ilinx');
+    });
+
+    function hsl(h, s, l, a) {
+      return 'hsla(' + h + ',' + s + '%,' + l + '%,' + a + ')';
+    }
+
+    function dist(a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    function distC(p) {
+      return Math.hypot(p.x - cx, p.y - cy);
+    }
+
+    function constrain(p) {
+      const d = distC(p);
+      const maxR = radius - p.baseRadius;
+      if (d > maxR) {
+        const a = Math.atan2(p.y - cy, p.x - cx);
+        p.x = cx + Math.cos(a) * maxR;
+        p.y = cy + Math.sin(a) * maxR;
+        const nx = Math.cos(a);
+        const ny = Math.sin(a);
+        const dot = p.vx * nx + p.vy * ny;
+        p.vx -= 2 * dot * nx;
+        p.vy -= 2 * dot * ny;
+        p.vx *= 0.8;
+        p.vy *= 0.8;
+      }
+    }
+
+    function updateAgon(p) {
+      if (p.partner >= 0) {
+        const o = particles[p.partner];
+        const d = dist(p, o);
+        if (d > 0) {
+          const dx = o.x - p.x, dy = o.y - p.y;
+          const target = 30 + driftLevel * 20;
+          const radial = (d - target) * 0.02;
+          const tang = 0.015 + driftLevel * 0.01;
+          p.vx += (dx / d) * radial + (-dy / d) * tang;
+          p.vy += (dy / d) * radial + (dx / d) * tang;
+        }
+        if (d < 50) p.score += 0.1;
+      }
+      p.vx *= 0.97;
+      p.vy *= 0.97;
+    }
+
+    function updateAlea(p) {
+      if (Math.random() < 0.03 - driftLevel * 0.02) {
+        p.vx += (Math.random() - 0.5) * 3;
+        p.vy += (Math.random() - 0.5) * 3;
+      }
+      if (driftLevel > 0.5) {
+        const gs = 40;
+        const gx = Math.round((p.x - cx) / gs) * gs + cx;
+        const gy = Math.round((p.y - cy) / gs) * gs + cy;
+        p.vx += (gx - p.x) * 0.003 * driftLevel;
+        p.vy += (gy - p.y) * 0.003 * driftLevel;
+      }
+      p.vx *= 0.96;
+      p.vy *= 0.96;
+    }
+
+    function updateMimicry(p, i) {
+      if (!p.mimicTarget || Math.random() < 0.005) {
+        let closest = null, closestD = Infinity;
+        for (let j = 0; j < N; j++) {
+          if (j === i || particles[j].category === 'mimicry') continue;
+          const d = dist(p, particles[j]);
+          if (d < closestD) { closestD = d; closest = j; }
+        }
+        if (closest !== null) { p.mimicTarget = closest; p.mimicProgress = 0; }
+      }
+      if (p.mimicTarget !== null) {
+        const t = particles[p.mimicTarget];
+        p.mimicProgress = Math.min(1, p.mimicProgress + 0.01);
+        const dx = t.x - p.x, dy = t.y - p.y;
+        const d = Math.hypot(dx, dy);
+        const fd = 20 + (1 - driftLevel) * 15;
+        if (d > fd) { p.vx += (dx / d) * 0.3; p.vy += (dy / d) * 0.3; }
+        p.vx += (t.vx - p.vx) * 0.05 * p.mimicProgress;
+        p.vy += (t.vy - p.vy) * 0.05 * p.mimicProgress;
+      }
+      p.vx *= 0.97;
+      p.vy *= 0.97;
+    }
+
+    function updateIlinx(p) {
+      if (mode === 'ilinx') {
+        const a = Math.atan2(p.y - cy, p.x - cx);
+        const d = distC(p);
+        const spin = 0.04 * (1 - driftLevel);
+        p.vx += Math.cos(a + Math.PI / 2) * spin * (d / radius);
+        p.vy += Math.sin(a + Math.PI / 2) * spin * (d / radius);
+        p.vx += Math.cos(a) * 0.02;
+        p.vy += Math.sin(a) * 0.02;
+      } else {
+        p.vx += (Math.random() - 0.5) * 0.2;
+        p.vy += (Math.random() - 0.5) * 0.2;
+        p.vx *= 0.9;
+        p.vy *= 0.9;
+      }
+      p.vx *= 0.97;
+      p.vy *= 0.97;
+    }
+
+    function draw() {
+      time += 1 / 60;
+      driftLevel += (driftTarget - driftLevel) * 0.02;
+      if (haTimer > 0) haTimer--;
+
+      const bg = isDark ? '#0a0a0f' : '#fafaf8';
+      const lightAdj = isDark ? 0 : -15;
+
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Magic circle
+      if (haTimer > 0) {
+        ctx.beginPath();
+        for (let a = 0; a < Math.PI * 2; a += 0.02) {
+          const wobble = Math.sin(haTimer * 0.3) * 4;
+          const r = radius + Math.sin(a * 7 + time * 5) * wobble;
+          const px = cx + Math.cos(a) * r;
+          const py = cy + Math.sin(a) * r;
+          if (a === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = isDark ? 'rgba(255,220,100,0.2)' : 'rgba(180,120,0,0.15)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      // Ludus grid
+      if (driftLevel > 0.2) {
+        const ga = (driftLevel - 0.2) * 0.06;
+        const gc = isDark ? 'rgba(255,255,255,' + ga + ')' : 'rgba(0,0,0,' + ga + ')';
+        ctx.strokeStyle = gc;
+        ctx.lineWidth = 0.5;
+        const gs = 40;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius - 1, 0, Math.PI * 2);
+        ctx.clip();
+        for (let gx = cx - radius; gx < cx + radius; gx += gs) {
+          ctx.beginPath(); ctx.moveTo(gx, cy - radius); ctx.lineTo(gx, cy + radius); ctx.stroke();
+        }
+        for (let gy = cy - radius; gy < cy + radius; gy += gs) {
+          ctx.beginPath(); ctx.moveTo(cx - radius, gy); ctx.lineTo(cx + radius, gy); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // Outside particles
+      const oa = isDark ? 0.03 : 0.04;
+      for (let i = 0; i < 25; i++) {
+        const a = (i / 25) * Math.PI * 2 + time * 0.01;
+        const r = radius * 1.2 + Math.sin(i * 2.7 + time * 0.05) * 40;
+        ctx.beginPath();
+        ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 2, 0, Math.PI * 2);
+        ctx.fillStyle = isDark ? 'rgba(255,255,255,' + oa + ')' : 'rgba(0,0,0,' + oa + ')';
+        ctx.fill();
+      }
+
+      // Update and draw particles
+      for (let i = 0; i < N; i++) {
+        const p = particles[i];
+        const cat = p.category;
+        const col = COLORS[cat];
+
+        if (haTimer > 0) {
+          p.vx += (Math.random() - 0.5) * 2;
+          p.vy += (Math.random() - 0.5) * 2;
+          p.vx *= 0.95;
+          p.vy *= 0.95;
+        } else {
+          switch (cat) {
+            case 'agon': updateAgon(p); break;
+            case 'alea': updateAlea(p); break;
+            case 'mimicry': updateMimicry(p, i); break;
+            case 'ilinx': updateIlinx(p); break;
+          }
+        }
+
+        p.x += p.vx;
+        p.y += p.vy;
+        constrain(p);
+
+        let alpha;
+        if (haTimer > 0) {
+          alpha = 0.8;
+        } else if (mode === 'ilinx' && cat === 'ilinx') {
+          alpha = 0.15 + Math.sin(time * 8 + p.phase) * 0.15;
+        } else if (mode === cat) {
+          alpha = 0.85;
+        } else if (cat === 'ilinx') {
+          alpha = 0.06;
+        } else {
+          alpha = 0.15;
+        }
+
+        const pr = p.baseRadius * (haTimer > 0 ? 1 + Math.sin(haTimer * 0.5) * 0.3 : 1);
+
+        // Connections
+        if (mode === cat && cat !== 'ilinx') {
+          for (let j = i + 1; j < N; j++) {
+            if (particles[j].category !== cat) continue;
+            const d = dist(p, particles[j]);
+            if (d < 80) {
+              ctx.beginPath();
+              ctx.moveTo(p.x, p.y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.strokeStyle = hsl(col.h, col.s, col.l + lightAdj, (1 - d / 80) * alpha * 0.3);
+              ctx.lineWidth = 0.5;
+              ctx.stroke();
+            }
+          }
+        }
+
+        // Mimicry thread
+        if (cat === 'mimicry' && p.mimicTarget !== null && mode === 'mimicry') {
+          const t = particles[p.mimicTarget];
+          const tc = COLORS[t.category];
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(t.x, t.y);
+          ctx.strokeStyle = hsl(tc.h, tc.s, tc.l + lightAdj, 0.1 * p.mimicProgress);
+          ctx.lineWidth = 0.5;
+          ctx.setLineDash([3, 3]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // Agon score rings
+        if (cat === 'agon' && mode === 'agon' && p.score > 5) {
+          const rings = Math.min(3, Math.floor(p.score / 10));
+          for (let ring = 0; ring < rings; ring++) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, pr + 4 + ring * 3, 0, Math.PI * 2);
+            ctx.strokeStyle = hsl(col.h, col.s, col.l + lightAdj, alpha * 0.3);
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+
+        // Particle body
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, pr, 0, Math.PI * 2);
+
+        if (cat === 'ilinx' && mode === 'ilinx') {
+          const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, pr * 2);
+          grad.addColorStop(0, hsl(col.h, col.s, col.l + lightAdj, alpha));
+          grad.addColorStop(1, hsl(col.h, col.s, col.l + lightAdj, 0));
+          ctx.fillStyle = grad;
+          ctx.fill();
+          if (alpha > 0.2) {
+            ctx.fillStyle = hsl(col.h, col.s, col.l + lightAdj, alpha * 0.5);
+            ctx.font = '8px Georgia';
+            ctx.textAlign = 'center';
+            ctx.fillText('?', p.x, p.y - pr - 4);
+          }
+        } else if (cat === 'mimicry' && p.mimicTarget !== null && p.mimicProgress > 0.3 && mode === 'mimicry') {
+          const tc = COLORS[particles[p.mimicTarget].category];
+          const mh = col.h + (tc.h - col.h) * p.mimicProgress;
+          const ms = col.s + (tc.s - col.s) * p.mimicProgress;
+          const ml = col.l + (tc.l - col.l) * p.mimicProgress;
+          ctx.fillStyle = hsl(mh, ms, ml + lightAdj, alpha);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = hsl(col.h, col.s, col.l + lightAdj, alpha);
+          ctx.fill();
+        }
+      }
+
+      // Mode label
+      const labels = {
+        agon: 'ag\u00F4n \u2014 competition',
+        alea: 'alea \u2014 chance',
+        mimicry: 'mimicry \u2014 simulation',
+        ilinx: 'ilinx \u2014 vertigo (absent)',
+      };
+
+      ctx.font = '11px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)';
+      ctx.fillText(labels[mode], cx, cy + radius + 25);
+
+      if (mode === 'ilinx') {
+        ctx.font = 'italic 10px Georgia';
+        ctx.fillStyle = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
+        ctx.fillText('the cosmology has ag\u00F4n, alea, mimicry \u2014 no ilinx', cx, cy + radius + 42);
+      }
+
+      // Drift indicator
+      const dl = document.getElementById('drift-label');
+      let ds = '';
+      const mp = Math.round(driftLevel * 10);
+      for (let i = 0; i <= 10; i++) {
+        ds += i === mp ? '\u25CF' : '\u2014';
+      }
+      dl.textContent = 'paidia ' + ds + ' ludus';
+
+      // Ha flash
+      if (haTimer > 120) {
+        const scale = 40 + (150 - haTimer) * 3;
+        ctx.font = scale + 'px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = isDark
+          ? 'rgba(255,220,100,' + ((haTimer - 120) / 30 * 0.5) + ')'
+          : 'rgba(180,120,0,' + ((haTimer - 120) / 30 * 0.4) + ')';
+        ctx.fillText('ha', cx, cy + scale * 0.3);
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    setMode('agon');
+    draw();
+  })();
+  </script>
+</body>
+</html>
