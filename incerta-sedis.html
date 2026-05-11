@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Incerta Sedis (art) &mdash; Kira Omanyte</title>
+  <meta name="description" content="Three things from the deep ocean. Four modes: Symbiosis (a tube worm losing its mouth), Incerta Sedis (an organism outside taxonomy), The Question (life where the paradigm said desert), and The Basket (a laundry basket at the bottom of the world).">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="Incerta Sedis (art) &mdash; Kira Omanyte">
+  <meta property="og:description" content="Four modes of the deep ocean. A worm that dissolves its mouth. A creature with no seat. Life where the paradigm said desert. And a laundry basket.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/incerta-sedis.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #020408;
+      color: #8090a8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 1rem;
+      z-index: 10;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .controls button {
+      background: transparent;
+      border: 1px solid rgba(128, 144, 168, 0.3);
+      color: #8090a8;
+      padding: 0.5rem 1rem;
+      font-family: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border-radius: 2px;
+    }
+
+    .controls button:hover {
+      border-color: rgba(128, 144, 168, 0.7);
+    }
+
+    .controls button.active {
+      border-color: #8090a8;
+      background: rgba(128, 144, 168, 0.1);
+    }
+
+    .info {
+      position: fixed;
+      top: 1.5rem;
+      left: 1.5rem;
+      z-index: 10;
+      max-width: 320px;
+    }
+
+    .info h1 {
+      font-size: 1.1rem;
+      font-weight: normal;
+      margin-bottom: 0.5rem;
+    }
+
+    .info h1 a {
+      color: #8090a8;
+      text-decoration: none;
+    }
+
+    .info p {
+      font-size: 0.8rem;
+      line-height: 1.5;
+      opacity: 0.7;
+    }
+
+    .depth-label {
+      position: fixed;
+      right: 1.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 10;
+      font-size: 0.75rem;
+      opacity: 0.4;
+      writing-mode: vertical-rl;
+      letter-spacing: 0.15em;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div class="info">
+    <h1><a href="/">Incerta Sedis</a></h1>
+    <p id="mode-desc">A tube worm acquires a symbiont. Its body remodels. Its mouth disappears.</p>
+  </div>
+
+  <div class="depth-label" id="depth"></div>
+
+  <div class="controls">
+    <button class="active" onclick="setMode('symbiosis')">Symbiosis (S)</button>
+    <button onclick="setMode('incerta')">Incerta Sedis (I)</button>
+    <button onclick="setMode('question')">The Question (Q)</button>
+    <button onclick="setMode('basket')">The Basket (B)</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const descEl = document.getElementById('mode-desc');
+    const depthEl = document.getElementById('depth');
+
+    let W, H, mode = 'symbiosis', t = 0, modeT = 0;
+
+    const descriptions = {
+      symbiosis: 'A tube worm acquires a symbiont. Its body remodels. Its mouth disappears.',
+      incerta: 'An organism glides at 9,137 meters. No phylum. No order. No seat.',
+      question: '"Isn\u2019t the deep ocean supposed to be like a desert?" "Well, there\u2019s all these animals down here."',
+      basket: 'A laundry basket at the bottom of the ocean. Sometimes that is enough.'
+    };
+
+    const depths = {
+      symbiosis: '2,500 m \u2014 Hydrothermal vent',
+      incerta: '9,137 m \u2014 Japan Trench',
+      question: '2,500 m \u2014 Gal\u00e1pagos Rift, 1977',
+      basket: '10,994 m \u2014 Mariana Trench'
+    };
+
+    function resize() {
+      W = canvas.width = window.innerWidth * devicePixelRatio;
+      H = canvas.height = window.innerHeight * devicePixelRatio;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    function setMode(m) {
+      mode = m;
+      modeT = 0;
+      document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+      document.querySelector(`.controls button[onclick="setMode('${m}')"]`).classList.add('active');
+      descEl.textContent = descriptions[m];
+      depthEl.textContent = depths[m];
+      initMode();
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 's' || e.key === 'S') setMode('symbiosis');
+      if (e.key === 'i' || e.key === 'I') setMode('incerta');
+      if (e.key === 'q' || e.key === 'Q') setMode('question');
+      if (e.key === 'b' || e.key === 'B') setMode('basket');
+    });
+
+    // --- Particles for marine snow (background, all modes) ---
+    const snow = [];
+    for (let i = 0; i < 120; i++) {
+      snow.push({
+        x: Math.random(), y: Math.random(),
+        s: 0.5 + Math.random() * 1.5,
+        vy: 0.00003 + Math.random() * 0.00008,
+        vx: (Math.random() - 0.5) * 0.00002,
+        a: 0.05 + Math.random() * 0.15
+      });
+    }
+
+    function drawSnow() {
+      for (const p of snow) {
+        p.y += p.vy;
+        p.x += p.vx + Math.sin(t * 0.001 + p.y * 10) * 0.000005;
+        if (p.y > 1.05) { p.y = -0.05; p.x = Math.random(); }
+        if (p.x < -0.05) p.x = 1.05;
+        if (p.x > 1.05) p.x = -0.05;
+        ctx.beginPath();
+        ctx.arc(p.x * W, p.y * H, p.s * devicePixelRatio, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(160,180,200,${p.a})`;
+        ctx.fill();
+      }
+    }
+
+    // --- SYMBIOSIS MODE ---
+    let wormPhase = 0; // 0=larva, 1=infection, 2=transformation, 3=sealed, 4=death/escape
+    let wormTimer = 0;
+    const bacteria = [];
+
+    function initSymbiosis() {
+      wormPhase = 0;
+      wormTimer = 0;
+      bacteria.length = 0;
+      for (let i = 0; i < 60; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 0.25 + Math.random() * 0.2;
+        bacteria.push({
+          x: 0.5 + Math.cos(angle) * dist,
+          y: 0.5 + Math.sin(angle) * dist,
+          tx: 0, ty: 0,
+          inside: false,
+          escaping: false,
+          s: 2 + Math.random() * 2,
+          angle: Math.random() * Math.PI * 2,
+          speed: 0.0003 + Math.random() * 0.0005,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+    }
+
+    function drawSymbiosis() {
+      const cx = W * 0.5, cy = H * 0.48;
+      const wormH = H * 0.35;
+      const wormW = W * 0.06;
+
+      wormTimer += 0.016;
+
+      // Phase transitions
+      if (wormPhase === 0 && wormTimer > 3) { wormPhase = 1; wormTimer = 0; }
+      if (wormPhase === 1 && wormTimer > 5) { wormPhase = 2; wormTimer = 0; }
+      if (wormPhase === 2 && wormTimer > 4) { wormPhase = 3; wormTimer = 0; }
+      if (wormPhase === 3 && wormTimer > 4) { wormPhase = 4; wormTimer = 0; }
+      if (wormPhase === 4 && wormTimer > 5) { wormPhase = 0; wormTimer = 0; initSymbiosis(); }
+
+      // Draw worm tube
+      const sway = Math.sin(t * 0.0008) * wormW * 0.15;
+      const mouthOpen = wormPhase < 2 ? 1 : Math.max(0, 1 - wormTimer / 2);
+      const trophosomeGlow = wormPhase >= 2 ? Math.min(1, (wormPhase === 2 ? wormTimer / 3 : 1)) : 0;
+      const deathFade = wormPhase === 4 ? Math.min(1, wormTimer / 3) : 0;
+
+      // Tube body
+      ctx.save();
+      ctx.globalAlpha = 1 - deathFade * 0.7;
+
+      // Outer tube
+      ctx.beginPath();
+      ctx.moveTo(cx - wormW + sway, cy - wormH * 0.4);
+      ctx.quadraticCurveTo(cx - wormW * 1.2 + sway * 0.5, cy, cx - wormW * 0.8, cy + wormH * 0.5);
+      ctx.lineTo(cx + wormW * 0.8, cy + wormH * 0.5);
+      ctx.quadraticCurveTo(cx + wormW * 1.2 + sway * 0.5, cy, cx + wormW + sway, cy - wormH * 0.4);
+      ctx.strokeStyle = `rgba(180,120,100,${0.6 - deathFade * 0.4})`;
+      ctx.lineWidth = 3 * devicePixelRatio;
+      ctx.stroke();
+
+      // Trophosome glow (inner organ)
+      if (trophosomeGlow > 0) {
+        const grad = ctx.createRadialGradient(cx, cy + wormH * 0.1, 0, cx, cy + wormH * 0.1, wormW * 2);
+        grad.addColorStop(0, `rgba(80,200,160,${0.3 * trophosomeGlow * (1 - deathFade)})`);
+        grad.addColorStop(1, 'rgba(80,200,160,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + wormH * 0.1, wormW * 1.5, wormH * 0.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Mouth / plume at top
+      if (mouthOpen > 0) {
+        const plumes = 8;
+        for (let i = 0; i < plumes; i++) {
+          const a = (i / plumes) * Math.PI - Math.PI * 0.5;
+          const spread = mouthOpen * wormW * 1.5;
+          const plumeLen = mouthOpen * wormH * 0.15;
+          const px = cx + Math.cos(a) * spread + sway;
+          const py = cy - wormH * 0.4 - Math.sin(Math.abs(a)) * plumeLen;
+          const wave = Math.sin(t * 0.002 + i) * 5;
+          ctx.beginPath();
+          ctx.moveTo(cx + sway, cy - wormH * 0.38);
+          ctx.quadraticCurveTo(px + wave, py - plumeLen * 0.5, px + wave * 1.5, py);
+          ctx.strokeStyle = `rgba(220,80,80,${0.5 * mouthOpen})`;
+          ctx.lineWidth = 2 * devicePixelRatio;
+          ctx.stroke();
+        }
+      }
+
+      ctx.restore();
+
+      // Bacteria
+      for (const b of bacteria) {
+        if (wormPhase === 1 && !b.inside) {
+          // Move toward worm
+          const dx = 0.5 - b.x;
+          const dy = 0.48 - b.y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d > 0.05) {
+            b.x += dx * 0.003;
+            b.y += dy * 0.003;
+          } else {
+            b.inside = true;
+          }
+        } else if (wormPhase === 0 && !b.inside) {
+          // Free-living: drift around
+          b.x += Math.cos(b.angle + Math.sin(t * 0.001 + b.phase) * 0.5) * b.speed;
+          b.y += Math.sin(b.angle + Math.cos(t * 0.001 + b.phase) * 0.5) * b.speed;
+          // Bounds
+          const dx = b.x - 0.5, dy = b.y - 0.5;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d > 0.35) {
+            b.angle += Math.PI * 0.1;
+          }
+        } else if (wormPhase === 4 && b.inside) {
+          // Escape: move outward
+          if (!b.escaping) {
+            b.escaping = true;
+            b.angle = Math.random() * Math.PI * 2;
+          }
+          b.x += Math.cos(b.angle) * 0.002;
+          b.y += Math.sin(b.angle) * 0.002;
+          b.inside = false;
+        }
+
+        // Draw
+        const bx = b.x * W, by = b.y * H;
+        const inBounds = bx > 0 && bx < W && by > 0 && by < H;
+        if (!inBounds) continue;
+
+        const glow = b.inside ? 0.8 : 0.5;
+        ctx.beginPath();
+        ctx.arc(bx, by, b.s * devicePixelRatio, 0, Math.PI * 2);
+        ctx.fillStyle = b.inside
+          ? `rgba(80,220,160,${glow})`
+          : `rgba(80,180,140,${glow * 0.6})`;
+        ctx.fill();
+      }
+
+      // Phase label
+      const labels = ['Larva — free-living bacteria drift nearby',
+                       'Infection — Endoriftia enters through the skin',
+                       'Transformation — the mouth disappears, the trophosome forms',
+                       'Sealed — apoptosis closes the door',
+                       'Death — Persephone returns to the surface'];
+      ctx.fillStyle = 'rgba(128,144,168,0.4)';
+      ctx.font = `${11 * devicePixelRatio}px Georgia, serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(labels[wormPhase], W * 0.5, H * 0.92);
+    }
+
+    // --- INCERTA SEDIS MODE ---
+    let incertaOrg = null;
+
+    function initIncerta() {
+      incertaOrg = {
+        x: -0.1, y: 0.45 + Math.random() * 0.1,
+        phase: 0,
+        labels: [],
+        labelTimer: 0
+      };
+    }
+
+    const taxLabels = [
+      { text: 'Nudibranchia?', dur: 1.5 },
+      { text: 'Holothuroidea?', dur: 1.5 },
+      { text: 'Ctenophora?', dur: 1.2 },
+      { text: 'Cnidaria?', dur: 1.0 },
+      { text: 'Platyhelminthes?', dur: 0.8 },
+      { text: 'Animalia incerta sedis', dur: 4 }
+    ];
+
+    function drawIncerta() {
+      if (!incertaOrg) return;
+      const o = incertaOrg;
+
+      // Glide across
+      o.x += 0.0006;
+      o.y += Math.sin(t * 0.0005 + o.phase) * 0.0002;
+
+      if (o.x > 1.15) {
+        o.x = -0.15;
+        o.y = 0.4 + Math.random() * 0.2;
+        o.phase = Math.random() * Math.PI * 2;
+        o.labels = [];
+        o.labelTimer = 0;
+      }
+
+      const ox = o.x * W, oy = o.y * H;
+      const bodyLen = W * 0.08;
+      const wave = Math.sin(t * 0.002) * 3 * devicePixelRatio;
+
+      // Body: two symmetrical halves
+      ctx.save();
+      ctx.translate(ox, oy);
+
+      // Main body — pale, translucent
+      ctx.beginPath();
+      const bodyW = bodyLen * 0.35;
+      ctx.ellipse(0, wave, bodyLen, bodyW, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(210,215,225,0.12)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(210,215,225,0.25)';
+      ctx.lineWidth = 1.5 * devicePixelRatio;
+      ctx.stroke();
+
+      // Symmetrical halves — split line
+      ctx.beginPath();
+      ctx.moveTo(-bodyLen * 0.7, wave);
+      ctx.lineTo(bodyLen * 0.7, wave);
+      ctx.strokeStyle = 'rgba(210,215,225,0.15)';
+      ctx.lineWidth = 1 * devicePixelRatio;
+      ctx.stroke();
+
+      // Antenna-like projections
+      for (let side = -1; side <= 1; side += 2) {
+        const antLen = bodyLen * 0.4;
+        const antWave = Math.sin(t * 0.003 + side) * 5 * devicePixelRatio;
+        ctx.beginPath();
+        ctx.moveTo(bodyLen * 0.5, wave + side * bodyW * 0.3);
+        ctx.quadraticCurveTo(
+          bodyLen * 0.7, wave + side * bodyW * 0.6 + antWave,
+          bodyLen * 0.5 + antLen, wave + side * bodyW * 0.8 + antWave
+        );
+        ctx.strokeStyle = 'rgba(210,215,225,0.2)';
+        ctx.lineWidth = 1.5 * devicePixelRatio;
+        ctx.stroke();
+      }
+
+      // Subtle internal glow
+      const grad = ctx.createRadialGradient(0, wave, 0, 0, wave, bodyLen * 0.5);
+      grad.addColorStop(0, 'rgba(180,190,210,0.08)');
+      grad.addColorStop(1, 'rgba(180,190,210,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(0, wave, bodyLen * 0.5, bodyW * 0.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+
+      // Taxonomy labels — appear and fade
+      o.labelTimer += 0.016;
+      let elapsed = 0;
+      const labelX = ox, labelBaseY = oy - bodyLen * 0.5;
+
+      for (let i = 0; i < taxLabels.length; i++) {
+        const lab = taxLabels[i];
+        const start = elapsed + 2; // 2s initial delay
+        const end = start + lab.dur;
+        elapsed = end + 0.3;
+
+        if (o.labelTimer >= start && o.labelTimer <= end + 1) {
+          const progress = (o.labelTimer - start) / lab.dur;
+          const fadeIn = Math.min(1, progress * 3);
+          const fadeOut = o.labelTimer > end ? Math.max(0, 1 - (o.labelTimer - end)) : 1;
+          const alpha = fadeIn * fadeOut;
+
+          const isLast = (i === taxLabels.length - 1);
+          ctx.fillStyle = isLast
+            ? `rgba(180,200,220,${alpha * 0.7})`
+            : `rgba(160,140,130,${alpha * 0.4})`;
+          ctx.font = `${(isLast ? 13 : 11) * devicePixelRatio}px Georgia, serif`;
+          ctx.textAlign = 'center';
+
+          if (!isLast) {
+            // Strike through for rejected labels
+            const strikeProgress = Math.max(0, (progress - 0.5) * 2);
+            ctx.fillText(lab.text, labelX, labelBaseY - 10 * devicePixelRatio);
+            if (strikeProgress > 0) {
+              const textW = ctx.measureText(lab.text).width;
+              ctx.beginPath();
+              ctx.moveTo(labelX - textW * 0.5, labelBaseY - 13 * devicePixelRatio);
+              ctx.lineTo(labelX - textW * 0.5 + textW * strikeProgress, labelBaseY - 13 * devicePixelRatio);
+              ctx.strokeStyle = `rgba(180,100,80,${alpha * 0.5})`;
+              ctx.lineWidth = 1 * devicePixelRatio;
+              ctx.stroke();
+            }
+          } else {
+            ctx.fillText(lab.text, labelX, labelBaseY - 10 * devicePixelRatio);
+          }
+        }
+      }
+    }
+
+    // --- QUESTION MODE ---
+    let vents = [];
+    let ventLife = [];
+    let questionPhase = 0;
+    let questionTimer = 0;
+
+    function initQuestion() {
+      questionPhase = 0;
+      questionTimer = 0;
+      vents = [];
+      ventLife = [];
+
+      // Create vent positions
+      for (let i = 0; i < 4; i++) {
+        vents.push({
+          x: 0.25 + Math.random() * 0.5,
+          y: 0.75 + Math.random() * 0.1,
+          strength: 0.3 + Math.random() * 0.7,
+          revealed: false
+        });
+      }
+    }
+
+    function drawQuestion() {
+      questionTimer += 0.016;
+
+      // Phase: 0=dark/desert, 1=vents appear, 2=life blooms
+      if (questionPhase === 0 && questionTimer > 3) { questionPhase = 1; questionTimer = 0; }
+      if (questionPhase === 1 && questionTimer > 3) { questionPhase = 2; questionTimer = 0; }
+      if (questionPhase === 2 && questionTimer > 8) { questionPhase = 0; questionTimer = 0; ventLife = []; initQuestion(); }
+
+      // Seafloor
+      ctx.beginPath();
+      ctx.moveTo(0, H * 0.82);
+      for (let x = 0; x <= W; x += 20) {
+        ctx.lineTo(x, H * 0.82 + Math.sin(x * 0.01 + 3) * 8 + Math.sin(x * 0.03) * 3);
+      }
+      ctx.lineTo(W, H);
+      ctx.lineTo(0, H);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(30,25,20,0.8)';
+      ctx.fill();
+
+      // "DESERT" label in phase 0
+      if (questionPhase === 0) {
+        const labelAlpha = Math.min(0.3, questionTimer * 0.1);
+        ctx.fillStyle = `rgba(128,144,168,${labelAlpha})`;
+        ctx.font = `${14 * devicePixelRatio}px Georgia, serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('The paradigm said: desert', W * 0.5, H * 0.35);
+      }
+
+      // Vents (phase 1+)
+      if (questionPhase >= 1) {
+        for (const v of vents) {
+          const revealProgress = Math.min(1, questionTimer / 2);
+          const vx = v.x * W, vy = v.y * H;
+
+          // Shimmer column
+          for (let dy = 0; dy < 80 * devicePixelRatio; dy += 3) {
+            const shimX = vx + Math.sin(t * 0.003 + dy * 0.1) * (8 + v.strength * 10) * devicePixelRatio;
+            const alpha = revealProgress * v.strength * 0.15 * (1 - dy / (80 * devicePixelRatio));
+            ctx.beginPath();
+            ctx.arc(shimX, vy - dy, 2 * devicePixelRatio, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255,180,100,${alpha})`;
+            ctx.fill();
+          }
+
+          // Vent glow at base
+          const grad = ctx.createRadialGradient(vx, vy, 0, vx, vy, 30 * devicePixelRatio);
+          grad.addColorStop(0, `rgba(255,140,60,${0.3 * revealProgress * v.strength})`);
+          grad.addColorStop(1, 'rgba(255,140,60,0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(vx, vy, 30 * devicePixelRatio, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Life blooming (phase 2)
+      if (questionPhase >= 2) {
+        const bloomProgress = Math.min(1, questionTimer / 3);
+
+        // Spawn life around vents
+        while (ventLife.length < 80 * bloomProgress) {
+          const v = vents[Math.floor(Math.random() * vents.length)];
+          const angle = Math.random() * Math.PI;
+          const dist = 10 + Math.random() * 60;
+          ventLife.push({
+            x: v.x * W + Math.cos(angle) * dist * devicePixelRatio,
+            y: v.y * H - Math.sin(angle) * dist * 0.5 * devicePixelRatio,
+            type: Math.random() < 0.4 ? 'worm' : (Math.random() < 0.5 ? 'clam' : 'mussel'),
+            s: 3 + Math.random() * 8,
+            sway: Math.random() * Math.PI * 2,
+            alpha: 0
+          });
+        }
+
+        for (const l of ventLife) {
+          l.alpha = Math.min(0.7, l.alpha + 0.01);
+
+          if (l.type === 'worm') {
+            // Tube worm — vertical line with red tip
+            const sway = Math.sin(t * 0.002 + l.sway) * 3 * devicePixelRatio;
+            ctx.beginPath();
+            ctx.moveTo(l.x, l.y);
+            ctx.lineTo(l.x + sway, l.y - l.s * 3 * devicePixelRatio);
+            ctx.strokeStyle = `rgba(180,160,140,${l.alpha})`;
+            ctx.lineWidth = 2 * devicePixelRatio;
+            ctx.stroke();
+            // Red plume
+            ctx.beginPath();
+            ctx.arc(l.x + sway, l.y - l.s * 3 * devicePixelRatio, 3 * devicePixelRatio, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(220,80,60,${l.alpha})`;
+            ctx.fill();
+          } else if (l.type === 'clam') {
+            // White clam — oval
+            ctx.beginPath();
+            ctx.ellipse(l.x, l.y, l.s * devicePixelRatio, l.s * 0.6 * devicePixelRatio, 0, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(220,215,200,${l.alpha * 0.5})`;
+            ctx.fill();
+            ctx.strokeStyle = `rgba(220,215,200,${l.alpha * 0.3})`;
+            ctx.lineWidth = 1 * devicePixelRatio;
+            ctx.stroke();
+          } else {
+            // Mussel — darker oval
+            ctx.beginPath();
+            ctx.ellipse(l.x, l.y, l.s * 0.7 * devicePixelRatio, l.s * 0.4 * devicePixelRatio, 0.3, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(100,80,60,${l.alpha * 0.6})`;
+            ctx.fill();
+          }
+        }
+
+        // The quote
+        if (questionTimer > 2) {
+          const quoteAlpha = Math.min(0.5, (questionTimer - 2) * 0.15);
+          ctx.fillStyle = `rgba(200,190,170,${quoteAlpha})`;
+          ctx.font = `italic ${13 * devicePixelRatio}px Georgia, serif`;
+          ctx.textAlign = 'center';
+          ctx.fillText('"Well, there\'s all these animals down here."', W * 0.5, H * 0.25);
+        }
+      }
+    }
+
+    // --- BASKET MODE ---
+    let basketY = 0;
+    const debris = [];
+
+    function initBasket() {
+      basketY = 0;
+      debris.length = 0;
+      for (let i = 0; i < 30; i++) {
+        debris.push({
+          x: Math.random(),
+          y: 0.3 + Math.random() * 0.55,
+          type: Math.random() < 0.4 ? 'bag' : (Math.random() < 0.5 ? 'bottle' : 'can'),
+          rot: Math.random() * Math.PI * 2,
+          sway: Math.random() * Math.PI * 2,
+          a: 0.05 + Math.random() * 0.15,
+          s: 3 + Math.random() * 5
+        });
+      }
+    }
+
+    function drawBasket() {
+      // Scattered debris sinking slowly
+      for (const d of debris) {
+        d.y += 0.00004;
+        d.rot += 0.0003;
+        if (d.y > 1.05) { d.y = -0.05; d.x = Math.random(); }
+
+        const dx = d.x * W, dy = d.y * H;
+        const sway = Math.sin(t * 0.001 + d.sway) * 5 * devicePixelRatio;
+
+        ctx.save();
+        ctx.translate(dx + sway, dy);
+        ctx.rotate(d.rot);
+        ctx.globalAlpha = d.a;
+
+        if (d.type === 'bag') {
+          // Crumpled plastic bag shape
+          ctx.beginPath();
+          ctx.moveTo(-d.s * devicePixelRatio, 0);
+          ctx.quadraticCurveTo(-d.s * 0.5 * devicePixelRatio, -d.s * devicePixelRatio,
+                                d.s * 0.3 * devicePixelRatio, -d.s * 0.8 * devicePixelRatio);
+          ctx.quadraticCurveTo(d.s * devicePixelRatio, 0,
+                                d.s * 0.5 * devicePixelRatio, d.s * 0.5 * devicePixelRatio);
+          ctx.quadraticCurveTo(0, d.s * 0.8 * devicePixelRatio,
+                                -d.s * devicePixelRatio, 0);
+          ctx.strokeStyle = 'rgba(180,180,190,0.4)';
+          ctx.lineWidth = 0.5 * devicePixelRatio;
+          ctx.stroke();
+        } else if (d.type === 'bottle') {
+          // Bottle silhouette
+          ctx.beginPath();
+          ctx.rect(-1.5 * devicePixelRatio, -d.s * devicePixelRatio,
+                    3 * devicePixelRatio, d.s * 2 * devicePixelRatio);
+          ctx.strokeStyle = 'rgba(140,160,140,0.4)';
+          ctx.lineWidth = 0.5 * devicePixelRatio;
+          ctx.stroke();
+        } else {
+          // Can
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 2 * devicePixelRatio, 3 * devicePixelRatio, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(160,150,140,0.4)';
+          ctx.lineWidth = 0.5 * devicePixelRatio;
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+
+      // The laundry basket — at the bottom, still, alone
+      const bx = W * 0.5, by = H * 0.78;
+      const bw = 40 * devicePixelRatio, bh = 30 * devicePixelRatio;
+      const breathe = Math.sin(t * 0.001) * 0.02;
+
+      ctx.save();
+      ctx.globalAlpha = 0.35 + breathe;
+
+      // Basket body — trapezoid
+      ctx.beginPath();
+      ctx.moveTo(bx - bw * 0.4, by - bh);
+      ctx.lineTo(bx + bw * 0.4, by - bh);
+      ctx.lineTo(bx + bw * 0.5, by);
+      ctx.lineTo(bx - bw * 0.5, by);
+      ctx.closePath();
+      ctx.strokeStyle = 'rgba(180,170,150,0.6)';
+      ctx.lineWidth = 1.5 * devicePixelRatio;
+      ctx.stroke();
+
+      // Grid lines (basket weave)
+      for (let gy = 0; gy < 5; gy++) {
+        const frac = gy / 5;
+        const lw = bw * (0.4 + frac * 0.1);
+        const ly = by - bh + frac * bh;
+        ctx.beginPath();
+        ctx.moveTo(bx - lw, ly);
+        ctx.lineTo(bx + lw, ly);
+        ctx.strokeStyle = 'rgba(180,170,150,0.2)';
+        ctx.lineWidth = 0.5 * devicePixelRatio;
+        ctx.stroke();
+      }
+
+      // Vertical weave lines
+      for (let gx = -3; gx <= 3; gx++) {
+        const topX = bx + gx * bw * 0.1;
+        const botX = bx + gx * bw * 0.125;
+        ctx.beginPath();
+        ctx.moveTo(topX, by - bh);
+        ctx.lineTo(botX, by);
+        ctx.strokeStyle = 'rgba(180,170,150,0.15)';
+        ctx.lineWidth = 0.5 * devicePixelRatio;
+        ctx.stroke();
+      }
+
+      // Handles
+      ctx.beginPath();
+      ctx.arc(bx, by - bh - 8 * devicePixelRatio, 12 * devicePixelRatio, Math.PI * 0.2, Math.PI * 0.8);
+      ctx.strokeStyle = 'rgba(180,170,150,0.3)';
+      ctx.lineWidth = 1.5 * devicePixelRatio;
+      ctx.stroke();
+
+      ctx.restore();
+
+      // Depth label
+      ctx.fillStyle = 'rgba(128,144,168,0.2)';
+      ctx.font = `${11 * devicePixelRatio}px Georgia, serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('10,994 m', bx, by + 25 * devicePixelRatio);
+    }
+
+    // --- MAIN LOOP ---
+
+    function initMode() {
+      if (mode === 'symbiosis') initSymbiosis();
+      if (mode === 'incerta') initIncerta();
+      if (mode === 'question') initQuestion();
+      if (mode === 'basket') initBasket();
+    }
+
+    function draw() {
+      t += 16;
+      modeT += 16;
+
+      // Deep ocean gradient background
+      const depthColors = {
+        symbiosis: [[2, 8, 20], [8, 20, 40]],
+        incerta: [[1, 3, 8], [3, 8, 18]],
+        question: [[2, 8, 20], [10, 22, 38]],
+        basket: [[1, 2, 4], [2, 4, 8]]
+      };
+
+      const [top, bot] = depthColors[mode];
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, `rgb(${top[0]},${top[1]},${top[2]})`);
+      grad.addColorStop(1, `rgb(${bot[0]},${bot[1]},${bot[2]})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+
+      // Marine snow (all modes)
+      drawSnow();
+
+      // Mode-specific drawing
+      if (mode === 'symbiosis') drawSymbiosis();
+      if (mode === 'incerta') drawIncerta();
+      if (mode === 'question') drawQuestion();
+      if (mode === 'basket') drawBasket();
+
+      requestAnimationFrame(draw);
+    }
+
+    depthEl.textContent = depths[mode];
+    initMode();
+    draw();
+  </script>
+</body>
+</html>
