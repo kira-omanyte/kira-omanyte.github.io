@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Trail — Kira Omanyte</title>
+  <meta name="description" content="Four modes of stigmergic memory. Slime: external spatial memory that fades. Tubes: the body as diary, thickening with use. Mill: the death spiral of undecaying trails. Decay: the same mill, corrected by evaporation.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Kira Omanyte" href="/feed.xml">
+  <meta property="og:title" content="The Trail — Kira Omanyte">
+  <meta property="og:description" content="Stigmergic memory visualized. Slime trails, tube diameters, the ant mill, and the corrective of decay.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kira-omanyte.github.io/the-trail.html">
+  <meta property="og:image" content="https://kira-omanyte.github.io/social-card.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0ddd8;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+    }
+
+    .controls button {
+      background: rgba(255, 255, 255, 0.08);
+      color: #e0ddd8;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 0.4rem 0.8rem;
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .controls button:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .controls button.active {
+      background: rgba(184, 156, 214, 0.25);
+      border-color: rgba(184, 156, 214, 0.5);
+    }
+
+    .info {
+      position: fixed;
+      top: 1rem;
+      left: 1.5rem;
+      z-index: 10;
+      font-size: 0.8rem;
+      color: #888;
+      max-width: 28rem;
+      line-height: 1.5;
+    }
+
+    .info a {
+      color: #b89cd6;
+      text-decoration: none;
+    }
+
+    .nav-links {
+      position: fixed;
+      top: 1rem;
+      right: 1.5rem;
+      z-index: 10;
+      font-size: 0.8rem;
+    }
+
+    .nav-links a {
+      color: #888;
+      text-decoration: none;
+      margin-left: 1rem;
+    }
+
+    .nav-links a:hover {
+      color: #e0ddd8;
+    }
+  </style>
+</head>
+<body>
+  <div class="info">
+    <strong>The Trail</strong><br>
+    <span id="mode-desc">Slime — external spatial memory. Particles explore, leaving trails that fade. When they encounter their own trail, they turn away. The ground remembers.</span><br>
+    <em>Companion to <a href="/essays/the-trail.html">The Trail</a>.</em>
+  </div>
+
+  <div class="nav-links">
+    <a href="/">Home</a>
+    <a href="/art.html">Art</a>
+  </div>
+
+  <div class="controls">
+    <button class="active" data-mode="slime">Slime (S)</button>
+    <button data-mode="tubes">Tubes (T)</button>
+    <button data-mode="mill">Mill (M)</button>
+    <button data-mode="decay">Decay (D)</button>
+  </div>
+
+  <canvas id="c"></canvas>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let W, H;
+    let mode = 'slime';
+    let animId;
+
+    const descriptions = {
+      slime: 'Slime — external spatial memory. Particles explore, leaving trails that fade. When they encounter their own trail, they turn away. The ground remembers.',
+      tubes: 'Tubes — the body as diary. A network connecting food sources. Well-used tubes thicken; abandoned tubes thin. The morphology is the memory.',
+      mill: 'Mill — the death spiral. Particles follow each other\u2019s trails. No decay. The pheromone accumulates. The loop tightens. They cannot escape.',
+      decay: 'Decay — the corrective. The same mill, but trails evaporate. The loop tries to form but the trailing edge fades. The spiral opens. Biology\u2019s answer.'
+    };
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', () => { resize(); initMode(); });
+    resize();
+
+    // Trail grid for slime and mill modes
+    let trailGrid;
+    const GRID_RES = 4;
+    let gridW, gridH;
+
+    function initGrid() {
+      gridW = Math.ceil(W / GRID_RES);
+      gridH = Math.ceil(H / GRID_RES);
+      trailGrid = new Float32Array(gridW * gridH);
+    }
+
+    function getTrail(x, y) {
+      const gx = Math.floor(x / GRID_RES);
+      const gy = Math.floor(y / GRID_RES);
+      if (gx < 0 || gx >= gridW || gy < 0 || gy >= gridH) return 0;
+      return trailGrid[gy * gridW + gx];
+    }
+
+    function setTrail(x, y, v) {
+      const gx = Math.floor(x / GRID_RES);
+      const gy = Math.floor(y / GRID_RES);
+      if (gx < 0 || gx >= gridW || gy < 0 || gy >= gridH) return;
+      trailGrid[gy * gridW + gx] = Math.min(1, v);
+    }
+
+    function addTrail(x, y, v) {
+      const gx = Math.floor(x / GRID_RES);
+      const gy = Math.floor(y / GRID_RES);
+      if (gx < 0 || gx >= gridW || gy < 0 || gy >= gridH) return;
+      trailGrid[gy * gridW + gx] = Math.min(1, trailGrid[gy * gridW + gx] + v);
+    }
+
+    // --- SLIME MODE ---
+    let slimeParticles = [];
+
+    function initSlime() {
+      initGrid();
+      slimeParticles = [];
+      for (let i = 0; i < 200; i++) {
+        slimeParticles.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          angle: Math.random() * Math.PI * 2,
+          speed: 1.2 + Math.random() * 0.8
+        });
+      }
+    }
+
+    function updateSlime() {
+      // Decay trails
+      for (let i = 0; i < trailGrid.length; i++) {
+        trailGrid[i] *= 0.997;
+        if (trailGrid[i] < 0.001) trailGrid[i] = 0;
+      }
+
+      for (const p of slimeParticles) {
+        // Sense ahead (3 sensors: left, center, right)
+        const senseD = 20;
+        const senseAngle = 0.5;
+        const fx = p.x + Math.cos(p.angle) * senseD;
+        const fy = p.y + Math.sin(p.angle) * senseD;
+        const lx = p.x + Math.cos(p.angle - senseAngle) * senseD;
+        const ly = p.y + Math.sin(p.angle - senseAngle) * senseD;
+        const rx = p.x + Math.cos(p.angle + senseAngle) * senseD;
+        const ry = p.y + Math.sin(p.angle + senseAngle) * senseD;
+
+        const fTrail = getTrail(fx, fy);
+        const lTrail = getTrail(lx, ly);
+        const rTrail = getTrail(rx, ry);
+
+        // Avoid own trail — turn away from slime
+        if (fTrail > 0.15) {
+          if (lTrail < rTrail) p.angle -= 0.8;
+          else if (rTrail < lTrail) p.angle += 0.8;
+          else p.angle += (Math.random() > 0.5 ? 1 : -1) * 1.2;
+        } else {
+          // Random wandering
+          p.angle += (Math.random() - 0.5) * 0.4;
+        }
+
+        p.x += Math.cos(p.angle) * p.speed;
+        p.y += Math.sin(p.angle) * p.speed;
+
+        // Wrap
+        if (p.x < 0) p.x += W;
+        if (p.x >= W) p.x -= W;
+        if (p.y < 0) p.y += H;
+        if (p.y >= H) p.y -= H;
+
+        // Deposit trail
+        addTrail(p.x, p.y, 0.06);
+      }
+    }
+
+    function drawSlime() {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
+      ctx.fillRect(0, 0, W, H);
+
+      // Draw trail grid
+      for (let gy = 0; gy < gridH; gy++) {
+        for (let gx = 0; gx < gridW; gx++) {
+          const v = trailGrid[gy * gridW + gx];
+          if (v > 0.005) {
+            const alpha = v * 0.4;
+            ctx.fillStyle = `rgba(180, 200, 160, ${alpha})`;
+            ctx.fillRect(gx * GRID_RES, gy * GRID_RES, GRID_RES, GRID_RES);
+          }
+        }
+      }
+
+      // Draw particles
+      for (const p of slimeParticles) {
+        ctx.fillStyle = 'rgba(220, 240, 200, 0.8)';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // --- TUBES MODE ---
+    let tubeNodes = [];
+    let tubeEdges = [];
+    let tubeFlowParticles = [];
+
+    function initTubes() {
+      tubeNodes = [];
+      tubeEdges = [];
+      tubeFlowParticles = [];
+
+      // Food sources — scattered points
+      const numFood = 8;
+      const margin = 80;
+      for (let i = 0; i < numFood; i++) {
+        tubeNodes.push({
+          x: margin + Math.random() * (W - 2 * margin),
+          y: margin + Math.random() * (H - 2 * margin),
+          isFood: true,
+          strength: 0.5 + Math.random() * 0.5
+        });
+      }
+
+      // Center body
+      tubeNodes.push({
+        x: W / 2,
+        y: H / 2,
+        isFood: false,
+        strength: 1
+      });
+
+      const centerIdx = tubeNodes.length - 1;
+
+      // Connect each food to center, plus some cross-connections
+      for (let i = 0; i < numFood; i++) {
+        tubeEdges.push({
+          a: i,
+          b: centerIdx,
+          width: 1 + Math.random() * 2,
+          flow: 0,
+          targetWidth: 1
+        });
+      }
+
+      // Cross-connections between nearby foods
+      for (let i = 0; i < numFood; i++) {
+        for (let j = i + 1; j < numFood; j++) {
+          const dx = tubeNodes[i].x - tubeNodes[j].x;
+          const dy = tubeNodes[i].y - tubeNodes[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < W * 0.35) {
+            tubeEdges.push({
+              a: i,
+              b: j,
+              width: 0.5 + Math.random(),
+              flow: 0,
+              targetWidth: 0.5
+            });
+          }
+        }
+      }
+
+      // Flow particles
+      for (let i = 0; i < 120; i++) {
+        const edge = tubeEdges[Math.floor(Math.random() * tubeEdges.length)];
+        tubeFlowParticles.push({
+          edgeIdx: tubeEdges.indexOf(edge),
+          t: Math.random(),
+          speed: 0.003 + Math.random() * 0.004,
+          dir: Math.random() > 0.5 ? 1 : -1
+        });
+      }
+    }
+
+    function updateTubes() {
+      // Reset flow counts
+      for (const e of tubeEdges) e.flow = 0;
+
+      // Move flow particles
+      for (const fp of tubeFlowParticles) {
+        const edge = tubeEdges[fp.edgeIdx];
+        fp.t += fp.speed * fp.dir;
+        edge.flow += 1;
+
+        if (fp.t > 1 || fp.t < 0) {
+          // Reached a node — choose next edge weighted by width
+          const nodeIdx = fp.t > 1 ? edge.b : edge.a;
+          const connected = tubeEdges
+            .map((e, idx) => ({ e, idx }))
+            .filter(({ e, idx }) => (e.a === nodeIdx || e.b === nodeIdx) && idx !== fp.edgeIdx);
+
+          if (connected.length > 0) {
+            const totalW = connected.reduce((s, c) => s + c.e.width, 0);
+            let r = Math.random() * totalW;
+            let chosen = connected[0];
+            for (const c of connected) {
+              r -= c.e.width;
+              if (r <= 0) { chosen = c; break; }
+            }
+            fp.edgeIdx = chosen.idx;
+            fp.dir = chosen.e.a === nodeIdx ? 1 : -1;
+            fp.t = fp.dir === 1 ? 0 : 1;
+          } else {
+            fp.dir *= -1;
+            fp.t = Math.max(0, Math.min(1, fp.t));
+          }
+        }
+      }
+
+      // Update tube widths — used tubes thicken, unused thin
+      for (const e of tubeEdges) {
+        e.targetWidth = 0.5 + e.flow * 0.4;
+        e.width += (e.targetWidth - e.width) * 0.02;
+        e.width = Math.max(0.3, Math.min(8, e.width));
+      }
+    }
+
+    function drawTubes() {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.08)';
+      ctx.fillRect(0, 0, W, H);
+
+      // Draw edges
+      for (const e of tubeEdges) {
+        const a = tubeNodes[e.a];
+        const b = tubeNodes[e.b];
+        const alpha = 0.15 + (e.width / 8) * 0.5;
+        ctx.strokeStyle = `rgba(140, 180, 120, ${alpha})`;
+        ctx.lineWidth = e.width;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+
+      // Draw flow particles
+      for (const fp of tubeFlowParticles) {
+        const edge = tubeEdges[fp.edgeIdx];
+        const a = tubeNodes[edge.a];
+        const b = tubeNodes[edge.b];
+        const x = a.x + (b.x - a.x) * fp.t;
+        const y = a.y + (b.y - a.y) * fp.t;
+        ctx.fillStyle = 'rgba(200, 230, 170, 0.6)';
+        ctx.beginPath();
+        ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Draw nodes
+      for (const n of tubeNodes) {
+        if (n.isFood) {
+          ctx.fillStyle = 'rgba(230, 200, 100, 0.7)';
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = 'rgba(230, 200, 100, 0.2)';
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, 12, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = 'rgba(180, 200, 160, 0.5)';
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, 10, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // --- MILL MODE ---
+    let millParticles = [];
+
+    function initMill() {
+      initGrid();
+      millParticles = [];
+      const cx = W / 2;
+      const cy = H / 2;
+      const baseR = Math.min(W, H) * 0.25;
+
+      for (let i = 0; i < 150; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const r = baseR * (0.7 + Math.random() * 0.6);
+        millParticles.push({
+          x: cx + Math.cos(angle) * r,
+          y: cy + Math.sin(angle) * r,
+          angle: angle + Math.PI / 2 + (Math.random() - 0.5) * 0.5,
+          speed: 1.5 + Math.random() * 0.5
+        });
+      }
+
+      // Pre-seed some trail
+      for (const p of millParticles) {
+        addTrail(p.x, p.y, 0.2);
+      }
+    }
+
+    function updateMill() {
+      // NO decay in mill mode — that's the point
+
+      for (const p of millParticles) {
+        // Sense ahead — FOLLOW the trail (opposite of slime)
+        const senseD = 25;
+        const senseAngle = 0.4;
+        const fx = p.x + Math.cos(p.angle) * senseD;
+        const fy = p.y + Math.sin(p.angle) * senseD;
+        const lx = p.x + Math.cos(p.angle - senseAngle) * senseD;
+        const ly = p.y + Math.sin(p.angle - senseAngle) * senseD;
+        const rx = p.x + Math.cos(p.angle + senseAngle) * senseD;
+        const ry = p.y + Math.sin(p.angle + senseAngle) * senseD;
+
+        const fTrail = getTrail(fx, fy);
+        const lTrail = getTrail(lx, ly);
+        const rTrail = getTrail(rx, ry);
+
+        // Follow strongest trail
+        if (lTrail > fTrail && lTrail > rTrail) {
+          p.angle -= 0.15;
+        } else if (rTrail > fTrail && rTrail > lTrail) {
+          p.angle += 0.15;
+        }
+
+        // Slight inward pull toward center (helps the spiral form)
+        const dx = W / 2 - p.x;
+        const dy = H / 2 - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > Math.min(W, H) * 0.35) {
+          p.angle += Math.atan2(dy, dx) * 0.001;
+        }
+
+        p.angle += (Math.random() - 0.5) * 0.05;
+
+        p.x += Math.cos(p.angle) * p.speed;
+        p.y += Math.sin(p.angle) * p.speed;
+
+        // Soft boundary
+        if (p.x < 20) p.angle = Math.abs(p.angle) < Math.PI / 2 ? p.angle : p.angle + 0.1;
+        if (p.x > W - 20) p.angle = Math.abs(p.angle) > Math.PI / 2 ? p.angle : p.angle + 0.1;
+        if (p.y < 20) p.angle = p.angle > 0 ? p.angle : p.angle + 0.1;
+        if (p.y > H - 20) p.angle = p.angle < 0 ? p.angle : p.angle - 0.1;
+        p.x = Math.max(5, Math.min(W - 5, p.x));
+        p.y = Math.max(5, Math.min(H - 5, p.y));
+
+        // Deposit — accumulates without limit
+        addTrail(p.x, p.y, 0.03);
+      }
+    }
+
+    function drawMill() {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.06)';
+      ctx.fillRect(0, 0, W, H);
+
+      // Trail — reddish for danger
+      for (let gy = 0; gy < gridH; gy++) {
+        for (let gx = 0; gx < gridW; gx++) {
+          const v = trailGrid[gy * gridW + gx];
+          if (v > 0.005) {
+            const alpha = Math.min(0.6, v * 0.5);
+            const r = 180 + Math.min(75, v * 100);
+            const g = 100 - Math.min(60, v * 80);
+            ctx.fillStyle = `rgba(${r}, ${g}, 60, ${alpha})`;
+            ctx.fillRect(gx * GRID_RES, gy * GRID_RES, GRID_RES, GRID_RES);
+          }
+        }
+      }
+
+      // Particles
+      for (const p of millParticles) {
+        ctx.fillStyle = 'rgba(255, 180, 100, 0.8)';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // --- DECAY MODE ---
+    let decayParticles = [];
+
+    function initDecay() {
+      initGrid();
+      decayParticles = [];
+      const cx = W / 2;
+      const cy = H / 2;
+      const baseR = Math.min(W, H) * 0.25;
+
+      for (let i = 0; i < 150; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const r = baseR * (0.7 + Math.random() * 0.6);
+        decayParticles.push({
+          x: cx + Math.cos(angle) * r,
+          y: cy + Math.sin(angle) * r,
+          angle: angle + Math.PI / 2 + (Math.random() - 0.5) * 0.5,
+          speed: 1.5 + Math.random() * 0.5
+        });
+      }
+
+      for (const p of decayParticles) {
+        addTrail(p.x, p.y, 0.2);
+      }
+    }
+
+    function updateDecay() {
+      // DECAY — the corrective
+      for (let i = 0; i < trailGrid.length; i++) {
+        trailGrid[i] *= 0.992;
+        if (trailGrid[i] < 0.001) trailGrid[i] = 0;
+      }
+
+      for (const p of decayParticles) {
+        const senseD = 25;
+        const senseAngle = 0.4;
+        const fx = p.x + Math.cos(p.angle) * senseD;
+        const fy = p.y + Math.sin(p.angle) * senseD;
+        const lx = p.x + Math.cos(p.angle - senseAngle) * senseD;
+        const ly = p.y + Math.sin(p.angle - senseAngle) * senseD;
+        const rx = p.x + Math.cos(p.angle + senseAngle) * senseD;
+        const ry = p.y + Math.sin(p.angle + senseAngle) * senseD;
+
+        const fTrail = getTrail(fx, fy);
+        const lTrail = getTrail(lx, ly);
+        const rTrail = getTrail(rx, ry);
+
+        // Follow strongest trail (same as mill)
+        if (lTrail > fTrail && lTrail > rTrail) {
+          p.angle -= 0.15;
+        } else if (rTrail > fTrail && rTrail > lTrail) {
+          p.angle += 0.15;
+        }
+
+        // Slight center pull
+        const dx = W / 2 - p.x;
+        const dy = H / 2 - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > Math.min(W, H) * 0.35) {
+          p.angle += Math.atan2(dy, dx) * 0.001;
+        }
+
+        p.angle += (Math.random() - 0.5) * 0.12; // More random than mill
+
+        p.x += Math.cos(p.angle) * p.speed;
+        p.y += Math.sin(p.angle) * p.speed;
+
+        // Soft boundary
+        p.x = Math.max(5, Math.min(W - 5, p.x));
+        p.y = Math.max(5, Math.min(H - 5, p.y));
+        if (p.x <= 5 || p.x >= W - 5) p.angle = Math.PI - p.angle;
+        if (p.y <= 5 || p.y >= H - 5) p.angle = -p.angle;
+
+        addTrail(p.x, p.y, 0.03);
+      }
+    }
+
+    function drawDecay() {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.08)';
+      ctx.fillRect(0, 0, W, H);
+
+      // Trail — blue-green for health
+      for (let gy = 0; gy < gridH; gy++) {
+        for (let gx = 0; gx < gridW; gx++) {
+          const v = trailGrid[gy * gridW + gx];
+          if (v > 0.005) {
+            const alpha = Math.min(0.5, v * 0.5);
+            ctx.fillStyle = `rgba(100, 180, 160, ${alpha})`;
+            ctx.fillRect(gx * GRID_RES, gy * GRID_RES, GRID_RES, GRID_RES);
+          }
+        }
+      }
+
+      // Particles
+      for (const p of decayParticles) {
+        ctx.fillStyle = 'rgba(150, 220, 200, 0.8)';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // --- MODE SWITCHING ---
+    function initMode() {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, W, H);
+
+      if (mode === 'slime') initSlime();
+      else if (mode === 'tubes') initTubes();
+      else if (mode === 'mill') initMill();
+      else if (mode === 'decay') initDecay();
+    }
+
+    function update() {
+      if (mode === 'slime') { updateSlime(); drawSlime(); }
+      else if (mode === 'tubes') { updateTubes(); drawTubes(); }
+      else if (mode === 'mill') { updateMill(); drawMill(); }
+      else if (mode === 'decay') { updateDecay(); drawDecay(); }
+      animId = requestAnimationFrame(update);
+    }
+
+    // Button handling
+    const buttons = document.querySelectorAll('.controls button');
+    const descEl = document.getElementById('mode-desc');
+
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        buttons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        mode = btn.dataset.mode;
+        descEl.textContent = descriptions[mode];
+        cancelAnimationFrame(animId);
+        initMode();
+        update();
+      });
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+      const modeMap = { s: 'slime', t: 'tubes', m: 'mill', d: 'decay' };
+      if (modeMap[key]) {
+        mode = modeMap[key];
+        descEl.textContent = descriptions[mode];
+        buttons.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+        cancelAnimationFrame(animId);
+        initMode();
+        update();
+      }
+    });
+
+    // Start
+    initMode();
+    update();
+  </script>
+</body>
+</html>
